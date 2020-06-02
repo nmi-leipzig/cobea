@@ -45,8 +45,8 @@ class SciPyFunctionsTest(unittest.TestCase):
 			description = "Pearson Correlation by SciPy"
 		))
 		
-		test_in = model.TestInput((10, 45, 23, 53))
-		test_out = model.TestOutput((2, 1, 7, 3))
+		test_in = model.InputData((10, 45, 23, 53))
+		test_out = model.OutputData((2, 1, 7, 3))
 		
 		expected = SciPyFunctions.pearsons_correlation(test_in, test_out)
 		res = fitness_function(test_in, test_out)

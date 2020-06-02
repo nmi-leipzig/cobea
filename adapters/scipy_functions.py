@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import stats
 
 from domain.interfaces import FitnessFunctionLibrary
-from domain.model import FitnessFunctionImpl, TestInput, TestOutput
+from domain.model import FitnessFunctionImpl, InputData, OutputData
 
 class SciPyFunctions(FitnessFunctionLibrary):
 	
@@ -13,8 +13,8 @@ class SciPyFunctions(FitnessFunctionLibrary):
 		return getattr(self, identifier)
 	
 	@staticmethod
-	def pearsons_correlation(test_input: TestInput, test_output: TestOutput) -> float:
-		corr = abs(stats.pearsonr(test_input, test_output)[0])
+	def pearsons_correlation(input_data: InputData, output_data: OutputData) -> float:
+		corr = abs(stats.pearsonr(input_data, output_data)[0])
 		if np.isnan(corr):
 			corr = 0
 		

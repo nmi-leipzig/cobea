@@ -35,8 +35,8 @@ class FitnessFunctionTest(unittest.TestCase):
 		create_case = use_cases.CreateFitnessFunction(self.mock_lib)
 		fitness_function = create_case(use_cases.RequestObject(identifier="my_ff", description="my very own fitness function"))
 		
-		test_input = model.TestInput([2, 3, 4])
-		test_output = model.TestOutput([12, 13, 14])
+		input_data = model.InputData([2, 3, 4])
+		output_data = model.OutputData([12, 13, 14])
 		
-		fitness_function(test_input, test_output)
-		self.mock_lib.function.assert_called_once_with(test_input, test_output)
+		fitness_function(input_data, output_data)
+		self.mock_lib.function.assert_called_once_with(input_data, output_data)

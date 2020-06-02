@@ -4,13 +4,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Callable, Tuple, TypeVar, Generic, Union, Any
 
-class TestInput(tuple):
+class InputData(tuple):
 	pass
 
-class TestOutput(tuple):
+class OutputData(tuple):
 	pass
 
-FitnessFunctionImpl = Callable[[TestInput, TestOutput], float]
+FitnessFunctionImpl = Callable[[InputData, OutputData], float]
 
 @dataclass(frozen=True)
 class FitnessFunction:
@@ -18,10 +18,10 @@ class FitnessFunction:
 	description: str
 	implementation: FitnessFunctionImpl
 	
-	def __call__(self, test_input: TestInput, test_output: TestOutput) -> float:
-		return self.implementation(test_input, test_output)
+	def __call__(self, input_data: InputData, output_data: OutputData) -> float:
+		return self.implementation(input_data, output_data)
 
-PreprocessingImpl = Callable[[TestInput, TestOutput], Tuple[TestInput, TestOutput]]
+PreprocessingImpl = Callable[[InputData, OutputData], Tuple[InputData, OutputData]]
 
 @dataclass(frozen=True)
 class Preprocessing:
@@ -29,5 +29,5 @@ class Preprocessing:
 	description: str
 	implementation: PreprocessingImpl
 	
-	def __call__(self, test_input: TestInput, test_output: TestOutput) -> Tuple[TestInput, TestOutput]:
-		return self.implementation(test_input, test_output)
+	def __call__(self, input_data: InputData, output_data: OutputData) -> Tuple[InputData, OutputData]:
+		return self.implementation(input_data, output_data)
