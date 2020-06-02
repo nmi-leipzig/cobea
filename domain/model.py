@@ -4,21 +4,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Callable, Tuple, TypeVar, Generic, Union, Any
 
-class _NO_DEFAULT:
-	pass
-NO_DEFAULT = _NO_DEFAULT()
-
-@dataclass(frozen=True)
-class DataType:
-	identifier: str
-
-@dataclass(frozen=True)
-class Parameter:
-	name: str
-	data_type: DataType
-	default: Any = NO_DEFAULT
-	multiple: bool = False
-
 class TestInput(tuple):
 	pass
 

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 
-from domain.model import FitnessFunction, Preprocessing, Parameter
+from domain.model import FitnessFunction, Preprocessing
 from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository
 
 class RequestObject(Dict[str, Any]):
