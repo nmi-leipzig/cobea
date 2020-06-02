@@ -1,27 +1,40 @@
-from typing import Any
+from abc import ABC, abstractmethod
+from typing import Any, Dict
 
 from domain.model import FitnessFunction, Preprocessing, Parameter
 from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository
 
-class CreateFitnessFunction:
+class RequestObject(Dict[str, Any]):
+	pass
+
+class UseCase(ABC):
+	def __call__(self, request: RequestObject) -> Any:
+		result = self.perform(request)
+		return result
+	
+	@abstractmethod
+	def perform(self, request: RequestObject) -> Any:
+		raise NotImplementedError()
+
+class CreateFitnessFunction(UseCase):
 	def __init__(self, library: FitnessFunctionLibrary) -> None:
 		self._library = library
 	
-	def __call__(self, identifier: str, description: str) -> FitnessFunction:
-		implementation = self._library.get_implementation(identifier)
-		return FitnessFunction(identifier, description, implementation)
+	def perform(self, request: RequestObject) -> FitnessFunction:
+		implementation = self._library.get_implementation(request["identifier"])
+		return FitnessFunction(request["identifier"], request["description"], implementation)
 
-class CreatePreprocessing:
+class CreatePreprocessing(UseCase):
 	def __init__(self, library: PreprocessingLibrary) -> None:
 		self._library = library
 	
-	def __call__(self, identifier: str, description: str) -> Preprocessing:
-		implementation = self._library.get_implementation(identifier)
-		return Preprocessing(identifier, description, implementation)
+	def perform(self, request: RequestObject) -> Preprocessing:
+		implementation = self._library.get_implementation(request["identifier"])
+		return Preprocessing(request["identifier"], request["description"], implementation)
 
-class ReadParameter:
+class ReadParameter(UseCase):
 	def __init__(self, repository: ParameterRepository) -> None:
 		self._repository = repository
 	
-	def __call__(self, param: Parameter) -> Any:
-		return self._repository.read_value(param)
+	def __call__(self, request: RequestObject) -> Any:
+		return self._repository.read_value(request["param"])

@@ -26,9 +26,12 @@ class SciPyFunctionsTest(unittest.TestCase):
 	def test_use_case_creation(self):
 		scp = SciPyFunctions()
 		create_case = use_cases.CreateFitnessFunction(scp)
+		req = use_cases.RequestObject()
 		identifier = "pearsons_correlation"
 		description = "Pearson Correlation by SciPy"
-		fitness_function = create_case(identifier, description)
+		req["identifier"] = identifier
+		req["description"] = description
+		fitness_function = create_case(req)
 		
 		self.assertEqual(identifier, fitness_function.identifier)
 		self.assertEqual(description, fitness_function.description)
@@ -37,7 +40,10 @@ class SciPyFunctionsTest(unittest.TestCase):
 	def test_function(self):
 		scp = SciPyFunctions()
 		create_case = use_cases.CreateFitnessFunction(scp)
-		fitness_function = create_case("pearsons_correlation", "Pearson Correlation by SciPy")
+		fitness_function = create_case(use_cases.RequestObject(
+			identifier = "pearsons_correlation",
+			description = "Pearson Correlation by SciPy"
+		))
 		
 		test_in = model.TestInput((10, 45, 23, 53))
 		test_out = model.TestOutput((2, 1, 7, 3))

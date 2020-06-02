@@ -25,7 +25,7 @@ class FitnessFunctionTest(unittest.TestCase):
 		create_case = use_cases.CreateFitnessFunction(self.mock_lib)
 		identifier = "my_ff"
 		description = "my very own fitness function"
-		fitness_function = create_case(identifier, description)
+		fitness_function = create_case(use_cases.RequestObject(identifier=identifier, description=description))
 		
 		self.assertEqual(identifier, fitness_function.identifier)
 		self.assertEqual(description, fitness_function.description)
@@ -33,7 +33,7 @@ class FitnessFunctionTest(unittest.TestCase):
 	
 	def test_call(self):
 		create_case = use_cases.CreateFitnessFunction(self.mock_lib)
-		fitness_function = create_case("my_ff", "my very own fitness function")
+		fitness_function = create_case(use_cases.RequestObject(identifier="my_ff", description="my very own fitness function"))
 		
 		test_input = model.TestInput([2, 3, 4])
 		test_output = model.TestOutput([12, 13, 14])
