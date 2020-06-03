@@ -4,6 +4,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Callable, Tuple, TypeVar, Generic, Union, Any
 
+class TargetConfiguration(ABC):
+	@abstractmethod
+	def to_text(self) -> str:
+		raise NotImplementedError()
+
 class InputData(tuple):
 	pass
 

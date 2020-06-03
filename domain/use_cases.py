@@ -1,15 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 
-from domain.model import FitnessFunction, Preprocessing
-from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository
-
-class RequestObject(Dict[str, Any]):
-	def __getattr__(self, name):
-		try:
-			return self[name]
-		except KeyError as ke:
-			raise AttributeError from ke
+from domain.model import FitnessFunction, Preprocessing, OutputData
+from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository, TargetManager, Meter
+from domain.request_model import RequestObject
 
 class UseCase(ABC):
 	def __call__(self, request: RequestObject) -> Any:
@@ -19,6 +13,18 @@ class UseCase(ABC):
 	@abstractmethod
 	def perform(self, request: RequestObject) -> Any:
 		raise NotImplementedError()
+
+class Measure(UseCase):
+	def __init__(self, target_manager: TargetManager, meter: Meter) -> None:
+		self._target_manager = target_manager
+		self._meter = meter
+	
+	def perform(self, request: RequestObject) -> OutputData:
+		target = self._target_manager.acquire(request.serial_number)
+		output_data = self._meter(target, request)
+		self._target_manager.release(target)
+		
+		return output_data
 
 class CreateFitnessFunction(UseCase):
 	def __init__(self, library: FitnessFunctionLibrary) -> None:

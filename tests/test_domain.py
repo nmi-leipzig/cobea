@@ -8,6 +8,25 @@ import unittest
 from domain import model
 import domain.interfaces as interfaces
 import domain.use_cases as use_cases
+from domain.request_model import RequestObject
+
+import tests.mocks as mocks 
+
+class MeasureTest(unittest.TestCase):
+	def test_call(self):
+		input_data = model.InputData([2, 3, 4])
+		output_data = model.OutputData([12, 13, 14])
+		
+		mock_manager = mocks.MockTargetManager()
+		mock_meter = mocks.MockMeter(output_data)
+		
+		measure_case = use_cases.Measure(mock_manager, mock_meter)
+		req = RequestObject()
+		#req["input_data"] = input_data
+		req["serial_number"] = None
+		res_data = measure_case(req)
+		
+		self.assertEqual(output_data, res_data)
 
 class FitnessFunctionTest(unittest.TestCase):
 	class MockLibrary(interfaces.FitnessFunctionLibrary):
