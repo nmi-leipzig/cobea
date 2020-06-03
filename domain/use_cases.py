@@ -5,7 +5,11 @@ from domain.model import FitnessFunction, Preprocessing
 from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository
 
 class RequestObject(Dict[str, Any]):
-	pass
+	def __getattr__(self, name):
+		try:
+			return self[name]
+		except KeyError as ke:
+			raise AttributeError from ke
 
 class UseCase(ABC):
 	def __call__(self, request: RequestObject) -> Any:
