@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from typing import Any, Callable, Union
 
 from domain.model import FitnessFunctionImpl, PreprocessingImpl, TargetConfiguration, OutputData
-from domain.request_model import RequestObject
+from domain.request_model import RequestObject, ParameterValues
 
 class TargetDevice(ABC):
 	"""Interface for accessing a target device"""
@@ -15,6 +15,7 @@ class TargetDevice(ABC):
 	def hardware_type(self) -> str:
 		raise NotImplementedError()
 	
+	#TODO: change configure to do check of compatability; create other function for configure
 	@abstractmethod
 	def configure(self, configuration: TargetConfiguration) -> None:
 		raise NotImplementedError()
@@ -30,7 +31,7 @@ class TargetDevice(ABC):
 Meter = Callable[[TargetDevice, RequestObject], OutputData]
 
 class TargetManager(ABC):
-	"""Interface for managin access to target devices"""
+	"""Interface for managing access to target devices"""
 	
 	@abstractmethod
 	def acquire(self, serial_number: Union[str, None]) -> TargetDevice:
@@ -51,7 +52,7 @@ class PreprocessingLibrary(ABC):
 	"""Interface for a library of preprocessing implementations"""
 	
 	@abstractmethod
-	def get_implementation(self, identifier: str) -> PreprocessingImpl:
+	def get_implementation(self, request: RequestObject) -> PreprocessingImpl:
 		raise NotImplementedError()
 
 class ParameterRepository(ABC):

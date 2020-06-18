@@ -39,7 +39,7 @@ class CreatePreprocessing(UseCase):
 		self._library = library
 	
 	def perform(self, request: RequestObject) -> Preprocessing:
-		implementation = self._library.get_implementation(request["identifier"])
+		implementation = self._library.get_implementation(request)
 		return Preprocessing(request["identifier"], request["description"], implementation)
 
 class ReadParameter(UseCase):
