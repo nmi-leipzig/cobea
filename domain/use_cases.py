@@ -46,5 +46,5 @@ class ReadParameter(UseCase):
 	def __init__(self, repository: ParameterRepository) -> None:
 		self._repository = repository
 	
-	def __call__(self, request: RequestObject) -> Any:
+	def perform(self, request: RequestObject) -> Any:
 		return self._repository.read_value(request["param"])
