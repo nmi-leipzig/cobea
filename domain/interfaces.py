@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod, abstractproperty
-from typing import Any, Callable, Union
+from typing import Any, Callable, Union, Mapping, Iterable
 
 from domain.model import FitnessFunctionImpl, PreprocessingImpl, TargetConfiguration, OutputData
-from domain.request_model import RequestObject, ParameterValues
+from domain.request_model import RequestObject, ParameterValues, ParameterUser, Parameter
 
 class TargetDevice(ABC):
 	"""Interface for accessing a target device"""
@@ -28,7 +28,11 @@ class TargetDevice(ABC):
 	def write_bytes(self, data: bytes) -> int:
 		raise NotImplementedError()
 
-Meter = Callable[[TargetDevice, RequestObject], OutputData]
+
+class Meter(ParameterUser):
+	@abstractmethod
+	def __call__(self, target: TargetDevice, request: RequestObject) -> OutputData:
+		raise NotImplementedError()
 
 class TargetManager(ABC):
 	"""Interface for managing access to target devices"""

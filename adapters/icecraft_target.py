@@ -3,7 +3,7 @@ import sys
 import random
 import struct
 from io import StringIO
-from typing import Union, NamedTuple
+from typing import Union, NamedTuple, Mapping, Iterable
 
 sys.path.append("/usr/local/bin")
 import icebox
@@ -25,8 +25,8 @@ from fpga_board import FPGABoard
 from fpga_manager import FPGAManager
 
 from domain.interfaces import TargetDevice, Meter, TargetManager
-from domain.model import TargetConfiguration, OutputData
-from domain.request_model import RequestObject
+from domain.model import TargetConfiguration, InputData, OutputData
+from domain.request_model import RequestObject, Parameter
 
 HX8K_BOARD = "ICE40HX8K-B-EVN"
 
@@ -251,6 +251,21 @@ class MultiIcecraftManager(TargetManager):
 
 class IcecraftEmbedMeter(Meter):
 	"""Measure icecraft target by embedding the input data in ram"""
+	
+	def __init__(self) -> None:
+		self._parameters = {"__call__": [
+			Parameter("configuration", TargetConfiguration),
+			Parameter("ram_mode", str),
+			Parameter("input_data", InputData),
+			Parameter("ram_blocks", TilePosition),
+			Parameter("prefix", bytes, default=None),
+			Parameter("output_count", int),
+			Parameter("output_format", str),
+		]}
+	
+	@property
+	def parameters(self) -> Mapping[str, Parameter]:
+		return self._parameters
 	
 	@staticmethod
 	def read_data(target: TargetDevice, count: int, format_str: str) -> list:

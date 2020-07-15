@@ -1,14 +1,18 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Mapping, Iterable
 
 from domain.model import FitnessFunction, Preprocessing, OutputData
 from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository, TargetManager, Meter
-from domain.request_model import RequestObject
+from domain.request_model import RequestObject, ParameterUser, Parameter
 
-class UseCase(ABC):
+class UseCase(ParameterUser):
 	def __call__(self, request: RequestObject) -> Any:
 		result = self.perform(request)
 		return result
+	
+	@property
+	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
+		return self._parameters
 	
 	@abstractmethod
 	def perform(self, request: RequestObject) -> Any:
@@ -18,6 +22,9 @@ class Measure(UseCase):
 	def __init__(self, target_manager: TargetManager, meter: Meter) -> None:
 		self._target_manager = target_manager
 		self._meter = meter
+		self._parameters = {"perform": [Parameter("serial_number", str)]}
+		call_params = meter.parameters["__call__"]
+		self._parameters["perform"].extend(call_params)
 	
 	def perform(self, request: RequestObject) -> OutputData:
 		target = self._target_manager.acquire(request.serial_number)
@@ -29,6 +36,10 @@ class Measure(UseCase):
 class CreateFitnessFunction(UseCase):
 	def __init__(self, library: FitnessFunctionLibrary) -> None:
 		self._library = library
+		self._parameters = {"perform": [
+			Parameter("identifier", str),
+			Parameter("description", str),
+		]}
 	
 	def perform(self, request: RequestObject) -> FitnessFunction:
 		implementation = self._library.get_implementation(request["identifier"])
@@ -37,6 +48,10 @@ class CreateFitnessFunction(UseCase):
 class CreatePreprocessing(UseCase):
 	def __init__(self, library: PreprocessingLibrary) -> None:
 		self._library = library
+		self._parameters = {"perform": [
+			Parameter("identifier", str),
+			Parameter("description", str),
+		]}
 	
 	def perform(self, request: RequestObject) -> Preprocessing:
 		implementation = self._library.get_implementation(request)
@@ -45,6 +60,9 @@ class CreatePreprocessing(UseCase):
 class ReadParameter(UseCase):
 	def __init__(self, repository: ParameterRepository) -> None:
 		self._repository = repository
+		self._parameters = {"perform": [
+			Parameter("param", str),
+		]}
 	
 	def perform(self, request: RequestObject) -> Any:
 		return self._repository.read_value(request["param"])

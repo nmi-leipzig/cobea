@@ -1,8 +1,8 @@
-from typing import Any, Union
+from typing import Any, Union, Mapping, Iterable
 
 import domain.interfaces as interfaces
 import domain.model as model
-from domain.request_model import RequestObject
+from domain.request_model import RequestObject, Parameter
 
 
 class MockTargetDevice(interfaces.TargetDevice):
@@ -51,3 +51,8 @@ class MockMeter(interfaces.Meter):
 	
 	def __call__(self, target: interfaces.TargetDevice, request: RequestObject) -> model.OutputData:
 		return self.output_data
+	
+	@property
+	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
+		return {"__call__": []}
+	
