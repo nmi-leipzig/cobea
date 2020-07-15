@@ -17,6 +17,8 @@ import domain.use_cases as use_cases
 from domain.request_model import RequestObject
 import adapters.icecraft_target as icecraft
 
+from tests.test_request_model import check_parameter_user
+
 TEST_DATA_DIR = __file__ + ".data"
 
 @dataclass
@@ -249,3 +251,7 @@ class IcecraftEmbedMeterTest(unittest.TestCase):
 				self.assertEqual(data, output)
 		
 		device.close()
+	
+	def test_parameter_user(self):
+		meter = icecraft.IcecraftEmbedMeter()
+		check_parameter_user(self, meter)

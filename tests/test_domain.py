@@ -10,7 +10,8 @@ import domain.interfaces as interfaces
 import domain.use_cases as use_cases
 from domain.request_model import RequestObject
 
-import tests.mocks as mocks 
+import tests.mocks as mocks
+from tests.test_request_model import check_parameter_user
 
 class MeasureTest(unittest.TestCase):
 	def test_call(self):
@@ -27,6 +28,14 @@ class MeasureTest(unittest.TestCase):
 		res_data = measure_case(req)
 		
 		self.assertEqual(output_data, res_data)
+	
+	def test_parameter_user(self):
+		mock_manager = mocks.MockTargetManager()
+		output_data = model.OutputData([12, 13, 14])
+		mock_meter = mocks.MockMeter(output_data)
+		
+		measure_case = use_cases.Measure(mock_manager, mock_meter)
+		check_parameter_user(self, measure_case)
 
 class FitnessFunctionTest(unittest.TestCase):
 	class MockLibrary(interfaces.FitnessFunctionLibrary):
@@ -59,3 +68,8 @@ class FitnessFunctionTest(unittest.TestCase):
 		
 		fitness_function(input_data, output_data)
 		self.mock_lib.function.assert_called_once_with(input_data, output_data)
+	
+	def test_parameter_user(self):
+		create_case = use_cases.CreateFitnessFunction(self.mock_lib)
+		check_parameter_user(self, create_case)
+		
