@@ -36,20 +36,20 @@ class SendBRAMMeta:
 with open(os.path.join(TEST_DATA_DIR, "send_all_bram.json"), "r") as json_file:
 	SEND_BRAM_META = tuple([SendBRAMMeta(*s) for s in json.load(json_file)])
 
-class IcecraftConfigurationTest(unittest.TestCase):
+class IcecraftStormConfigTest(unittest.TestCase):
 	def setUp(self):
 		self.config_meta = {s.mode: s for s in SEND_BRAM_META}
 	
 	def test_create_empty(self):
-		config = icecraft.IcecraftConfiguration.create_empty()
+		config = icecraft.IcecraftStormConfig.create_empty()
 	
 	def test_create_from_file(self):
-		config = icecraft.IcecraftConfiguration.create_from_file(self.config_meta["256x16"].asc_filename)
+		config = icecraft.IcecraftStormConfig.create_from_file(self.config_meta["256x16"].asc_filename)
 	
 	def test_get_ram_values(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = icecraft.IcecraftConfiguration.create_from_file(current.asc_filename)
+				config = icecraft.IcecraftStormConfig.create_from_file(current.asc_filename)
 				
 				# read single
 				for address, expected in enumerate(current.initial_data):
@@ -63,7 +63,7 @@ class IcecraftConfigurationTest(unittest.TestCase):
 	def test_set_ram_values(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = icecraft.IcecraftConfiguration.create_from_file(current.asc_filename)
+				config = icecraft.IcecraftStormConfig.create_from_file(current.asc_filename)
 				
 				expected = list(current.initial_data)
 				# write single
@@ -94,7 +94,7 @@ class IcecraftConfigurationTest(unittest.TestCase):
 	def test_write_asc(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = icecraft.IcecraftConfiguration.create_from_file(current.asc_filename)
+				config = icecraft.IcecraftStormConfig.create_from_file(current.asc_filename)
 				
 				expected_ic = icebox.iceconfig()
 				expected_ic.read_file(current.asc_filename)
@@ -112,7 +112,7 @@ class IcecraftConfigurationTest(unittest.TestCase):
 	def test_write_bitstream(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = icecraft.IcecraftConfiguration.create_from_file(current.asc_filename)
+				config = icecraft.IcecraftStormConfig.create_from_file(current.asc_filename)
 				
 				expected_ic = icebox.iceconfig()
 				expected_ic.read_file(current.asc_filename)
@@ -142,7 +142,7 @@ class IcecraftDeviceTest(unittest.TestCase):
 	def get_configured_device(self, asc_filename):
 		fpga = icecraft.FPGABoard.get_suitable_board()
 		device = icecraft.IcecraftDevice(fpga)
-		config = icecraft.IcecraftConfiguration.create_from_file(asc_filename)
+		config = icecraft.IcecraftStormConfig.create_from_file(asc_filename)
 		device.configure(config)
 		
 		return device
@@ -233,7 +233,7 @@ class IcecraftEmbedMeterTest(unittest.TestCase):
 		
 		for send_meta in SEND_BRAM_META:
 			with self.subTest(mode=send_meta.mode):
-				config = icecraft.IcecraftConfiguration.create_from_file(send_meta.asc_filename)
+				config = icecraft.IcecraftStormConfig.create_from_file(send_meta.asc_filename)
 				# address 0 is always 0, even if init values tries to define it otherwise
 				data = model.InputData([
 					random.randint(0, send_meta.mask) for _ in range(config.block_size_from_mode(send_meta.mode))

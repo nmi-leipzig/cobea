@@ -34,7 +34,7 @@ class TilePosition(NamedTuple):
 	x: int
 	y: int
 
-class IcecraftConfiguration(TargetConfiguration):
+class IcecraftStormConfig(TargetConfiguration):
 	def __init__(self, ice_conf):
 		self._ice_conf = ice_conf
 	
