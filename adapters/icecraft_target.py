@@ -3,7 +3,7 @@ import sys
 import random
 import struct
 from io import StringIO
-from typing import Union, NamedTuple, Mapping, Iterable
+from typing import Union, NamedTuple, Mapping, Iterable, Sequence, Tuple, List
 
 sys.path.append("/usr/local/bin")
 import icebox
@@ -35,7 +35,7 @@ class TilePosition(NamedTuple):
 	y: int
 
 class IcecraftStormConfig(TargetConfiguration):
-	def __init__(self, ice_conf):
+	def __init__(self, ice_conf) -> None:
 		self._ice_conf = ice_conf
 	
 	def to_text(self) -> str:
@@ -53,22 +53,22 @@ class IcecraftStormConfig(TargetConfiguration):
 		
 		return asc_text
 	
-	def write_asc(self, asc_name):
+	def write_asc(self, asc_name: str) -> None:
 		self._ice_conf.write_file(asc_name)
 	
-	def write_bitstream(self, bitstream_name):
+	def write_bitstream(self, bitstream_name: str) -> None:
 		asc_name = bitstream_name + ".asc"
 		self.write_asc(asc_name)
 		FPGABoard.pack_bitstream(asc_name, bitstream_name)
 		os.remove(asc_name)
 	
-	def set_ram_values(self, ram_block, address, values, mode="512x8"):
+	def set_ram_values(self, ram_block: TilePosition, address: int, values: Iterable[int], mode: str="512x8") -> None:
 		ram_strings = self._ice_conf.ram_data.setdefault(ram_block, ["0"*64]*16)
 		for value in values:
 			self.set_in_ram_strings(ram_strings, address, value, mode)
 			address += 1
 	
-	def get_ram_values(self, ram_block, address, count=1, mode="512x8"):
+	def get_ram_values(self, ram_block: TilePosition, address: int, count: int=1, mode: str="512x8") -> List[int]:
 		ram_strings = self._ice_conf.ram_data.setdefault(ram_block, ["0"*64]*16)
 		values = []
 		for tmp_address in range(address, address+count):
@@ -78,11 +78,11 @@ class IcecraftStormConfig(TargetConfiguration):
 		return values
 	
 	@classmethod
-	def block_size_from_mode(cls, mode):
+	def block_size_from_mode(cls, mode: str) -> int:
 		return 4096//cls.value_length_from_mode(mode)
 	
 	@staticmethod
-	def value_length_from_mode(mode):
+	def value_length_from_mode(mode: str) -> int:
 		if (mode == 0) or (mode == "256x16"):
 			return 16
 		elif (mode == 1) or (mode == "512x8"):
@@ -95,7 +95,7 @@ class IcecraftStormConfig(TargetConfiguration):
 			raise ValueError(f"Invalid mode: {mode}")
 	
 	@staticmethod
-	def split_address(address):
+	def split_address(address: int) -> Tuple[int, int, int]:
 		index = address % 256
 		offset = address // 256
 		col_index = index % 16
@@ -104,7 +104,7 @@ class IcecraftStormConfig(TargetConfiguration):
 		return row_index, col_index, offset
 	
 	@classmethod
-	def get_from_ram_strings(cls, ram_strings, address, mode="512x8"):
+	def get_from_ram_strings(cls, ram_strings: Sequence[str], address: int, mode: str="512x8") -> int:
 		value_len = cls.value_length_from_mode(mode)
 		row_index, col_index, offset = cls.split_address(address)
 		
@@ -128,7 +128,7 @@ class IcecraftStormConfig(TargetConfiguration):
 		return value
 	
 	@classmethod
-	def set_in_ram_strings(cls, ram_strings, address, value, mode="512x8"):
+	def set_in_ram_strings(cls, ram_strings: Sequence[str], address: int, value: int, mode: str="512x8") -> None:
 		value_len = cls.value_length_from_mode(mode)
 		row_index, col_index, offset = cls.split_address(address)
 		
@@ -160,14 +160,14 @@ class IcecraftStormConfig(TargetConfiguration):
 		ram_strings[row_index] = str_row[:l-4*(col_index+1)] + new_str_word + str_row[l-4*col_index:]
 	
 	@classmethod
-	def create_from_file(cls, asc_filename):
+	def create_from_file(cls, asc_filename: str) -> "IcecraftStormConfig":
 		ic = icebox.iceconfig()
 		ic.read_file(asc_filename)
 		
 		return cls(ic)
 	
 	@classmethod
-	def create_empty(cls):
+	def create_empty(cls) -> "IcecraftStormConfig":
 		ic = icebox.iceconfig()
 		ic.setup_empty_8k()
 		
@@ -187,7 +187,7 @@ class IcecraftDevice(TargetDevice):
 	def hardware_type(self) -> str:
 		return HX8K_BOARD
 	
-	def close(self):
+	def close(self) -> None:
 		self._device.close()
 	
 	def configure(self, configuration: TargetConfiguration) -> None:
