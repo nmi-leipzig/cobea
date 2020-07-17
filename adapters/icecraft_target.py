@@ -21,6 +21,8 @@ sys.path.append(
 	
 )
 
+from configuration import Configuration, BRAMMode
+from device_data import BRAMMode, TilePosition
 from fpga_board import FPGABoard
 from fpga_manager import FPGAManager
 
@@ -30,9 +32,54 @@ from domain.request_model import RequestObject, Parameter
 
 HX8K_BOARD = "ICE40HX8K-B-EVN"
 
-class TilePosition(NamedTuple):
-	x: int
-	y: int
+#class TilePosition(NamedTuple):
+#	x: int
+#	y: int
+
+class IcecraftRawConfig(TargetConfiguration):
+	mode_map = {
+		"256x16": BRAMMode.BRAM_256x16,
+		"512x8": BRAMMode.BRAM_512x8,
+		"1024x4": BRAMMode.BRAM_1024x4,
+		"2048x2": BRAMMode.BRAM_2048x2,
+	}
+	
+	def __init__(self, raw_config: Configuration) -> None:
+		self._raw_config = raw_config
+	
+	def to_text(self) -> str:
+		with StringIO() as sio:
+			self._raw_config.write_asc(sio)
+			return sio.getvalue()
+	
+	def write_asc(self, asc_name: str) -> None:
+		with open(asc_name, "w") as asc_file:
+			self._raw_config.write_asc(asc_file)
+	
+	def write_bitstream(self, bitstream_name: str) -> None:
+		asc_name = bitstream_name + ".asc"
+		self.write_asc(asc_name)
+		FPGABoard.pack_bitstream(asc_name, bitstream_name)
+		os.remove(asc_name)
+	
+	def set_ram_values(self, ram_block: TilePosition, address: int, values: Iterable[int], mode: str="512x8") -> None:
+		raw_mode = self.mode_map[mode]
+		self._raw_config.set_bram_values(ram_block, values, address, raw_mode)
+	
+	def get_ram_values(self, ram_block: TilePosition, address: int, count: int=1, mode: str="512x8") -> List[int]:
+		raw_mode = self.mode_map[mode]
+		return self._raw_config.get_bram_values(ram_block, address, count, raw_mode)
+	
+	@classmethod
+	def create_from_file(cls, asc_filename: str) -> "IcecraftRawConfig":
+		raw_config = Configuration.create_from_asc(asc_filename)
+		return cls(raw_config)
+	
+	@classmethod
+	def create_empty(cls) -> "IcecraftRawConfig":
+		raw_config = Configuration.create_blank("8k")
+		
+		return cls(raw_config)
 
 class IcecraftStormConfig(TargetConfiguration):
 	def __init__(self, ice_conf) -> None:

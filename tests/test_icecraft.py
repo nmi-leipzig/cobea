@@ -37,19 +37,21 @@ with open(os.path.join(TEST_DATA_DIR, "send_all_bram.json"), "r") as json_file:
 	SEND_BRAM_META = tuple([SendBRAMMeta(*s) for s in json.load(json_file)])
 
 class IcecraftStormConfigTest(unittest.TestCase):
+	target_cls = icecraft.IcecraftStormConfig
+	
 	def setUp(self):
 		self.config_meta = {s.mode: s for s in SEND_BRAM_META}
 	
 	def test_create_empty(self):
-		config = icecraft.IcecraftStormConfig.create_empty()
+		config = self.target_cls.create_empty()
 	
 	def test_create_from_file(self):
-		config = icecraft.IcecraftStormConfig.create_from_file(self.config_meta["256x16"].asc_filename)
+		config = self.target_cls.create_from_file(self.config_meta["256x16"].asc_filename)
 	
 	def test_get_ram_values(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = icecraft.IcecraftStormConfig.create_from_file(current.asc_filename)
+				config = self.target_cls.create_from_file(current.asc_filename)
 				
 				# read single
 				for address, expected in enumerate(current.initial_data):
@@ -63,7 +65,7 @@ class IcecraftStormConfigTest(unittest.TestCase):
 	def test_set_ram_values(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = icecraft.IcecraftStormConfig.create_from_file(current.asc_filename)
+				config = self.target_cls.create_from_file(current.asc_filename)
 				
 				expected = list(current.initial_data)
 				# write single
@@ -79,6 +81,18 @@ class IcecraftStormConfigTest(unittest.TestCase):
 				values = config.get_ram_values(current.ram_block, 0, len(current.initial_data), mode)
 				self.assertEqual(current.initial_data, values)
 	
+	def check_config_dict(self, a, b):
+		for key in a:
+			if key in b:
+				self.assertEqual(a[key], b[key])
+			else:
+				for s in a[key]:
+					try:
+						i = int(s, 16)
+						self.assertEqual(0, i)
+					except ValueError:
+						self.fail(f"entry for {key} not in both dicts is {s}")
+	
 	def check_configuration(self, expected_config, config):
 		# compare two icebox configurations
 		for value_name in ("device", "warmboot"):
@@ -89,12 +103,17 @@ class IcecraftStormConfigTest(unittest.TestCase):
 		for col_name in ("logic_tiles", "io_tiles", "ramb_tiles", "ramt_tiles", "ram_data", "ipcon_tiles", "symbols", "extra_bits", "dsp_tiles"):
 			expected_col = getattr(expected_config, col_name)
 			given_col = getattr(config, col_name)
-			self.assertEqual(expected_col, given_col, f"Contents of {col_name} differ from expected values:")
+			
+			if isinstance(expected_col, dict):
+				self.check_config_dict(expected_col, given_col)
+				self.check_config_dict(given_col, expected_col)
+			else:
+				self.assertEqual(expected_col, given_col, f"Contents of {col_name} differ from expected values:")
 	
 	def test_write_asc(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = icecraft.IcecraftStormConfig.create_from_file(current.asc_filename)
+				config = self.target_cls.create_from_file(current.asc_filename)
 				
 				expected_ic = icebox.iceconfig()
 				expected_ic.read_file(current.asc_filename)
@@ -112,7 +131,7 @@ class IcecraftStormConfigTest(unittest.TestCase):
 	def test_write_bitstream(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = icecraft.IcecraftStormConfig.create_from_file(current.asc_filename)
+				config = self.target_cls.create_from_file(current.asc_filename)
 				
 				expected_ic = icebox.iceconfig()
 				expected_ic.read_file(current.asc_filename)
@@ -137,6 +156,8 @@ class IcecraftStormConfigTest(unittest.TestCase):
 				
 				self.check_configuration(expected_ic, ic)
 		
+class IcecraftRawConfigTest(IcecraftStormConfigTest):
+	target_cls = icecraft.IcecraftRawConfig
 
 class IcecraftDeviceTest(unittest.TestCase):
 	def get_configured_device(self, asc_filename):
