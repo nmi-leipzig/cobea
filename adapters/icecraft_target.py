@@ -90,7 +90,7 @@ class IcecraftStormConfig(TargetConfiguration):
 		# so the asc text has to be written to a file before reading its content immediately
 		# NamedTemporaryFile isn't used as it it may not be possible for ice_config to open it
 		tmp_key = "".join(random.choice("0123456789abcdef") for _ in range(6))
-		asc_name = f"tmp.to_text.{hex(random)}.asc"
+		asc_name = f"tmp.to_text.{random.randrange(16**6):06x}.asc"
 		self.write_asc(asc_name)
 		
 		with open(asc_name, "r") as asc_file:
