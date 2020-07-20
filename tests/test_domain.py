@@ -73,3 +73,13 @@ class FitnessFunctionTest(unittest.TestCase):
 		create_case = use_cases.CreateFitnessFunction(self.mock_lib)
 		check_parameter_user(self, create_case)
 		
+
+class ChromosomeTest(unittest.TestCase):
+	def test_creation(self):
+		chromo = model.Chromosome(2, (1, 2, 3))
+	
+	def test_getitem(self):
+		allele_indices = (1, 2, 3)
+		chromo = model.Chromosome(2, allele_indices)
+		for i, a in enumerate(allele_indices):
+			self.assertEqual(a, chromo[i])

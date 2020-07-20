@@ -51,5 +51,11 @@ class Gene:
 	alleles: Sequence[Allele]
 	description: str
 
-class Chromosome(List[int]):
-	pass
+@dataclass(frozen=True)
+class Chromosome:
+	identifier: int
+	allele_indices: Tuple[int]
+	
+	def __getitem__(self, key):
+		return self.allele_indices[key]
+
