@@ -84,7 +84,7 @@ class ChromosomeTest(unittest.TestCase):
 		for i, a in enumerate(allele_indices):
 			self.assertEqual(a, chromo[i])
 
-class DecodeChromosome(unittest.TestCase):
+class DecodeChromosomeTest(unittest.TestCase):
 	def test_creation(self):
 		rep = model.Representation(tuple(), tuple())
 		dec = mock.MagicMock()
