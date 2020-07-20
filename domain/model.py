@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Callable, Tuple, TypeVar, Generic, Union, Any
+from typing import Callable, Tuple, TypeVar, Generic, Union, Any, List, Sequence
 
 class TargetConfiguration(ABC):
 	@abstractmethod
@@ -36,3 +36,20 @@ class Preprocessing:
 	
 	def __call__(self, input_data: InputData, output_data: OutputData) -> Tuple[InputData, OutputData]:
 		return self.implementation(input_data, output_data)
+
+class BitPosition(ABC):
+	pass
+
+@dataclass(frozen=True)
+class Allele:
+	values: Sequence[bool]
+	description: str
+
+@dataclass(frozen=True)
+class Gene:
+	bit_positions: Sequence[BitPosition]
+	alleles: Sequence[Allele]
+	description: str
+
+class Chromosome(List[int]):
+	pass

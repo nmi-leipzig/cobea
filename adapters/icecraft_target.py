@@ -27,7 +27,7 @@ from fpga_board import FPGABoard
 from fpga_manager import FPGAManager
 
 from domain.interfaces import TargetDevice, Meter, TargetManager
-from domain.model import TargetConfiguration, InputData, OutputData
+from domain.model import TargetConfiguration, InputData, OutputData, BitPosition
 from domain.request_model import RequestObject, Parameter
 
 HX8K_BOARD = "ICE40HX8K-B-EVN"
@@ -35,6 +35,11 @@ HX8K_BOARD = "ICE40HX8K-B-EVN"
 #class TilePosition(NamedTuple):
 #	x: int
 #	y: int
+
+class IcecraftBitPosition(BitPosition):
+	tile: TilePosition
+	x: int
+	y: int
 
 class IcecraftRawConfig(TargetConfiguration):
 	mode_map = {
