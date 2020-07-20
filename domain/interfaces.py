@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod, abstractproperty
 from typing import Any, Callable, Union, Mapping, Iterable
 
-from domain.model import FitnessFunctionImpl, PreprocessingImpl, TargetConfiguration, OutputData
+from domain.model import FitnessFunctionImpl, PreprocessingImpl, TargetConfiguration, OutputData, Representation, Chromosome
 from domain.request_model import RequestObject, ParameterValues, ParameterUser, Parameter
 
 class TargetDevice(ABC):
@@ -64,4 +64,11 @@ class ParameterRepository(ABC):
 	
 	@abstractmethod
 	def read_value(self, identifier: str) -> Any:
+		raise NotImplementedError()
+
+class Decoder(ABC):
+	"""Interface for decoding genes to a configuration"""
+	
+	@abstractmethod
+	def __call__(self, config: TargetConfiguration, rep: Representation, chromo: Chromosome) -> None:
 		raise NotImplementedError()

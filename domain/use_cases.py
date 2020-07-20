@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Mapping, Iterable
 
-from domain.model import FitnessFunction, Preprocessing, OutputData
-from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository, TargetManager, Meter
+from domain.model import FitnessFunction, Preprocessing, OutputData, Representation, Chromosome, TargetConfiguration
+from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository, TargetManager, Meter, Decoder
 from domain.request_model import RequestObject, ParameterUser, Parameter
 
 class UseCase(ParameterUser):
@@ -66,3 +66,20 @@ class ReadParameter(UseCase):
 	
 	def perform(self, request: RequestObject) -> Any:
 		return self._repository.read_value(request["param"])
+
+class DecodeChromosome(UseCase):
+	"""Decode a chromosome to a Configuration.
+	
+	The name is not 100 percent correct as decoding maps the chromosome to the phenotype,
+	but the real phenotype is the configured FPGA, not the configuration.
+	"""
+	def __init__(self, rep: Representation, dec_impl: Decoder) -> None:
+		self._rep = rep
+		self._dec_impl = dec_impl
+		self._parameters = {"perform": [
+			Parameter("configuration", TargetConfiguration),
+			Parameter("chromosome", Chromosome),
+		]}
+	
+	def perform(self, request: RequestObject) -> Any:
+		self._dec_impl(request.configuration, self._rep, request.chromosome)
