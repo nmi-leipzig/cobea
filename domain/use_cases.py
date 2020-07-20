@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Mapping, Iterable
 
 from domain.model import FitnessFunction, Preprocessing, OutputData, Representation, Chromosome, TargetConfiguration
-from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository, TargetManager, Meter, Decoder
+from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository, TargetManager, Meter, Decoder, RepresentationGenerator
 from domain.request_model import RequestObject, ParameterUser, Parameter
 
 class UseCase(ParameterUser):
@@ -83,3 +83,16 @@ class DecodeChromosome(UseCase):
 	
 	def perform(self, request: RequestObject) -> Any:
 		self._dec_impl(request.configuration, self._rep, request.chromosome)
+
+class CreateRepresentation(UseCase):
+	def __init__(self, rep_gen: RepresentationGenerator) -> None:
+		self._rep_gen = rep_gen
+		self._parameters = {"perform": [
+			Parameter("configuration", TargetConfiguration),
+			Parameter("chromosome", Chromosome),
+		]}
+		call_params = rep_gen.parameters["__call__"]
+		self._parameters["perform"].extend(call_params)
+	
+	def perform(self, request: RequestObject) -> Representation:
+		return self._rep_gen(request)

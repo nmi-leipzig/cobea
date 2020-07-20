@@ -72,3 +72,10 @@ class Decoder(ABC):
 	@abstractmethod
 	def __call__(self, config: TargetConfiguration, rep: Representation, chromo: Chromosome) -> None:
 		raise NotImplementedError()
+
+class RepresentationGenerator(ParameterUser):
+	"""Interface for generation of a representation """
+	
+	@abstractmethod
+	def __call__(self, request: RequestObject) -> Representation:
+		raise NotImplementedError()
