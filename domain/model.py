@@ -59,8 +59,3 @@ class Chromosome:
 	def __getitem__(self, key):
 		return self.allele_indices[key]
 
-@dataclass
-class Representation:
-	genes: Sequence[Gene]
-	# constant genes, i.e. with exactly one allele
-	constant: Sequence[Gene]

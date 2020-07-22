@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Mapping, Iterable
 
-from domain.model import FitnessFunction, Preprocessing, OutputData, Representation, Chromosome, TargetConfiguration
-from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository, TargetManager, Meter, Decoder, RepresentationGenerator
+from domain.model import FitnessFunction, Preprocessing, OutputData, Chromosome, TargetConfiguration
+from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository, TargetManager, Meter, RepresentationGenerator, Representation
 from domain.request_model import RequestObject, ParameterUser, Parameter
 
 class UseCase(ParameterUser):
@@ -73,24 +73,20 @@ class DecodeChromosome(UseCase):
 	The name is not 100 percent correct as decoding maps the chromosome to the phenotype,
 	but the real phenotype is the configured FPGA, not the configuration.
 	"""
-	def __init__(self, rep: Representation, dec_impl: Decoder) -> None:
+	def __init__(self, rep: Representation) -> None:
 		self._rep = rep
-		self._dec_impl = dec_impl
 		self._parameters = {"perform": [
 			Parameter("configuration", TargetConfiguration),
 			Parameter("chromosome", Chromosome),
 		]}
 	
 	def perform(self, request: RequestObject) -> Any:
-		self._dec_impl(request.configuration, self._rep, request.chromosome)
+		self._rep.decode(request.configuration, request.chromosome)
 
 class CreateRepresentation(UseCase):
 	def __init__(self, rep_gen: RepresentationGenerator) -> None:
 		self._rep_gen = rep_gen
-		self._parameters = {"perform": [
-			Parameter("configuration", TargetConfiguration),
-			Parameter("chromosome", Chromosome),
-		]}
+		self._parameters = {"perform": []}
 		call_params = rep_gen.parameters["__call__"]
 		self._parameters["perform"].extend(call_params)
 	

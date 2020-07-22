@@ -86,14 +86,12 @@ class ChromosomeTest(unittest.TestCase):
 
 class DecodeChromosomeTest(unittest.TestCase):
 	def test_creation(self):
-		rep = model.Representation(tuple(), tuple())
-		dec = mock.MagicMock()
-		dec_case = use_cases.DecodeChromosome(rep, dec)
+		rep = mock.MagicMock()
+		dec_case = use_cases.DecodeChromosome(rep)
 	
 	def test_call(self):
-		rep = model.Representation(tuple(), tuple())
-		dec = mock.MagicMock()
-		dec_case = use_cases.DecodeChromosome(rep, dec)
+		rep = mock.MagicMock()
+		dec_case = use_cases.DecodeChromosome(rep)
 		
 		config = mock.MagicMock()
 		chromo = mock.MagicMock()
@@ -104,11 +102,10 @@ class DecodeChromosomeTest(unittest.TestCase):
 		
 		dec_case(req)
 		
-		dec.assert_called_once_with(config, rep, chromo)
+		rep.decode.assert_called_once_with(config, chromo)
 	
 	def test_parameter_user(self):
-		rep = model.Representation(tuple(), tuple())
-		dec = mock.MagicMock()
-		dec_case = use_cases.DecodeChromosome(rep, dec)
+		rep = mock.MagicMock()
+		dec_case = use_cases.DecodeChromosome(rep)
 		
 		check_parameter_user(self, dec_case)
