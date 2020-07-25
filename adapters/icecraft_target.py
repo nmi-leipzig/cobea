@@ -4,6 +4,8 @@ import random
 import struct
 from io import StringIO
 from typing import Union, NamedTuple, Mapping, Iterable, Sequence, Tuple, List
+from enum import Enum, auto
+from dataclasses import dataclass
 
 sys.path.append("/usr/local/bin")
 import icebox
@@ -26,20 +28,58 @@ from device_data import BRAMMode, TilePosition
 from fpga_board import FPGABoard
 from fpga_manager import FPGAManager
 
-from domain.interfaces import TargetDevice, Meter, TargetManager
-from domain.model import TargetConfiguration, InputData, OutputData, BitPosition
+from domain.interfaces import TargetDevice, Meter, TargetManager, Representation, RepresentationGenerator
+from domain.model import TargetConfiguration, InputData, OutputData, BitPosition, Gene, Chromosome
 from domain.request_model import RequestObject, Parameter
 
 HX8K_BOARD = "ICE40HX8K-B-EVN"
+
+class LUTFunction(Enum):
+	CONST_0 = auto()
+	CONST_1 = auto()
+	AND = auto()
+	OR = auto()
+	NAND = auto()
+	NOR = auto()
+	PARITY = auto()
 
 #class TilePosition(NamedTuple):
 #	x: int
 #	y: int
 
-class IcecraftBitPosition(BitPosition):
+@dataclass(frozen=True)
+class IcecraftPosition:
 	tile: TilePosition
-	x: int
-	y: int
+	
+	@property
+	def x(self):
+		return self.tile.x
+	
+	@property
+	def y(self):
+		return self.tile.y
+	
+	@classmethod
+	def from_coords(cls, x, y, *args, **kwargs):
+		return cls(TilePosition(x, y), *args, **kwargs)
+	
+
+@dataclass(frozen=True)
+class IcecraftBitPosition(BitPosition, IcecraftPosition):
+	group: int
+	index: int
+
+@dataclass(frozen=True)
+class IcecraftLUTPosition(IcecraftPosition):
+	z: int
+
+class IcecraftColBufCtrl(IcecraftLUTPosition):
+	"""Describes a column buffer control"""
+	pass
+
+@dataclass(frozen=True)
+class IcecraftNetPosition(IcecraftPosition):
+	net: str
 
 class IcecraftRawConfig(TargetConfiguration):
 	mode_map = {
@@ -360,3 +400,43 @@ class IcecraftEmbedMeter(Meter):
 		data = self.read_data(target, request.output_count, request.output_format)
 		return OutputData(data)
 
+@dataclass
+class IcecraftRep(Representation):
+	genes: Sequence[Gene]
+	# constant genes, i.e. with exactly one allele
+	constant: Sequence[Gene]
+	#colbufctrl
+	colbufctrl: Sequence[IcecraftColBufCtrl]
+	# output_lutffs
+	output: Sequence[IcecraftLUTPosition]
+	
+	def prepare_config(self, config: TargetConfiguration) -> None:
+		# set constant bits
+		# set ColBufCtrl for global network input
+		pass
+	
+	def decode(self, config: TargetConfiguration, chromo: Chromosome) -> None:
+		pass
+	
+
+class IcecraftRepGen(RepresentationGenerator):
+	def __init__(self) -> None:
+		self._parameters = {"__call__": [
+			Parameter("x_min", int),
+			Parameter("y_min", int),
+			Parameter("x_max", int),
+			Parameter("y_max", int),
+			Parameter("exclude_nets", str, multiple=True),
+			Parameter("include_nets", str, multiple=True),
+			Parameter("output_lutffs", IcecraftLUTPosition, multiple=True),
+			Parameter("joint_input_nets", str, default=[], multiple=True),
+			Parameter("lone_input_nets", IcecraftNetPosition, default=[], multiple=True),
+			Parameter("lut_functions", LUTFunction, default=[], multiple=True),
+		]}
+	
+	@property
+	def parameters(self) -> Mapping[str, Parameter]:
+		return self._parameters
+	
+	def __call__(self, request: RequestObject) -> IcecraftRep:
+		pass
