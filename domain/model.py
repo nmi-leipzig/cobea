@@ -2,7 +2,9 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Callable, Tuple, TypeVar, Generic, Union, Any, List, Sequence
+from typing import Callable, Tuple, TypeVar, Generic, Union, Any
+
+from domain.allele_sequence import Allele, AlleleSequence, AlleleList, AlleleAll
 
 class TargetConfiguration(ABC):
 	@abstractmethod
@@ -41,14 +43,9 @@ class BitPosition(ABC):
 	pass
 
 @dataclass(frozen=True)
-class Allele:
-	values: Sequence[bool]
-	description: str
-
-@dataclass(frozen=True)
 class Gene:
-	bit_positions: Sequence[BitPosition]
-	alleles: Sequence[Allele]
+	bit_positions: Tuple[BitPosition]
+	alleles: AlleleSequence
 	description: str
 
 @dataclass(frozen=True)
