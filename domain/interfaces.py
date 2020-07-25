@@ -70,6 +70,11 @@ class Representation(ABC):
 	"""Interface for representating the phenotype as a genotype"""
 	
 	@abstractmethod
+	def prepare_config(self, config: TargetConfiguration) -> None:
+		"""make modification that are only needed once for a representation"""
+		raise NotImplementedError()
+	
+	@abstractmethod
 	def decode(self, config: TargetConfiguration, chromo: Chromosome) -> None:
 		raise NotImplementedError()
 
