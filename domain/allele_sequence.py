@@ -3,12 +3,15 @@
 import collections
 import math
 from dataclasses import dataclass, field
-from typing import Iterable, Sequence, Any
+from typing import Iterable, Tuple, Any
 
 @dataclass(frozen=True)
 class Allele:
-	values: Sequence[bool]
+	values: Tuple[bool]
 	description: str = field(compare=False)
+	
+	def __post_init__(self):
+		super().__setattr__("values", tuple(self.values))
 
 class AlleleSequence(collections.Sequence):
 	"""base class for collections of alleles"""
@@ -20,7 +23,7 @@ class AlleleSequence(collections.Sequence):
 		"""
 		return math.log2(len(self))
 	
-	def values_index(self, values: Sequence[bool]) -> int:
+	def values_index(self, values: Iterable[bool]) -> int:
 		"""return index of passed bit values"""
 		raise NotImplementedError()
 
@@ -43,9 +46,13 @@ class AlleleList(AlleleSequence):
 		else:
 			return NotImplemented
 	
-	def values_index(self, values: Sequence[bool]) -> int:
+	def __hash__(self):
+		return hash(self._alleles)
+	
+	def values_index(self, values: Iterable[bool]) -> int:
+		values_tup = tuple(values)
 		for i, allele in enumerate(self._alleles):
-			if allele.values == values:
+			if allele.values == values_tup:
 				return i
 		raise ValueError("No allele with bit values {}".format(values))
 	
@@ -88,6 +95,9 @@ class AlleleAll(AlleleSequence):
 		else:
 			return NotImplemented
 	
+	def __hash__(self):
+		return hash(self._bit_count)
+	
 	@property
 	def bit_count(self) -> int:
 		return self._bit_count
@@ -95,7 +105,7 @@ class AlleleAll(AlleleSequence):
 	def size_in_bits(self) -> float:
 		return float(self.bit_count)
 	
-	def values_index(self, values: Sequence[bool]) -> int:
+	def values_index(self, values: Iterable[bool]) -> int:
 		if len(values) != self.bit_count:
 			raise ValueError("No allele with bit values {}".format(values))
 		

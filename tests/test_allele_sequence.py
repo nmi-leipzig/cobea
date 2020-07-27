@@ -6,17 +6,17 @@ from domain.allele_sequence import Allele, AlleleAll, AlleleList
 
 class AlleleTest(unittest.TestCase):
 	def test_eq(self):
-		a = Allele([True, True, False], "original")
+		a = Allele((True, True, False), "original")
 		with self.subTest():
 			self.assertTrue(a==a)
 		
 		for vals, desc, exp in (
 			(a.values, a.description, True),
 			(a.values, "other", True),
-			([False]*3, "other", False),
-			([False]*3, a.description, False),
-			([True]*4, a.description, False),
-			([True]*2, a.description, False),
+			((False, )*3, "other", False),
+			((False, )*3, a.description, False),
+			((True, )*4, a.description, False),
+			((True, )*2, a.description, False),
 		):
 			b = Allele(vals, desc)
 			with self.subTest():
