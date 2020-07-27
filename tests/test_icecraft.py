@@ -15,7 +15,7 @@ from domain import model
 import domain.interfaces as interfaces
 import domain.use_cases as use_cases
 from domain.request_model import RequestObject
-import adapters.icecraft_target as icecraft
+import adapters.icecraft as icecraft
 
 from tests.test_request_model import check_parameter_user
 
@@ -254,23 +254,23 @@ class IcecraftRawConfigTest(IcecraftStormConfigTest):
 
 class IcecraftDeviceTest(unittest.TestCase):
 	def get_configured_device(self, asc_filename):
-		fpga = icecraft.FPGABoard.get_suitable_board()
+		fpga = icecraft.target.FPGABoard.get_suitable_board()
 		device = icecraft.IcecraftDevice(fpga)
 		config = icecraft.IcecraftStormConfig.create_from_file(asc_filename)
 		device.configure(config)
 		
 		return device
 	
-	@unittest.skipIf(len(icecraft.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
+	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
 	def test_creation(self):
-		fpga = icecraft.FPGABoard.get_suitable_board()
+		fpga = icecraft.target.FPGABoard.get_suitable_board()
 		device = icecraft.IcecraftDevice(fpga)
 		
 		device.close()
 	
-	@unittest.skipIf(len(icecraft.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
+	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
 	def test_serial_number(self):
-		fpga = icecraft.FPGABoard.get_suitable_board()
+		fpga = icecraft.target.FPGABoard.get_suitable_board()
 		exp_sn = fpga.serial_number
 		device = icecraft.IcecraftDevice(fpga)
 		sn = device.serial_number
@@ -278,9 +278,9 @@ class IcecraftDeviceTest(unittest.TestCase):
 		
 		device.close()
 	
-	@unittest.skipIf(len(icecraft.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
+	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
 	def test_hardware_type(self):
-		fpga = icecraft.FPGABoard.get_suitable_board()
+		fpga = icecraft.target.FPGABoard.get_suitable_board()
 		device = icecraft.IcecraftDevice(fpga)
 		exp_ht = icecraft.HX8K_BOARD
 		ht = device.hardware_type
@@ -288,13 +288,13 @@ class IcecraftDeviceTest(unittest.TestCase):
 		
 		device.close()
 	
-	@unittest.skipIf(len(icecraft.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
+	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
 	def test_configure(self):
 		device = self.get_configured_device(SEND_BRAM_META[0].asc_filename)
 		
 		device.close()
 	
-	@unittest.skipIf(len(icecraft.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
+	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
 	def test_read_bytes(self):
 		meta = next(s for s in SEND_BRAM_META if s.mode=="512x8")
 		device = self.get_configured_device(meta.asc_filename)
@@ -305,7 +305,7 @@ class IcecraftDeviceTest(unittest.TestCase):
 		
 		device.close()
 	
-	@unittest.skipIf(len(icecraft.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
+	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
 	def test_write_bytes(self):
 		asc_filename = os.path.join(TEST_DATA_DIR, "echo.asc")
 		
@@ -321,14 +321,14 @@ class IcecraftDeviceTest(unittest.TestCase):
 	
 
 class IcecraftManagerTest(unittest.TestCase):
-	@unittest.skipIf(len(icecraft.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
+	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
 	def test_no_double_acquire(self):
 		manager = icecraft.IcecraftManager()
 		device = manager.acquire()
 		with self.assertRaises(ValueError):
 			device2 = manager.acquire(serial_number=device.serial_number)
 	
-	@unittest.skipIf(len(icecraft.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
+	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
 	def test_no_double_release(self):
 		manager = icecraft.IcecraftManager()
 		device = manager.acquire()
@@ -338,11 +338,11 @@ class IcecraftManagerTest(unittest.TestCase):
 	
 
 class IcecraftEmbedMeterTest(unittest.TestCase):
-	@unittest.skipIf(len(icecraft.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
+	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
 	def test_call(self):
 		format_dict = {"256x16": "<H", "512x8": "B", "1024x4": "B", "2048x2": "B"}
 		meter = icecraft.IcecraftEmbedMeter()
-		fpga = icecraft.FPGABoard.get_suitable_board()
+		fpga = icecraft.target.FPGABoard.get_suitable_board()
 		device = icecraft.IcecraftDevice(fpga)
 		
 		for send_meta in SEND_BRAM_META:
@@ -407,8 +407,9 @@ class IcecraftRepGenTest(unittest.TestCase):
 			
 			alleles = model.AlleleList(tmp_alleles)
 		
-		return model.Gene(bit_pos, alleles, desc)
+		return model.Gene(tuple(bit_pos), alleles, desc)
 	
+	@unittest.skip
 	def test_correct_rep(self):
 		with open(os.path.join(TEST_DATA_DIR, "rep_creation.json"), "r") as json_file:
 			raw_test_data = json.load(json_file)
@@ -447,8 +448,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 				rep = dut(req)
 				
 				# check representation
-				#self.assertEqual(set(genes), set(rep.genes))
-				#self.assertEqual(set(const_bits), set(constant))
+				self.assertEqual(set(genes), set(rep.genes))
+				self.assertEqual(set(const_bits), set(constant))
 				self.assertEqual(set(used_colbufctrl), set(rep.colbufctrl))
 				self.assertEqual(set(output), set(rep.output))
 				

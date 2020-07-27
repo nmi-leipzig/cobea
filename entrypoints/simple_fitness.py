@@ -18,7 +18,7 @@ sys.path.append(
 from domain.model import InputData
 from domain.use_cases import Measure, CreateFitnessFunction
 from domain.request_model import RequestObject
-from adapters.icecraft_target import IcecraftManager, IcecraftEmbedMeter, IcecraftStormConfig, TilePosition
+from adapters.icecraft import IcecraftManager, IcecraftEmbedMeter, IcecraftStormConfig, TilePosition
 from adapters.scipy_functions import SciPyFunctions
 
 def create_arg_parser():
