@@ -54,8 +54,19 @@ def get_seg_kinds(all_segments):
 	
 	return seg_kinds, tile_map
 
+def add_conf_set(conf_kind_list, conf_kind_map, conf_tile_map, tile_pos, conf_set):
+	conf_kind = tuple(sorted(conf_set))
+	try:
+		conf_kind_index = conf_kind_map[conf_kind]
+	except KeyError:
+		conf_kind_index = len(conf_kind_list)
+		conf_kind_list.append(conf_kind)
+		conf_kind_map[conf_kind] = conf_kind_index
+	
+	conf_tile_map.setdefault(conf_kind_index, list()).append(tile_pos)
+
 def get_conf_data(ic, tiles):
-	conf_kinds = []
+	conf_kind_list = []
 	conf_kind_map = {}
 	conf_tile_map = {}
 	
@@ -70,26 +81,34 @@ def get_conf_data(ic, tiles):
 			
 			conf_set.add((tuple(entry[0]), *entry[1:]))
 		
-		conf_kind = tuple(sorted(conf_set))
-		try:
-			conf_kind_index = conf_kind_map[conf_kind]
-		except KeyError:
-			conf_kind_index = len(conf_kinds)
-			conf_kinds.append(conf_kind)
-			conf_kind_map[conf_kind] = conf_kind_index
-		
-		conf_tile_map.setdefault(conf_kind_index, list()).append(tile_pos)
+		add_conf_set(conf_kind_list, conf_kind_map, conf_tile_map, tile_pos, conf_set)
 	
-	return conf_kinds, conf_tile_map
+	return conf_kind_list, conf_tile_map
 
-def get_net_conf_data(ic, tile_map, seg_kinds, conf_kinds, conf_tile_map):
-	conf_kind_map = {c: i for i, c in enumerate(conf_kinds)}
+def get_net_conf_data(ic, tile_map, seg_kinds, conf_kind_list, conf_tile_map):
+	conf_kind_map = {c: i for i, c in enumerate(conf_kind_list)}
 	for tile_pos in sorted(tile_map):
 		# get rquested nets
 		nets = set(seg_kinds[s][r][2] for s, r in tile_map[tile_pos])
-		print(nets)
+		#print(f"{tile_pos} ({len(nets)}): {list(nets)[:5]}")
 		tile_db = ic.tile_db(*tile_pos)
 		
+		conf_set = set()
+		for entry in tile_db:
+			# important for io tiles as the spans differ between left/right and top/bottom
+			if not ic.tile_has_entry(*tile_pos, entry):
+				#print(f"Tile {tile_pos} has no entry {entry}")
+				continue
+			
+			if entry[1] not in ("buffer", "routing"):
+				continue
+			
+			if entry[3] not in nets:
+				continue
+			
+			conf_set.add((tuple(entry[0]), *entry[1:]))
+		
+		add_conf_set(conf_kind_list, conf_kind_map, conf_tile_map, tile_pos, conf_set)
 
 def sort_net_data(seg_kinds, tile_map):
 	# sort seg_kinds
@@ -114,6 +133,32 @@ def get_nets_for_tile(seg_kinds, tile_pos, seg_indices):
 	
 	return nets
 
+def split_bit_values(bit_comb):
+	"""
+	Split an collection of bit values in the icebox format into bit coordinates and values.
+	
+	E.g.
+	input: 
+	["!B3[36]", "B13"[4]]
+	output:
+	(
+		(Bit(3, 36), Bit(13, 4)),
+		(False, True)
+	)
+	
+	Returns a tuple of int tuples and a tuple of booleans
+	"""
+	bit_list = []
+	bit_values = []
+	
+	for b in bit_comb:
+		res = re.match(r'(?P<neg>!)?B(?P<group>\d+)\[(?P<index>\d+)\]', b)
+		bit_list.append((int(res.group("group")), int(res.group("index"))))
+		bit_values.append(res.group("neg") is None)
+	
+	
+	return (tuple(bit_list), tuple(bit_values))
+
 def write_chip_data(chip_file):
 	ic = icebox.iceconfig()
 	ic.setup_empty_8k()
@@ -131,10 +176,53 @@ def write_chip_data(chip_file):
 	name_list = sorted(name_set)
 	name_map = {n: i for i, n in enumerate(name_list)}
 	
-	conf_kinds, conf_tile_map = get_conf_data(ic, inner_tiles)
+	conf_kind_list, conf_tile_map = get_conf_data(ic, inner_tiles)
 	
 	#TODO: find routing info in outer tiles
 	io_tile_map = {k: v for k, v in tile_map.items() if k[0] in (0, 33) or k[1] in (0, 33)}
+	o = len(conf_kind_list)
+	get_net_conf_data(ic, io_tile_map, seg_kinds, conf_kind_list, conf_tile_map)
+	#print(f"new: {o}-{len(conf_kind_list)-1}:\n{conf_kind_list[o:]}")
+	
+	conf_data_list = []
+	for conf_kind in conf_kind_list:
+		conf_data = {}
+		for entry in conf_kind:
+			bits, values = split_bit_values(entry[0])
+			
+			if entry[1] in ("routing", "buffer"):
+				# [0] -> bits
+				# [1] -> type
+				# [2] -> source
+				# [3] -> destination
+				conf_data.setdefault("connection", {}).setdefault(bits, (entry[3], []))[1].append((values, entry[2]))
+			elif entry[1] in ("CarryInSet", "NegClk"):
+				conf_data.setdefault("tile", []).append((bits, entry[1]))
+			elif entry[1] == "ColBufCtrl":
+				net_name = entry[2]
+				res = re.match(r"glb_netwk_(?P<index>\d+)$", net_name)
+				index = int(res.group("index"))
+				
+				conf_data.setdefault("ColBufCtrl", [None]*8)[index] = bits
+			elif entry[1].startswith("LC_"):
+				lut_index = int(entry[1][3:])
+				tmp_bits = []
+				
+				for index, kind in ((8, "CarryEnable"), (9, "DffEnable"), (18, "Set_NoReset"), (19, "AsyncSetReset")):
+					tmp_bits.append(([bits[index]], kind))
+				
+				tmp_bits.append((
+					# order bits so index is equal to binary i_3 i_2 i_1 i_0
+					tuple([bits[i] for i in (4, 14, 15, 5, 6, 16, 17, 7, 3, 13, 12, 2, 1, 11, 10, 0)]),
+					"TruthTable",
+				))
+				
+				conf_data.setdefault("lut", [None]*8)[lut_index] = tmp_bits
+			elif entry[1] in ("RamConfig", "RamCascade"):
+				conf_data.setdefault(entry[1], []).append((bits, entry[2]))
+			else:
+				raise ValueError(f"Unknown entry type: {entry[1]}")
+		conf_data_list.append(conf_data)
 	
 	#chip_file.write("net_names = (\n")
 	#for name in name_list:
