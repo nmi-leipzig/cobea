@@ -29,7 +29,7 @@ def get_seg_kinds(all_segments):
 	# mapping seg_kind -> index
 	seg_kind_map = {}
 	# mapping (x, y) -> list of (seg_kind, role)
-	tile_map = {}
+	seg_tile_map = {}
 	
 	for seg_group in all_segments:
 		# generate seg_kind
@@ -50,9 +50,9 @@ def get_seg_kinds(all_segments):
 			#if tile_id not in inner_tiles:
 			#	continue
 			# create relative segements
-			tile_map.setdefault(tile_id, set()).add((seg_kind_index, role))
+			seg_tile_map.setdefault(tile_id, set()).add((seg_kind_index, role))
 	
-	return seg_kinds, tile_map
+	return seg_kinds, seg_tile_map
 
 def add_conf_set(conf_kind_list, conf_kind_map, conf_tile_map, tile_pos, conf_set):
 	conf_kind = tuple(sorted(conf_set))
@@ -85,11 +85,11 @@ def get_conf_data(ic, tiles):
 	
 	return conf_kind_list, conf_tile_map
 
-def get_net_conf_data(ic, tile_map, seg_kinds, conf_kind_list, conf_tile_map):
+def get_net_conf_data(ic, seg_tile_map, seg_kinds, conf_kind_list, conf_tile_map):
 	conf_kind_map = {c: i for i, c in enumerate(conf_kind_list)}
-	for tile_pos in sorted(tile_map):
+	for tile_pos in sorted(seg_tile_map):
 		# get rquested nets
-		nets = set(seg_kinds[s][r][2] for s, r in tile_map[tile_pos])
+		nets = set(seg_kinds[s][r][2] for s, r in seg_tile_map[tile_pos])
 		#print(f"{tile_pos} ({len(nets)}): {list(nets)[:5]}")
 		tile_db = ic.tile_db(*tile_pos)
 		
@@ -110,15 +110,15 @@ def get_net_conf_data(ic, tile_map, seg_kinds, conf_kind_list, conf_tile_map):
 		
 		add_conf_set(conf_kind_list, conf_kind_map, conf_tile_map, tile_pos, conf_set)
 
-def sort_net_data(seg_kinds, tile_map):
+def sort_net_data(seg_kinds, seg_tile_map):
 	# sort seg_kinds
 	sorted_indices = sorted(range(len(seg_kinds)), key=lambda i: seg_kinds[i])
 	srt_seg_kinds = [seg_kinds[i] for i in sorted_indices]
-	# update tile_map
+	# update seg_tile_map
 	index_map = {o: n for n, o in enumerate(sorted_indices)}
 	srt_tile_map = {}
-	for tile_id in tile_map:
-		srt_tile_map[tile_id] = [(index_map[s], r) for s, r in tile_map[tile_id]]
+	for tile_id in seg_tile_map:
+		srt_tile_map[tile_id] = [(index_map[s], r) for s, r in seg_tile_map[tile_id]]
 	
 	return srt_seg_kinds, srt_tile_map
 
@@ -159,18 +159,56 @@ def split_bit_values(bit_comb):
 	
 	return (tuple(bit_list), tuple(bit_values))
 
+def write_iterable(chip_file, iterable, per_line, level=1, indent="\t"):
+	if len(iterable) <= per_line:
+		chip_file.write(f"{tuple(iterable)}")
+	else:
+		chip_file.write(f"(\n")
+		
+		for j in range(0, len(iterable), per_line):
+			chip_file.write(f"{indent*(level+1)}")
+			for k, item in enumerate(iterable[j:j+per_line]):
+				chip_file.write(f"{item},")
+				if k < per_line - 1:
+					chip_file.write(" ")
+			chip_file.write("\n")
+		chip_file.write(f"{indent*level})")
+
+def write_iterable_iterable(chip_file, iteriter, per_line, level=0, indent="\t", index=True):
+	chip_file.write(f"(\n")
+	for i, iterable in enumerate(iteriter):
+		chip_file.write(f"{indent*(level+1)}")
+		write_iterable(
+			chip_file,
+			iterable,
+			per_line,
+			level=level+1,
+			indent="\t"
+		)
+		chip_file.write(f",{f' # {i}' if index else ''}\n")
+	chip_file.write(f"{indent*level})")
+
+def write_dict_iterable(chip_file, dict_iterable, per_line, level=1, indent="\t"):
+	chip_file.write("{\n")
+	for key in sorted(dict_iterable.keys()):
+		chip_file.write(f"{indent*(level+1)}{key}: ")
+		write_iterable(chip_file, dict_iterable[key], per_line, level+1, indent)
+		chip_file.write(f",\n")
+	
+	chip_file.write(f"{indent*level}}}")
+
 def write_chip_data(chip_file):
 	ic = icebox.iceconfig()
 	ic.setup_empty_8k()
 	
 	inner_tiles = get_inner_tiles(ic)
 	inner_segs = get_segments(ic, inner_tiles)
-	seg_kinds, tile_map = get_seg_kinds(inner_segs)
-	seg_kinds, tile_map = sort_net_data(seg_kinds, tile_map)
-	#for tile_pos in tile_map:
+	seg_kinds, seg_tile_map = get_seg_kinds(inner_segs)
+	seg_kinds, seg_tile_map = sort_net_data(seg_kinds, seg_tile_map)
+	#for tile_pos in seg_tile_map:
 	#	if tile_pos[0] in (0, 33) or tile_pos[1] in (0, 33):
-	#		print(f"{tile_pos}: {len(tile_map[tile_pos])}")
-	#		#print(tile_map[tile_pos])
+	#		print(f"{tile_pos}: {len(seg_tile_map[tile_pos])}")
+	#		#print(seg_tile_map[tile_pos])
 	
 	name_set = {n for s in seg_kinds for x, y, n in s}
 	name_list = sorted(name_set)
@@ -178,8 +216,8 @@ def write_chip_data(chip_file):
 	
 	conf_kind_list, conf_tile_map = get_conf_data(ic, inner_tiles)
 	
-	#TODO: find routing info in outer tiles
-	io_tile_map = {k: v for k, v in tile_map.items() if k[0] in (0, 33) or k[1] in (0, 33)}
+	# find routing info in outer tiles
+	io_tile_map = {k: v for k, v in seg_tile_map.items() if k[0] in (0, 33) or k[1] in (0, 33)}
 	o = len(conf_kind_list)
 	get_net_conf_data(ic, io_tile_map, seg_kinds, conf_kind_list, conf_tile_map)
 	#print(f"new: {o}-{len(conf_kind_list)-1}:\n{conf_kind_list[o:]}")
@@ -209,7 +247,7 @@ def write_chip_data(chip_file):
 				tmp_bits = []
 				
 				for index, kind in ((8, "CarryEnable"), (9, "DffEnable"), (18, "Set_NoReset"), (19, "AsyncSetReset")):
-					tmp_bits.append(([bits[index]], kind))
+					tmp_bits.append(((bits[index], ), kind))
 				
 				tmp_bits.append((
 					# order bits so index is equal to binary i_3 i_2 i_1 i_0
@@ -217,42 +255,58 @@ def write_chip_data(chip_file):
 					"TruthTable",
 				))
 				
-				conf_data.setdefault("lut", [None]*8)[lut_index] = tmp_bits
+				conf_data.setdefault("lut", [None]*8)[lut_index] = tuple(tmp_bits)
 			elif entry[1] in ("RamConfig", "RamCascade"):
 				conf_data.setdefault(entry[1], []).append((bits, entry[2]))
 			else:
 				raise ValueError(f"Unknown entry type: {entry[1]}")
 		conf_data_list.append(conf_data)
 	
+	indent = "\t"
+	level = 0
 	#chip_file.write("net_names = (\n")
 	#for name in name_list:
 	#	chip_file.write(f"\t'{name}',\n")
 	#chip_file.write(")\n\n")
 	
-	chip_file.write("segment_kinds = [\n")
-	for i, seg_group in enumerate(seg_kinds):
-		per_line = 5
-		#segment_group = tuple((x, y, name_map[n] ) for x, y, n in seg_group)
-		segment_group = seg_group
-		if len(segment_group) <= per_line:
-			chip_file.write(f"\t{segment_group}, # {i}\n")
-		else:
-			chip_file.write("\t(\n")
-			
-			for j in range(0, len(segment_group), per_line):
-				chip_file.write("\t\t")
-				for k, seg in enumerate(segment_group[j:j+per_line]):
-					chip_file.write(f"{seg},")
-					if k < per_line - 1:
-						chip_file.write(" ")
-				chip_file.write("\n")
-			chip_file.write(f"\t), # {i}\n")
-	chip_file.write("]\n\n")
+	chip_file.write("segment_kinds = ")
+	write_iterable_iterable(chip_file, seg_kinds, 5, level, indent, True)
+	chip_file.write("\n\n")
 	
-	chip_file.write("tile_map = {\n")
-	for key in sorted(tile_map.keys()):
-		chip_file.write("\t{}: {},\n".format(key, tuple(sorted(tile_map[key]))))
-	chip_file.write("}\n\n")
+	chip_file.write("seg_tile_map = {\n")
+	write_dict_iterable(chip_file, seg_tile_map, 12, level, indent)
+	chip_file.write("\n\n")
+	
+	chip_file.write("config_kinds = (\n")
+	level += 1
+	for i, conf_data in enumerate(conf_data_list):
+		chip_file.write(f"{indent*level}{{\n")
+		level += 1
+		for key in conf_data:
+			chip_file.write(f"{indent*level}'{key}': ")
+			if key == "connection":
+				cons = conf_data[key]
+				chip_file.write("{\n")
+				for bits in sorted(cons):
+					con_entry = cons[bits]
+					chip_file.write(f"{indent*(level+1)}{bits}: ({con_entry[0]}, ")
+					write_iterable(chip_file, con_entry[1], 1, level+1, indent)
+					chip_file.write(f"),\n")
+				
+				chip_file.write(f"{indent*level}}}")
+			elif key == "lut":
+				write_iterable_iterable(chip_file, conf_data[key], 4, level, indent, True)
+			else:
+				write_iterable(chip_file, conf_data[key], 8, level, indent)
+			chip_file.write(",\n")
+		level -= 1
+		chip_file.write(f"{indent*level}}}, # {i}\n")
+	level -= 1
+	chip_file.write(")\n\n")
+	
+	chip_file.write("conf_tile_map = {\n")
+	write_dict_iterable(chip_file, conf_tile_map, 12, level, indent)
+	chip_file.write("\n\n")
 	
 
 if __name__ == "__main__":
