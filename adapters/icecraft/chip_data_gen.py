@@ -2,11 +2,19 @@
 
 import sys
 import re
+from typing import Iterable, Set, Tuple, List, Iterable, Mapping, Any, NewType, TextIO, Dict
 
 sys.path.append("/usr/local/bin")
 import icebox
 
-def get_inner_tiles(ic):
+SegEntryType = NewType("SegEntryType", Tuple[int, int, str])
+SegType = NewType("SegType", Tuple[SegEntryType, ...])
+TileType = NewType("TileType", Tuple[int, int])
+SegRefType = NewType("SegRefType", Tuple[int, int])
+ConfEntryType = NewType("ConfEntryType", tuple)
+ConfKindType = NewType("ConfKindType", Tuple[ConfEntryType])
+
+def get_inner_tiles(ic: icebox.iceconfig) -> Set[TileType]:
 	inner_tiles = set()
 	for x in range(1, ic.max_x):
 		for y in range(1, ic.max_y):
@@ -15,7 +23,7 @@ def get_inner_tiles(ic):
 			inner_tiles.add((x, y))
 	return inner_tiles
 
-def get_segments(ic, tiles):
+def get_segments(ic: icebox.iceconfig, tiles: Set[TileType]) -> List[SegType]:
 	all_segments_set = ic.group_segments(tiles, connect_gb=False)
 	
 	# list
@@ -23,7 +31,7 @@ def get_segments(ic, tiles):
 	
 	return all_segments
 
-def get_seg_kinds(all_segments):
+def get_seg_kinds(all_segments: Iterable[SegType]) -> Tuple[Iterable[SegType], Mapping[TileType, Set[SegRefType]]]:
 	# kinds of segments
 	seg_kinds = []
 	# mapping seg_kind -> index
@@ -54,7 +62,13 @@ def get_seg_kinds(all_segments):
 	
 	return seg_kinds, seg_tile_map
 
-def add_conf_set(conf_kind_list, conf_kind_map, conf_tile_map, tile_pos, conf_set):
+def add_conf_set(
+	conf_kind_list: List[ConfKindType],
+	conf_kind_map: Mapping[ConfKindType, int],
+	conf_tile_map: Mapping[int, List[TileType]],
+	tile_pos: TileType,
+	conf_set: Set[ConfEntryType]
+) -> None:
 	conf_kind = tuple(sorted(conf_set))
 	try:
 		conf_kind_index = conf_kind_map[conf_kind]
@@ -65,7 +79,7 @@ def add_conf_set(conf_kind_list, conf_kind_map, conf_tile_map, tile_pos, conf_se
 	
 	conf_tile_map.setdefault(conf_kind_index, list()).append(tile_pos)
 
-def get_conf_data(ic, tiles):
+def get_conf_data(ic: icebox.iceconfig, tiles: Iterable[TileType]) -> Tuple[List[ConfKindType], Mapping[int, List[TileType]]]:
 	conf_kind_list = []
 	conf_kind_map = {}
 	conf_tile_map = {}
@@ -85,7 +99,13 @@ def get_conf_data(ic, tiles):
 	
 	return conf_kind_list, conf_tile_map
 
-def get_net_conf_data(ic, seg_tile_map, seg_kinds, conf_kind_list, conf_tile_map):
+def get_net_conf_data(
+	ic: icebox.iceconfig,
+	seg_tile_map: Mapping[TileType, SegRefType],
+	seg_kinds: List[SegType],
+	conf_kind_list: List[ConfKindType],
+	conf_tile_map: Mapping[int, List[TileType]]
+) -> None:
 	conf_kind_map = {c: i for i, c in enumerate(conf_kind_list)}
 	for tile_pos in sorted(seg_tile_map):
 		# get rquested nets
@@ -110,7 +130,7 @@ def get_net_conf_data(ic, seg_tile_map, seg_kinds, conf_kind_list, conf_tile_map
 		
 		add_conf_set(conf_kind_list, conf_kind_map, conf_tile_map, tile_pos, conf_set)
 
-def sort_net_data(seg_kinds, seg_tile_map):
+def sort_net_data(seg_kinds: List[SegType], seg_tile_map: Mapping[TileType, SegRefType]) -> Tuple[List[SegType], Mapping[TileType, SegRefType]]:
 	# sort seg_kinds
 	sorted_indices = sorted(range(len(seg_kinds)), key=lambda i: seg_kinds[i])
 	srt_seg_kinds = [seg_kinds[i] for i in sorted_indices]
@@ -122,9 +142,9 @@ def sort_net_data(seg_kinds, seg_tile_map):
 	
 	return srt_seg_kinds, srt_tile_map
 
-def get_nets_for_tile(seg_kinds, tile_pos, seg_indices):
+def get_nets_for_tile(seg_kinds: List[SegType], tile_pos: TileType, seg_refs: Iterable[SegRefType]) -> List[SegType]:
 	nets = []
-	for seg_index, role in seg_indices:
+	for seg_index, role in seg_refs:
 		seg_kind = seg_kinds[seg_index]
 		x_off = tile_pos[0] - seg_kind[role][0]
 		y_off = tile_pos[1] - seg_kind[role][1]
@@ -133,7 +153,7 @@ def get_nets_for_tile(seg_kinds, tile_pos, seg_indices):
 	
 	return nets
 
-def split_bit_values(bit_comb):
+def split_bit_values(bit_comb: Tuple[str, ...]) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[bool, ...]]:
 	"""
 	Split an collection of bit values in the icebox format into bit coordinates and values.
 	
@@ -159,7 +179,7 @@ def split_bit_values(bit_comb):
 	
 	return (tuple(bit_list), tuple(bit_values))
 
-def write_iterable(chip_file, iterable, per_line, level=1, indent="\t"):
+def write_iterable(chip_file: TextIO, iterable: Iterable[Any], per_line: int, level: int=1, indent: str="\t") -> None:
 	if len(iterable) <= per_line:
 		chip_file.write(f"{tuple(iterable)}")
 	else:
@@ -174,7 +194,7 @@ def write_iterable(chip_file, iterable, per_line, level=1, indent="\t"):
 			chip_file.write("\n")
 		chip_file.write(f"{indent*level})")
 
-def write_iterable_iterable(chip_file, iteriter, per_line, level=0, indent="\t", index=True):
+def write_iterable_iterable(chip_file: TextIO, iteriter: Iterable[Iterable[Any]], per_line: int, level: int=0, indent: str="\t", index: bool=True) -> None:
 	chip_file.write(f"(\n")
 	for i, iterable in enumerate(iteriter):
 		chip_file.write(f"{indent*(level+1)}")
@@ -188,7 +208,7 @@ def write_iterable_iterable(chip_file, iteriter, per_line, level=0, indent="\t",
 		chip_file.write(f",{f' # {i}' if index else ''}\n")
 	chip_file.write(f"{indent*level})")
 
-def write_dict_iterable(chip_file, dict_iterable, per_line, level=1, indent="\t"):
+def write_dict_iterable(chip_file: TextIO, dict_iterable: Dict[Any, Iterable[Any]], per_line: int, level: int=1, indent: str="\t") -> None:
 	chip_file.write("{\n")
 	for key in sorted(dict_iterable.keys()):
 		chip_file.write(f"{indent*(level+1)}{key}: ")
@@ -197,7 +217,7 @@ def write_dict_iterable(chip_file, dict_iterable, per_line, level=1, indent="\t"
 	
 	chip_file.write(f"{indent*level}}}")
 
-def write_chip_data(chip_file):
+def write_chip_data(chip_file: TextIO) -> None:
 	ic = icebox.iceconfig()
 	ic.setup_empty_8k()
 	
