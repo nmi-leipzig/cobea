@@ -7,7 +7,7 @@ from typing import Iterable, Set, Tuple, List, Iterable, Mapping, Any, NewType, 
 sys.path.append("/usr/local/bin")
 import icebox
 
-from .chip_data import TileType, SegType, SegRefType, ConfKindType, ConfEntryType
+from chip_data import TileType, SegType, SegRefType, ConfKindType, ConfEntryType
 
 def get_inner_tiles(ic: icebox.iceconfig) -> Set[TileType]:
 	inner_tiles = set()
@@ -277,7 +277,7 @@ def write_chip_data(chip_file: TextIO) -> None:
 	write_iterable_iterable(chip_file, seg_kinds, 5, level, indent, True)
 	chip_file.write("\n\n")
 	
-	chip_file.write("seg_tile_map = {\n")
+	chip_file.write("seg_tile_map = ")
 	write_dict_iterable(chip_file, seg_tile_map, 12, level, indent)
 	chip_file.write("\n\n")
 	
@@ -293,7 +293,7 @@ def write_chip_data(chip_file: TextIO) -> None:
 				chip_file.write("{\n")
 				for bits in sorted(cons):
 					con_entry = cons[bits]
-					chip_file.write(f"{indent*(level+1)}{bits}: ({con_entry[0]}, ")
+					chip_file.write(f"{indent*(level+1)}{bits}: ('{con_entry[0]}', ")
 					write_iterable(chip_file, con_entry[1], 1, level+1, indent)
 					chip_file.write(f"),\n")
 				
@@ -308,7 +308,7 @@ def write_chip_data(chip_file: TextIO) -> None:
 	level -= 1
 	chip_file.write(")\n\n")
 	
-	chip_file.write("conf_tile_map = {\n")
+	chip_file.write("conf_tile_map = ")
 	write_dict_iterable(chip_file, conf_tile_map, 12, level, indent)
 	chip_file.write("\n\n")
 	
