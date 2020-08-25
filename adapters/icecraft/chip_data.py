@@ -10,15 +10,15 @@ SegRefType = NewType("SegRefType", Tuple[int, int])
 ConfEntryType = NewType("ConfEntryType", tuple)
 ConfKindType = NewType("ConfKindType", Tuple[ConfEntryType])
 
-def get_nets_for_tile(seg_kinds: List[SegType], tile_pos: TileType, seg_refs: Iterable[SegRefType]) -> List[SegType]:
-	nets = []
+def get_segs_for_tile(seg_kinds: List[SegType], tile_pos: TileType, seg_refs: Iterable[SegRefType]) -> List[SegType]:
+	segs = []
 	for seg_index, role in seg_refs:
 		seg_kind = seg_kinds[seg_index]
 		x_off = tile_pos[0] - seg_kind[role][0]
 		y_off = tile_pos[1] - seg_kind[role][1]
-		net = tuple((x+x_off, y+y_off, n) for x, y, n in seg_kind)
-		nets.append(net)
+		seg = tuple((x+x_off, y+y_off, n) for x, y, n in seg_kind)
+		segs.append(seg)
 	
-	return nets
+	return segs
 
 

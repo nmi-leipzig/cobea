@@ -2,7 +2,7 @@ import unittest
 import copy
 
 import adapters.icecraft.chip_data_gen as chip_data_gen
-from adapters.icecraft.chip_data import get_nets_for_tile
+from adapters.icecraft.chip_data import get_segs_for_tile
 
 class ChipDataGenTest(unittest.TestCase):
 	# test data
@@ -38,7 +38,7 @@ class ChipDataGenTest(unittest.TestCase):
 				tile_segs.setdefault((x, y), set()).add(tuple(sorted(seg_grp)))
 		
 		for tile_pos in tile_map:
-			segs = get_nets_for_tile(seg_kinds, tile_pos, tile_map[tile_pos])
+			segs = get_segs_for_tile(seg_kinds, tile_pos, tile_map[tile_pos])
 			segs = set(tuple(sorted(s)) for s in segs)
 			
 			self.assertEqual(tile_segs[tile_pos], segs, f"Wrong segments for {tile_pos}")
