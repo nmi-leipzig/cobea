@@ -330,5 +330,5 @@ def write_chip_data(chip_file: TextIO) -> None:
 	
 
 if __name__ == "__main__":
-	with open("chip_data.py", "w") as chip_file:
+	with open("chip_database.py", "w") as chip_file:
 		write_chip_data(chip_file)
