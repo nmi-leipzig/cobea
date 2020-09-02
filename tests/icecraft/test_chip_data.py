@@ -212,6 +212,9 @@ class ChipDataTest(unittest.TestCase):
 		with self.subTest(tiles=tiles):
 			self.generic_get_segments_test(tiles, ic)
 	
+	def bits_to_str(self, bits):
+		return self.merge_bit_values(bits, [True]*len(bits))
+	
 	def merge_bit_values(self, bits, values):
 		if len(bits) != len(values):
 			raise ValueError()
@@ -242,12 +245,41 @@ class ChipDataTest(unittest.TestCase):
 		for tile in self.representative_tiles:
 			with self.subTest(tiles=tile):
 				res = chip_data.get_raw_conf(tile)
-				# prepare reults for comparison
+				res_set = set()
+				# prepare results for comparison
 				for kind, conf in res.items():
 					if kind == "connection":
-						pass
-				# to compare:
-				# - merge bits and values
-				# - map buffer and routing to connection
+						for bits, (dst, src_data) in conf.items():
+							res_set.update([(tuple(sorted(self.merge_bit_values(bits, v))), kind, s, dst) for v, s in src_data])
+					elif kind == "tile":
+						res_set.update([(tuple(sorted(self.bits_to_str(b))), n) for b, n in conf])
+					elif kind == "ColBufCtrl":
+						res_set.update([(tuple(sorted(self.bits_to_str(b))), "ColBufCtrl", f"glb_netwk_{i}") for i, b in enumerate(conf)])
+					elif kind == "lut":
+						for i, lut in enumerate(conf):
+							bits = []
+							for b, _ in lut:
+								bits.extend(b)
+							res_set.add((tuple(sorted(self.bits_to_str(bits))), f"LC_{i}"))
+					elif kind in ("RamConfig", "RamCascade"):
+						res_set.update([(tuple(sorted(self.bits_to_str(b))), kind, n) for b, n in conf])
+					else:
+						raise ValueError(f"Unknown configuration type {kind}")
+				
+				exp_set = set()
+				tile_db = ic.tile_db(*tile)
+				
+				for entry in tile_db:
+					if not ic.tile_has_entry(*tile, entry):
+						continue
+					
+					# map buffer and routing to connection
+					if entry[1] in ("routing", "buffer"):
+						kind = "connection"
+					else:
+						kind = entry[1]
+					exp_set.add((tuple(sorted(entry[0])), kind, *entry[2:]))
+				
+				self.assertEqual(exp_set, res_set)
 		
 
