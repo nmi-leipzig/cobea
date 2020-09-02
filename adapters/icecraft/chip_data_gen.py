@@ -261,6 +261,7 @@ def write_chip_data(chip_file: TextIO) -> None:
 	
 	inner_tiles = get_inner_tiles(ic)
 	inner_segs = get_segments(ic, inner_tiles)
+	inner_segs = fix_known_issues(ic, inner_segs)
 	seg_kinds, seg_tile_map = get_seg_kinds(inner_segs)
 	seg_kinds, seg_tile_map = sort_net_data(seg_kinds, seg_tile_map)
 	#for tile_pos in seg_tile_map:
