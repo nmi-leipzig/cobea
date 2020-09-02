@@ -29,6 +29,57 @@ def get_segments(ic: icebox.iceconfig, tiles: Set[TileType]) -> List[SegType]:
 	
 	return all_segments
 
+def fix_known_issues(ic: icebox.iceconfig, seg_list: Iterable[SegType]) -> List[SegType]:
+	fixed_list = []
+	for seg in seg_list:
+		fixed = list(seg)
+		
+		# RAM neigh_op_top/bot
+		filtered = []
+		for entry in fixed:
+			r = re.match(r"neigh_op_(?P<kind>top|bot)_(?P<index>\d)", entry[2])
+			if r is not None:
+				neigh_index = int(r.group("index"))
+				tile_kind = ic.tile_type(*entry[:2])
+				
+				if tile_kind in ("RAMB", "RAMT") and\
+					not (tile_kind == "RAMB" and r.group("kind") == "bot" and neigh_index in (0, 4)) and\
+					not (tile_kind == "RAMT" and r.group("kind") == "top" and neigh_index in (0, 2, 4, 6)):
+					continue
+			
+			filtered.append(entry)
+		fixed = filtered
+		
+		# glb_netwk
+		glb_names = [n for x, y, n in fixed if n.startswith("glb_netwk_")]
+		if len(glb_names) > 0:
+			r = re.match(r"glb_netwk_(?P<index>\d)", glb_names[0])
+			glb_index = int(r.group("index"))
+			
+			if not any([n.startswith("padin_") for _, _, n in fixed]):
+				x, y, pad_index = ic.padin_pio_db()[glb_index]
+				fixed.append((x, y, f"padin_{pad_index}"))
+			
+			if not any([n == "fabout" for _, _, n in fixed]):
+				x, y = [(x, y) for x, y, i in ic.gbufin_db() if i==glb_index][0]
+				fixed.append((x, y, "fabout"))
+		
+		# io_global/latch
+		if any([n == "io_global/latch" for _, _, n in fixed]):
+			x, y = [(x, y) for x, y, n in fixed if n == "fabout"][0]
+			if x in (0, ic.max_x):
+				fixed = [(x, i, "io_global/latch") for i in range(1, ic.max_y)]
+			elif y in (0, ic.max_y):
+				fixed = [(i, y, "io_global/latch") for i in range(1, ic.max_x)]
+			else:
+				raise ValueError()
+			
+			fixed.append((x, y, "fabout"))
+		
+		fixed_list.append(tuple(sorted(fixed)))
+	
+	return fixed_list
+
 def get_seg_kinds(all_segments: Iterable[SegType]) -> Tuple[Iterable[SegType], Mapping[TileType, Set[SegRefType]]]:
 	# kinds of segments
 	seg_kinds = []
