@@ -1,24 +1,16 @@
 # module to provide access to chip database
 
-from typing import Iterable, Set, Tuple, List, Iterable, Mapping, Any, NewType, TextIO, Dict
+from typing import Iterable, List
+from .chip_data_utils import TileType, SegType, get_segs_for_tile
+from .chip_database import seg_kinds, seg_tile_map, conf_kinds, conf_tile_map
 
-
-SegEntryType = NewType("SegEntryType", Tuple[int, int, str])
-SegType = NewType("SegType", Tuple[SegEntryType, ...])
-TileType = NewType("TileType", Tuple[int, int])
-SegRefType = NewType("SegRefType", Tuple[int, int])
-ConfEntryType = NewType("ConfEntryType", tuple)
-ConfKindType = NewType("ConfKindType", Tuple[ConfEntryType])
-
-def get_segs_for_tile(seg_kinds: List[SegType], tile_pos: TileType, seg_refs: Iterable[SegRefType]) -> List[SegType]:
-	segs = []
-	for seg_index, role in seg_refs:
-		seg_kind = seg_kinds[seg_index]
-		x_off = tile_pos[0] - seg_kind[role][0]
-		y_off = tile_pos[1] - seg_kind[role][1]
-		seg = tuple((x+x_off, y+y_off, n) for x, y, n in seg_kind)
-		segs.append(seg)
+def get_segments(tiles: Iterable[TileType]) -> List[SegType]:
+	segs = set()
+	for tile_pos in tiles:
+		tile_segs = get_segs_for_tile(seg_kinds, tile_pos, seg_tile_map[tile_pos])
+		segs.update(tile_segs)
 	
-	return segs
+	return sorted(segs)
 
-
+def get_raw_conf(tile):
+	return {}
