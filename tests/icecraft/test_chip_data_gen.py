@@ -2,7 +2,7 @@ import unittest
 import copy
 
 import adapters.icecraft.chip_data_gen as chip_data_gen
-from adapters.icecraft.chip_data import get_segs_for_tile
+from adapters.icecraft.chip_data_utils import get_segs_for_tile
 
 class ChipDataGenTest(unittest.TestCase):
 	# test data
