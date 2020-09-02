@@ -22,7 +22,7 @@ def get_inner_tiles(ic: icebox.iceconfig) -> Set[TileType]:
 	return inner_tiles
 
 def get_segments(ic: icebox.iceconfig, tiles: Set[TileType]) -> List[SegType]:
-	all_segments_set = ic.group_segments(tiles, connect_gb=False)
+	all_segments_set = ic.group_segments(tiles, connect_gb=True)
 	
 	# list
 	all_segments = sorted(all_segments_set)

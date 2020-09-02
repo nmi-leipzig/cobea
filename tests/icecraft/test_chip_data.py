@@ -194,7 +194,7 @@ class ChipDataTest(unittest.TestCase):
 		
 		self.assertEqual(len(res), len(res_set))
 		
-		exp_segs = ic.group_segments(tiles, connect_gb=False)
+		exp_segs = ic.group_segments(tiles, connect_gb=True)
 		
 		self.check_segments(ic, exp_segs, res)
 	
