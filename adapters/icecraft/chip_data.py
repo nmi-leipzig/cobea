@@ -2,10 +2,10 @@
 
 from typing import Iterable, List
 from .chip_data_utils import TileType, SegType, get_segs_for_tile
-from .chip_database import seg_kinds, seg_tile_map, conf_kinds, conf_tile_map
+from .chip_database import seg_kinds, seg_tile_map, config_kinds, config_tile_map
 
-# tile -> conf_kind
-tile_to_conf_kind = {t: k for k, tl in conf_tile_map.items() for t in tl}
+# tile -> config_kind
+tile_to_config_kind_index = {t: k for k, tl in config_tile_map.items() for t in tl}
 
 def get_segments(tiles: Iterable[TileType]) -> List[SegType]:
 	segs = set()
@@ -15,6 +15,6 @@ def get_segments(tiles: Iterable[TileType]) -> List[SegType]:
 	
 	return sorted(segs)
 
-def get_raw_conf(tile):
-	conf_kind_index = tile_to_conf_kind[tile]
-	return conf_kinds[conf_kind_index]
+def get_raw_config_data(tile):
+	config_kind_index = tile_to_config_kind_index[tile]
+	return config_kinds[config_kind_index]

@@ -238,31 +238,31 @@ class ChipDataTest(unittest.TestCase):
 			merged = self.merge_bit_values(bits, values)
 			self.assertEqual(exp, merged)
 	
-	def test_get_raw_conf(self):
+	def test_get_raw_config_data(self):
 		ic = icebox.iceconfig()
 		ic.setup_empty_8k()
 		
 		for tile in self.representative_tiles:
 			with self.subTest(tiles=tile):
-				res = chip_data.get_raw_conf(tile)
+				res = chip_data.get_raw_config_data(tile)
 				res_set = set()
 				# prepare results for comparison
-				for kind, conf in res.items():
+				for kind, config in res.items():
 					if kind == "connection":
-						for bits, (dst, src_data) in conf.items():
+						for bits, (dst, src_data) in config.items():
 							res_set.update([(tuple(sorted(self.merge_bit_values(bits, v))), kind, s, dst) for v, s in src_data])
 					elif kind == "tile":
-						res_set.update([(tuple(sorted(self.bits_to_str(b))), n) for b, n in conf])
+						res_set.update([(tuple(sorted(self.bits_to_str(b))), n) for b, n in config])
 					elif kind == "ColBufCtrl":
-						res_set.update([(tuple(sorted(self.bits_to_str(b))), "ColBufCtrl", f"glb_netwk_{i}") for i, b in enumerate(conf)])
+						res_set.update([(tuple(sorted(self.bits_to_str(b))), "ColBufCtrl", f"glb_netwk_{i}") for i, b in enumerate(config)])
 					elif kind == "lut":
-						for i, lut in enumerate(conf):
+						for i, lut in enumerate(config):
 							bits = []
 							for b, _ in lut:
 								bits.extend(b)
 							res_set.add((tuple(sorted(self.bits_to_str(bits))), f"LC_{i}"))
 					elif kind in ("RamConfig", "RamCascade"):
-						res_set.update([(tuple(sorted(self.bits_to_str(b))), kind, n) for b, n in conf])
+						res_set.update([(tuple(sorted(self.bits_to_str(b))), kind, n) for b, n in config])
 					else:
 						raise ValueError(f"Unknown configuration type {kind}")
 				
@@ -281,5 +281,4 @@ class ChipDataTest(unittest.TestCase):
 					exp_set.add((tuple(sorted(entry[0])), kind, *entry[2:]))
 				
 				self.assertEqual(exp_set, res_set)
-		
-
+	

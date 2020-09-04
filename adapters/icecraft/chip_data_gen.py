@@ -8,9 +8,9 @@ sys.path.append("/usr/local/bin")
 import icebox
 
 try:
-	from chip_data_utils import TileType, SegType, SegRefType, ConfKindType, ConfEntryType
+	from chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType
 except ModuleNotFoundError:
-	from .chip_data_utils import TileType, SegType, SegRefType, ConfKindType, ConfEntryType
+	from .chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType
 
 def get_inner_tiles(ic: icebox.iceconfig) -> Set[TileType]:
 	inner_tiles = set()
@@ -111,58 +111,58 @@ def get_seg_kinds(all_segments: Iterable[SegType]) -> Tuple[Iterable[SegType], M
 	
 	return seg_kinds, seg_tile_map
 
-def add_conf_set(
-	conf_kind_list: List[ConfKindType],
-	conf_kind_map: Mapping[ConfKindType, int],
-	conf_tile_map: Mapping[int, List[TileType]],
+def add_config_set(
+	config_kind_list: List[ConfigKindType],
+	config_kind_map: Mapping[ConfigKindType, int],
+	config_tile_map: Mapping[int, List[TileType]],
 	tile_pos: TileType,
-	conf_set: Set[ConfEntryType]
+	config_set: Set[ConfigEntryType]
 ) -> None:
-	conf_kind = tuple(sorted(conf_set))
+	config_kind = tuple(sorted(config_set))
 	try:
-		conf_kind_index = conf_kind_map[conf_kind]
+		config_kind_index = config_kind_map[config_kind]
 	except KeyError:
-		conf_kind_index = len(conf_kind_list)
-		conf_kind_list.append(conf_kind)
-		conf_kind_map[conf_kind] = conf_kind_index
+		config_kind_index = len(config_kind_list)
+		config_kind_list.append(config_kind)
+		config_kind_map[config_kind] = config_kind_index
 	
-	conf_tile_map.setdefault(conf_kind_index, list()).append(tile_pos)
+	config_tile_map.setdefault(config_kind_index, list()).append(tile_pos)
 
-def get_conf_data(ic: icebox.iceconfig, tiles: Iterable[TileType]) -> Tuple[List[ConfKindType], Mapping[int, List[TileType]]]:
-	conf_kind_list = []
-	conf_kind_map = {}
-	conf_tile_map = {}
+def get_config_data(ic: icebox.iceconfig, tiles: Iterable[TileType]) -> Tuple[List[ConfigKindType], Mapping[int, List[TileType]]]:
+	config_kind_list = []
+	config_kind_map = {}
+	config_tile_map = {}
 	
 	for tile_pos in sorted(tiles):
 		tile_db = ic.tile_db(*tile_pos)
 		
-		conf_set = set()
+		config_set = set()
 		for entry in tile_db:
 			if not ic.tile_has_entry(*tile_pos, entry):
 				print("Tile ({},{}) has no entry {}".format(*tile_pos, entry))
 				continue
 			
-			conf_set.add((tuple(entry[0]), *entry[1:]))
+			config_set.add((tuple(entry[0]), *entry[1:]))
 		
-		add_conf_set(conf_kind_list, conf_kind_map, conf_tile_map, tile_pos, conf_set)
+		add_config_set(config_kind_list, config_kind_map, config_tile_map, tile_pos, config_set)
 	
-	return conf_kind_list, conf_tile_map
+	return config_kind_list, config_tile_map
 
-def get_net_conf_data(
+def get_net_config_data(
 	ic: icebox.iceconfig,
 	seg_tile_map: Mapping[TileType, SegRefType],
 	seg_kinds: List[SegType],
-	conf_kind_list: List[ConfKindType],
-	conf_tile_map: Mapping[int, List[TileType]]
+	config_kind_list: List[ConfigKindType],
+	config_tile_map: Mapping[int, List[TileType]]
 ) -> None:
-	conf_kind_map = {c: i for i, c in enumerate(conf_kind_list)}
+	config_kind_map = {c: i for i, c in enumerate(config_kind_list)}
 	for tile_pos in sorted(seg_tile_map):
 		# get rquested nets
 		nets = set(seg_kinds[s][r][2] for s, r in seg_tile_map[tile_pos])
 		#print(f"{tile_pos} ({len(nets)}): {list(nets)[:5]}")
 		tile_db = ic.tile_db(*tile_pos)
 		
-		conf_set = set()
+		config_set = set()
 		for entry in tile_db:
 			# important for io tiles as the spans differ between left/right and top/bottom
 			if not ic.tile_has_entry(*tile_pos, entry):
@@ -175,9 +175,9 @@ def get_net_conf_data(
 			if entry[3] not in nets:
 				continue
 			
-			conf_set.add((tuple(entry[0]), *entry[1:]))
+			config_set.add((tuple(entry[0]), *entry[1:]))
 		
-		add_conf_set(conf_kind_list, conf_kind_map, conf_tile_map, tile_pos, conf_set)
+		add_config_set(config_kind_list, config_kind_map, config_tile_map, tile_pos, config_set)
 
 def sort_net_data(seg_kinds: List[SegType], seg_tile_map: Mapping[TileType, SegRefType]) -> Tuple[List[SegType], Mapping[TileType, SegRefType]]:
 	# sort seg_kinds
@@ -273,18 +273,18 @@ def write_chip_data(chip_file: TextIO) -> None:
 	name_list = sorted(name_set)
 	name_map = {n: i for i, n in enumerate(name_list)}
 	
-	conf_kind_list, conf_tile_map = get_conf_data(ic, inner_tiles)
+	config_kind_list, config_tile_map = get_config_data(ic, inner_tiles)
 	
 	# find routing info in outer tiles
 	io_tile_map = {k: v for k, v in seg_tile_map.items() if k[0] in (0, 33) or k[1] in (0, 33)}
-	o = len(conf_kind_list)
-	get_net_conf_data(ic, io_tile_map, seg_kinds, conf_kind_list, conf_tile_map)
-	#print(f"new: {o}-{len(conf_kind_list)-1}:\n{conf_kind_list[o:]}")
+	o = len(config_kind_list)
+	get_net_config_data(ic, io_tile_map, seg_kinds, config_kind_list, config_tile_map)
+	#print(f"new: {o}-{len(config_kind_list)-1}:\n{config_kind_list[o:]}")
 	
-	conf_data_list = []
-	for conf_kind in conf_kind_list:
-		conf_data = {}
-		for entry in conf_kind:
+	config_data_list = []
+	for config_kind in config_kind_list:
+		config_data = {}
+		for entry in config_kind:
 			bits, values = split_bit_values(entry[0])
 			
 			if entry[1] in ("routing", "buffer"):
@@ -292,15 +292,15 @@ def write_chip_data(chip_file: TextIO) -> None:
 				# [1] -> type
 				# [2] -> source
 				# [3] -> destination
-				conf_data.setdefault("connection", {}).setdefault(bits, (entry[3], []))[1].append((values, entry[2]))
+				config_data.setdefault("connection", {}).setdefault(bits, (entry[3], []))[1].append((values, entry[2]))
 			elif entry[1] in ("CarryInSet", "NegClk"):
-				conf_data.setdefault("tile", []).append((bits, entry[1]))
+				config_data.setdefault("tile", []).append((bits, entry[1]))
 			elif entry[1] == "ColBufCtrl":
 				net_name = entry[2]
 				res = re.match(r"glb_netwk_(?P<index>\d+)$", net_name)
 				index = int(res.group("index"))
 				
-				conf_data.setdefault("ColBufCtrl", [None]*8)[index] = bits
+				config_data.setdefault("ColBufCtrl", [None]*8)[index] = bits
 			elif entry[1].startswith("LC_"):
 				lut_index = int(entry[1][3:])
 				tmp_bits = []
@@ -314,12 +314,12 @@ def write_chip_data(chip_file: TextIO) -> None:
 					"TruthTable",
 				))
 				
-				conf_data.setdefault("lut", [None]*8)[lut_index] = tuple(tmp_bits)
+				config_data.setdefault("lut", [None]*8)[lut_index] = tuple(tmp_bits)
 			elif entry[1] in ("RamConfig", "RamCascade"):
-				conf_data.setdefault(entry[1], []).append((bits, entry[2]))
+				config_data.setdefault(entry[1], []).append((bits, entry[2]))
 			else:
 				raise ValueError(f"Unknown entry type: {entry[1]}")
-		conf_data_list.append(conf_data)
+		config_data_list.append(config_data)
 	
 	indent = "\t"
 	level = 0
@@ -336,15 +336,15 @@ def write_chip_data(chip_file: TextIO) -> None:
 	write_dict_iterable(chip_file, seg_tile_map, 12, level, indent)
 	chip_file.write("\n\n")
 	
-	chip_file.write("conf_kinds = (\n")
+	chip_file.write("config_kinds = (\n")
 	level += 1
-	for i, conf_data in enumerate(conf_data_list):
+	for i, config_data in enumerate(config_data_list):
 		chip_file.write(f"{indent*level}{{\n")
 		level += 1
-		for key in conf_data:
+		for key in config_data:
 			chip_file.write(f"{indent*level}'{key}': ")
 			if key == "connection":
-				cons = conf_data[key]
+				cons = config_data[key]
 				chip_file.write("{\n")
 				for bits in sorted(cons):
 					con_entry = cons[bits]
@@ -354,17 +354,17 @@ def write_chip_data(chip_file: TextIO) -> None:
 				
 				chip_file.write(f"{indent*level}}}")
 			elif key == "lut":
-				write_iterable_iterable(chip_file, conf_data[key], 4, level, indent, True)
+				write_iterable_iterable(chip_file, config_data[key], 4, level, indent, True)
 			else:
-				write_iterable(chip_file, conf_data[key], 8, level, indent)
+				write_iterable(chip_file, config_data[key], 8, level, indent)
 			chip_file.write(",\n")
 		level -= 1
 		chip_file.write(f"{indent*level}}}, # {i}\n")
 	level -= 1
 	chip_file.write(")\n\n")
 	
-	chip_file.write("conf_tile_map = ")
-	write_dict_iterable(chip_file, conf_tile_map, 12, level, indent)
+	chip_file.write("config_tile_map = ")
+	write_dict_iterable(chip_file, config_tile_map, 12, level, indent)
 	chip_file.write("\n\n")
 	
 
