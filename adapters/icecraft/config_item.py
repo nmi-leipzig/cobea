@@ -31,3 +31,11 @@ class ConnectionItem(ConfigItem):
 	@property
 	def identifier(self) -> str:
 		return f"{self.bits[0].x:02d}{self.bits[0].y:02d}_{self.kind}_{self.dst_net}"
+
+@dataclass(frozen=True)
+class NamedItem(ConfigItem):
+	name: str
+	
+	@property
+	def identifier(self) -> str:
+		return f"{self.bits[0].x:02d}{self.bits[0].y:02d}_{self.kind}_{self.name}"

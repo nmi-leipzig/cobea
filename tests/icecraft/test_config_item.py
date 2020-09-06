@@ -85,3 +85,27 @@ class ConnectionItemTest(ConfigItemTest):
 		self.assertEqual(dst_net, dut.dst_net)
 		self.assertEqual(values, dut.values)
 		self.assertEqual(src_nets, dut.src_nets)
+
+class NamedItemTest(ConfigItemTest):
+	dut_class = config_item.NamedItem
+	test_data = (
+		(
+			(IcecraftBitPosition.from_coords(3, 4, 6, 7), ),
+			"NamedKind",
+			"KIND_NAME"
+		),
+		(
+			(IcecraftBitPosition.from_coords(3, 4, 6, 8), ),
+			"NamedKind",
+			"OTHER_NAME"
+		),
+	)
+	
+	def test_values(self):
+		bits, kind, name = self.test_data[0]
+		
+		dut = self.create(self.test_data[0])
+		
+		self.assertEqual(bits, dut.bits)
+		self.assertEqual(kind, dut.kind)
+		self.assertEqual(name, dut.name)
