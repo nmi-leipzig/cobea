@@ -238,6 +238,23 @@ class ChipDataTest(unittest.TestCase):
 			merged = self.merge_bit_values(bits, values)
 			self.assertEqual(exp, merged)
 	
+	def prep_reference_config(self, ic, tile):
+		exp_set = set()
+		tile_db = ic.tile_db(*tile)
+		
+		for entry in tile_db:
+			if not ic.tile_has_entry(*tile, entry):
+				continue
+			
+			# map buffer and routing to connection
+			if entry[1] in ("routing", "buffer"):
+				kind = "connection"
+			else:
+				kind = entry[1]
+			exp_set.add((tuple(sorted(entry[0])), kind, *entry[2:]))
+		
+		return exp_set
+	
 	def test_get_raw_config_data(self):
 		ic = icebox.iceconfig()
 		ic.setup_empty_8k()
@@ -266,19 +283,58 @@ class ChipDataTest(unittest.TestCase):
 					else:
 						raise ValueError(f"Unknown configuration type {kind}")
 				
-				exp_set = set()
-				tile_db = ic.tile_db(*tile)
-				
-				for entry in tile_db:
-					if not ic.tile_has_entry(*tile, entry):
-						continue
-					
-					# map buffer and routing to connection
-					if entry[1] in ("routing", "buffer"):
-						kind = "connection"
-					else:
-						kind = entry[1]
-					exp_set.add((tuple(sorted(entry[0])), kind, *entry[2:]))
+				exp_set = self.prep_reference_config(ic, tile)
 				
 				self.assertEqual(exp_set, res_set)
 	
+	def bit_positions_to_bits(self, bit_positions):
+		return [(b.group, b.index) for b in bit_positions]
+	
+	def bit_positions_to_str(self, bit_positions):
+		return self.bits_to_str(self.bit_positions_to_bits(bit_positions))
+	
+	def merge_bit_positions_values(self, bit_positions, values):
+		return self.merge_bit_values(self.bit_positions_to_bits(bit_positions), values)
+	
+	def config_items_to_raw(self, config_dict):
+		raw_set = set()
+		for grp_name, item_seq in config_dict.items():
+			if grp_name == "connection":
+				for item in item_seq:
+					raw_set.update([(tuple(sorted(self.merge_bit_positions_values(item.bits, v))), item.kind, s, item.dst_net) for v, s in zip(item.values, item.src_nets)])
+			elif grp_name == "tile":
+				raw_set.update([(tuple(sorted(self.bit_positions_to_str(i.bits))), i.kind) for i in item_seq])
+			elif grp_name == "ColBufCtrl":
+				raw_set.update([(tuple(sorted(self.bit_positions_to_str(i.bits))), "ColBufCtrl", f"glb_netwk_{i.index}") for i in item_seq])
+			elif grp_name == "lut":
+				for lut in item_seq:
+					bits = []
+					for l in lut:
+						bits.extend(l.bits)
+						index = l.index
+					raw_set.add((tuple(sorted(self.bit_positions_to_str(bits))), f"LC_{index}"))
+			elif grp_name in ("RamConfig", "RamCascade"):
+				raw_set.update(
+					(tuple(sorted(self.bit_positions_to_str(rc.bits))), rc.kind, rc.name) for rc in item_seq
+				)
+			else:
+				raise ValueError(f"Unknown configuration type {kind}")
+		
+		return raw_set
+	
+	def generic_get_config_items_test(self, ic, tile):
+		res = chip_data.get_config_items(tile)
+		res_set = self.config_items_to_raw(res)
+		
+		exp_set = self.prep_reference_config(ic, tile)
+		
+		self.assertEqual(exp_set, res_set)
+	
+	def test_get_config_items(self):
+		ic = icebox.iceconfig()
+		ic.setup_empty_8k()
+		
+		for tile in self.representative_tiles:
+			with self.subTest(tiles=tile):
+				self.generic_get_config_items_test(ic, tile)
+		
