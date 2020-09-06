@@ -43,7 +43,7 @@ class IcecraftPosition:
 		return self.tile.y
 	
 	@classmethod
-	def from_coords(cls, x, y, *args, **kwargs):
+	def from_coords(cls, x: int, y: int, *args, **kwargs):
 		return cls(TilePosition(x, y), *args, **kwargs)
 	
 
