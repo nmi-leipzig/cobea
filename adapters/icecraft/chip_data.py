@@ -1,10 +1,18 @@
 # module to provide access to chip database
 
-from typing import Iterable, List
-from .chip_data_utils import TileType, SegType, get_segs_for_tile
+from typing import Iterable, List, Dict, Union, Tuple, NewType
+from .chip_data_utils import TileType, SegType, BitType, get_segs_for_tile
 from .chip_database import seg_kinds, seg_tile_map, config_kinds, config_tile_map
 from .misc import TilePosition, IcecraftBitPosition
 from .config_item import ConfigItem, IndexedItem, ConnectionItem, NamedItem
+
+MultiBitsType = NewType("MultiBitsType", Tuple[BitType, ...])
+NamedBitsType = NewType("NamedBitsType", Tuple[MultiBitsType, str])
+RawLUTType = NewType("RawLUTType", Tuple[NamedBitsType])
+ValueType = NewType("ValueType", Tuple[bool, ...])
+SrcType = NewType("SrcType", Tuple[ValueType, str])
+RawConType = NewType("RawConType", Tuple[str, Tuple[SrcType, ...]])
+ConDictType = NewType("ConDictType", Dict[MultiBitsType, RawConType])
 
 # tile -> config_kind
 tile_to_config_kind_index = {t: k for k, tl in config_tile_map.items() for t in tl}
@@ -17,14 +25,14 @@ def get_segments(tiles: Iterable[TileType]) -> List[SegType]:
 	
 	return sorted(segs)
 
-def get_raw_config_data(tile):
+def get_raw_config_data(tile: TileType) -> Dict[str, Union[Tuple[NamedBitsType], Tuple[MultiBitsType], Tuple[RawLUTType], ConDictType]]:
 	config_kind_index = tile_to_config_kind_index[tile]
 	return config_kinds[config_kind_index]
 
-def bits_to_bit_positions(tile_pos, bits):
+def bits_to_bit_positions(tile_pos: TilePosition, bits: Iterable[BitType]) -> Tuple[IcecraftBitPosition]:
 	return tuple(IcecraftBitPosition(tile_pos, *b) for b in bits)
 
-def get_config_items(tile):
+def get_config_items(tile: TileType) -> Dict[str, Tuple[Union[ConfigItem, Tuple[IndexedItem]]]]:
 	tile_pos = TilePosition(*tile)
 	raw_groups = get_raw_config_data(tile)
 	item_dict = {}
