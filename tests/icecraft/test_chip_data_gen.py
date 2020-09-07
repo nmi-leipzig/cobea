@@ -136,3 +136,46 @@ class ChipDataGenTest(unittest.TestCase):
 				out_segs = chip_data_gen.fix_known_issues(ic, in_segs)
 				
 				self.assertEqual(exp_segs, out_segs)
+	
+	def test_get_driver_indices(self):
+		test_data = (
+			(
+				((14, 17, 'sp4_h_r_10'), (15, 17, 'sp4_h_r_23'), (16, 17, 'sp4_h_r_34'), (17, 17, 'sp4_h_r_47'), (18, 17, 'sp4_h_l_47')),
+				(False, (0, 1, 2, 4))
+			),
+			(((16, 17, 'local_g1_4'), ), (False, (0, ))),
+			(
+				(
+					(14, 15, 'neigh_op_tnr_0'), (14, 16, 'neigh_op_rgt_0'), (14, 17, 'neigh_op_bnr_0'), (15, 15, 'neigh_op_top_0'),
+					(15, 16, 'lutff_0/out'), (15, 17, 'neigh_op_bot_0'), (16, 15, 'neigh_op_tnl_0'), (16, 16, 'neigh_op_lft_0'),
+					(16, 17, 'neigh_op_bnl_0')
+				),
+				(True, (4, ))
+			),
+			(((16, 17, 'lutff_5/cout'),), (True, (0, ))),
+			(((16, 17, 'lutff_6/lout'),), (True, (0, ))),
+			(
+				(
+					(7, 31, 'neigh_op_tnr_3'), (7, 32, 'neigh_op_rgt_3'), (7, 33, 'logic_op_bnr_3'), (8, 31, 'neigh_op_top_3'),
+					(8, 32, 'ram/RDATA_4'), (8, 33, 'logic_op_bot_3'), (9, 31, 'neigh_op_tnl_3'), (9, 32, 'neigh_op_lft_3'),
+					(9, 33, 'logic_op_bnl_3')
+				),
+				(True, (4, ))
+			),
+			(
+				(
+					(6, 32, 'neigh_op_tnr_2'), (6, 32, 'neigh_op_tnr_6'), (7, 32, 'neigh_op_top_2'), (7, 32, 'neigh_op_top_6'),
+					(7, 33, 'io_1/D_IN_0'), (8, 32, 'neigh_op_tnl_2'), (8, 32, 'neigh_op_tnl_6')
+				),
+				(True, (4, ))
+			),
+		)
+		
+		ic = icebox.iceconfig()
+		ic.setup_empty_8k()
+		
+		for seg, exp in test_data:
+			with self.subTest(seg=seg):
+				res = chip_data_gen.get_driver_indices(ic, seg)
+				
+				self.assertEqual(exp, res)

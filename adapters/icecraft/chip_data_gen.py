@@ -80,6 +80,37 @@ def fix_known_issues(ic: icebox.iceconfig, seg_list: Iterable[SegType]) -> List[
 	
 	return fixed_list
 
+def get_driver_indices(ic: icebox.iceconfig, segment: SegType) -> Tuple[bool, Tuple[int, ...]]:
+	hard_drivers = []
+	config_drivers = []
+	for i, (x, y, net_name) in enumerate(segment):
+		# check hardwired
+		if re.match(r"ram/RDATA_\d", net_name) or re.match(r"io_\d/D_IN_\d", net_name) or\
+		re.match(r"lutff_\d/(c|l)?out", net_name):
+			hard_drivers.append(i)
+		
+		# check configurable driver
+		for db_entry in ic.tile_db(x, y):
+			if not ic.tile_has_entry(x, y, db_entry):
+				continue
+			
+			if db_entry[1] not in ("buffer", "routing"):
+				continue
+			
+			# current net is destination
+			if db_entry[3] == net_name:
+				config_drivers.append(i)
+				break
+	
+	# check consistency
+	if len(hard_drivers) > 1:
+		raise ValueError(f"Multiple hardwired drivers {[segment[i] for i in hard_drivers]}")
+	
+	if len(hard_drivers) > 0 and len(config_drivers) > 0:
+		raise ValueError(f"Simultaneously hardwired and configuable sources: {[segment[i] for i in hard_drivers]} vs {[segment[i] for i in config_drivers]}")
+	
+	return len(hard_drivers)>0, tuple(hard_drivers + config_drivers)
+
 def get_seg_kinds(all_segments: Iterable[SegType]) -> Tuple[Iterable[SegType], Mapping[TileType, Set[SegRefType]]]:
 	# kinds of segments
 	seg_kinds = []
