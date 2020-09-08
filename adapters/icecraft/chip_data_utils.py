@@ -9,6 +9,7 @@ SegRefType = NewType("SegRefType", Tuple[int, int])
 ConfigEntryType = NewType("ConfigEntryType", tuple)
 ConfigKindType = NewType("ConfigKindType", Tuple[ConfigEntryType])
 BitType = NewType("BitType", Tuple[int, int])
+DriverType = NewType("DriverType", Tuple[bool, Tuple[int, ...]])
 
 def get_segs_for_tile(seg_kinds: List[SegType], tile_pos: TileType, seg_refs: Iterable[SegRefType]) -> List[SegType]:
 	segs = []

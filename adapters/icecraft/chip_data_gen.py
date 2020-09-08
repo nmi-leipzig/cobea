@@ -2,15 +2,16 @@
 
 import sys
 import re
+import functools
 from typing import Iterable, Set, Tuple, List, Iterable, Mapping, Any, NewType, TextIO, Dict
 
 sys.path.append("/usr/local/bin")
 import icebox
 
 try:
-	from chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType
+	from chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType
 except ModuleNotFoundError:
-	from .chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType
+	from .chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType
 
 def get_inner_tiles(ic: icebox.iceconfig) -> Set[TileType]:
 	inner_tiles = set()
@@ -80,7 +81,22 @@ def fix_known_issues(ic: icebox.iceconfig, seg_list: Iterable[SegType]) -> List[
 	
 	return fixed_list
 
-def get_driver_indices(ic: icebox.iceconfig, segment: SegType) -> Tuple[bool, Tuple[int, ...]]:
+@functools.lru_cache(None)
+def get_destination_names(ic: icebox.iceconfig, x: int, y: int) -> Set[str]:
+	dst_names = set()
+	
+	for db_entry in ic.tile_db(x, y):
+		if not ic.tile_has_entry(x, y, db_entry):
+			continue
+		
+		if db_entry[1] not in ("buffer", "routing"):
+			continue
+		
+		dst_names.add(db_entry[3])
+	
+	return dst_names
+
+def get_driver_indices(ic: icebox.iceconfig, segment: SegType) -> DriverType:
 	hard_drivers = []
 	config_drivers = []
 	for i, (x, y, net_name) in enumerate(segment):
@@ -90,17 +106,10 @@ def get_driver_indices(ic: icebox.iceconfig, segment: SegType) -> Tuple[bool, Tu
 			hard_drivers.append(i)
 		
 		# check configurable driver
-		for db_entry in ic.tile_db(x, y):
-			if not ic.tile_has_entry(x, y, db_entry):
-				continue
-			
-			if db_entry[1] not in ("buffer", "routing"):
-				continue
-			
-			# current net is destination
-			if db_entry[3] == net_name:
-				config_drivers.append(i)
-				break
+		# current net is destination
+		if net_name in get_destination_names(ic, x, y):
+			config_drivers.append(i)
+			break
 	
 	# check consistency
 	if len(hard_drivers) > 1:
@@ -111,9 +120,11 @@ def get_driver_indices(ic: icebox.iceconfig, segment: SegType) -> Tuple[bool, Tu
 	
 	return len(hard_drivers)>0, tuple(hard_drivers + config_drivers)
 
-def get_seg_kinds(all_segments: Iterable[SegType]) -> Tuple[Iterable[SegType], Mapping[TileType, Set[SegRefType]]]:
+def get_seg_kinds_and_drivers(ic: icebox.iceconfig, all_segments: Iterable[SegType]) -> Tuple[Iterable[SegType], Mapping[TileType, Set[SegRefType]], Iterable[DriverType]]:
 	# kinds of segments
 	seg_kinds = []
+	# drv of segment kinds
+	drv_kinds = []
 	# mapping seg_kind -> index
 	seg_kind_map = {}
 	# mapping (x, y) -> list of (seg_kind, role)
@@ -125,6 +136,7 @@ def get_seg_kinds(all_segments: Iterable[SegType]) -> Tuple[Iterable[SegType], M
 		base = sorted_seg_group[0]
 		
 		seg_kind = tuple([(x-base[0], y-base[1], r) for x, y, r in sorted_seg_group])
+		drivers = get_driver_indices(ic, sorted_seg_group)
 		
 		try:
 			seg_kind_index = seg_kind_map[seg_kind]
@@ -132,6 +144,11 @@ def get_seg_kinds(all_segments: Iterable[SegType]) -> Tuple[Iterable[SegType], M
 			seg_kind_index = len(seg_kinds)
 			seg_kinds.append(seg_kind)
 			seg_kind_map[seg_kind] = seg_kind_index
+			drv_kinds.append(drivers)
+		
+		# check driver consistency
+		if drivers != drv_kinds[seg_kind_index]:
+			raise ValueError(f"Inconsistent driver {drivers} != {drv_kinds[seg_kind_index]} for {str(sorted_seg_group)[:80]}")
 		
 		for role, entry in enumerate(sorted_seg_group):
 			tile_id = (entry[0], entry[1])
@@ -140,7 +157,7 @@ def get_seg_kinds(all_segments: Iterable[SegType]) -> Tuple[Iterable[SegType], M
 			# create relative segements
 			seg_tile_map.setdefault(tile_id, set()).add((seg_kind_index, role))
 	
-	return seg_kinds, seg_tile_map
+	return seg_kinds, seg_tile_map, drv_kinds
 
 def add_config_set(
 	config_kind_list: List[ConfigKindType],
@@ -210,17 +227,18 @@ def get_net_config_data(
 		
 		add_config_set(config_kind_list, config_kind_map, config_tile_map, tile_pos, config_set)
 
-def sort_net_data(seg_kinds: List[SegType], seg_tile_map: Mapping[TileType, SegRefType]) -> Tuple[List[SegType], Mapping[TileType, SegRefType]]:
+def sort_net_data(seg_kinds: List[SegType], seg_tile_map: Mapping[TileType, SegRefType], drv_kinds: List[DriverType]) -> Tuple[List[SegType], Mapping[TileType, SegRefType], List[DriverType]]:
 	# sort seg_kinds
 	sorted_indices = sorted(range(len(seg_kinds)), key=lambda i: seg_kinds[i])
 	srt_seg_kinds = [seg_kinds[i] for i in sorted_indices]
+	srt_drv_kinds = [drv_kinds[i] for i in sorted_indices]
 	# update seg_tile_map
 	index_map = {o: n for n, o in enumerate(sorted_indices)}
 	srt_tile_map = {}
 	for tile_id in seg_tile_map:
 		srt_tile_map[tile_id] = [(index_map[s], r) for s, r in seg_tile_map[tile_id]]
 	
-	return srt_seg_kinds, srt_tile_map
+	return srt_seg_kinds, srt_tile_map, srt_drv_kinds
 
 def split_bit_values(bit_comb: Tuple[str, ...]) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[bool, ...]]:
 	"""
@@ -293,8 +311,8 @@ def write_chip_data(chip_file: TextIO) -> None:
 	inner_tiles = get_inner_tiles(ic)
 	inner_segs = get_segments(ic, inner_tiles)
 	inner_segs = fix_known_issues(ic, inner_segs)
-	seg_kinds, seg_tile_map = get_seg_kinds(inner_segs)
-	seg_kinds, seg_tile_map = sort_net_data(seg_kinds, seg_tile_map)
+	seg_kinds, seg_tile_map, drv_kinds = get_seg_kinds_and_drivers(ic, inner_segs)
+	seg_kinds, seg_tile_map, drv_kinds = sort_net_data(seg_kinds, seg_tile_map, drv_kinds)
 	#for tile_pos in seg_tile_map:
 	#	if tile_pos[0] in (0, 33) or tile_pos[1] in (0, 33):
 	#		print(f"{tile_pos}: {len(seg_tile_map[tile_pos])}")

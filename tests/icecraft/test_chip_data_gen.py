@@ -1,6 +1,7 @@
 import unittest
 import copy
 import sys
+import unittest.mock as mock
 
 sys.path.append("/usr/local/bin")
 import icebox
@@ -33,6 +34,19 @@ class ChipDataGenTest(unittest.TestCase):
 		(0, 1): [(1, 0), (2, 0), (3, 0)],
 		(2, 1): [(1, 2), (2, 0)],
 	}
+	org_config_dict = {
+		(0, 1): [[["B0[1]"], "buffer", "sp_h_0", "internal"]],
+		(1, 0): [[["B0[2]"], "buffer", "sp_c_2", "internal"], [["B1[2]"], "buffer", "internal", "sp_c_2"]],
+		(1, 1): [[["B0[3]"], "buffer", "sp_v_1", "internal"], [["B2[0]"], "routing", "sp_v_1", "sp_h_1"]],
+		(1, 2): [[["B0[4]"], "buffer", "sp_v_2", "internal"], [["B1[0]"], "buffer", "internal", "sp_v_2"]],
+		(2, 1): [[["B0[5]"], "buffer", "sp_h_2", "internal"], [["B1[1]"], "buffer", "internal", "sp_h_2"]],
+	}
+	org_drv_kinds = (
+		(False, (2, )),
+		(False, (1, 2)),
+		(False, (0, )),
+		(False, (1, )),
+	)
 	
 	def check_segments(self, seg_kinds, tile_map, all_segs):
 		# group segments by tile
@@ -47,17 +61,38 @@ class ChipDataGenTest(unittest.TestCase):
 			
 			self.assertEqual(tile_segs[tile_pos], segs, f"Wrong segments for {tile_pos}")
 	
+	def check_drivers(self, exp_seg_kinds, exp_drv_kinds, seg_kinds, drv_kinds):
+		exp_map = {s: d for s, d in zip(exp_seg_kinds, exp_drv_kinds)}
+		for seg, drv in zip(seg_kinds, drv_kinds):
+			self.assertEqual(exp_map[seg], drv)
+	
+	def create_mock_iceconfig(self):
+		mock_ic = mock.MagicMock()
+		mock_ic.tile_db.side_effect = lambda x, y: self.org_config_dict[(x, y)]
+		
+		return mock_ic
+	
+	def test_meta_create_mock_iceconfig(self):
+		mock_ic = self.create_mock_iceconfig()
+		
+		for tile, exp in self.org_config_dict.items():
+			res = mock_ic.tile_db(*tile)
+			self.assertEqual(exp, res)
+	
 	def test_test_data(self):
 		self.check_segments(self.org_seg_kinds, self.org_tile_map, self.all_segs)
 	
-	def test_get_seg_kinds(self):
-		seg_kinds, tile_map = chip_data_gen.get_seg_kinds(self.all_segs)
+	def test_get_seg_kinds_and_drivers(self):
+		mock_ic = self.create_mock_iceconfig()
+		seg_kinds, tile_map, drv_kinds = chip_data_gen.get_seg_kinds_and_drivers(mock_ic, self.all_segs)
 		
 		self.check_segments(seg_kinds, tile_map, self.all_segs)
+		#  check drivers
+		self.check_drivers(self.org_seg_kinds, self.org_drv_kinds, seg_kinds, drv_kinds)
 	
 	def test_sort_net_data(self):
 		# sort
-		srt_seg_kinds, srt_tile_map = chip_data_gen.sort_net_data(self.org_seg_kinds, self.org_tile_map)
+		srt_seg_kinds, srt_tile_map, srt_drv_kinds = chip_data_gen.sort_net_data(self.org_seg_kinds, self.org_tile_map, self.org_drv_kinds)
 		
 		# check order
 		for i in range(len(srt_seg_kinds)-1):
@@ -66,6 +101,9 @@ class ChipDataGenTest(unittest.TestCase):
 		# check consistence
 		self.assertEqual(set(self.org_seg_kinds), set(srt_seg_kinds))
 		self.check_segments(srt_seg_kinds, srt_tile_map, self.all_segs)
+		
+		# drivers
+		self.check_drivers(self.org_seg_kinds, self.org_drv_kinds, srt_seg_kinds, srt_drv_kinds)
 	
 	def test_fix_known_issues(self):
 		# description, in_segs, exp_segs
