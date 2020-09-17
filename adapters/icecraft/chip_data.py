@@ -1,8 +1,8 @@
 # module to provide access to chip database
 
 from typing import Iterable, List, Dict, Union, Tuple, NewType
-from .chip_data_utils import TileType, SegType, BitType, get_segs_for_tile
-from .chip_database import seg_kinds, seg_tile_map, config_kinds, config_tile_map
+from .chip_data_utils import TileType, SegType, BitType, get_segs_for_tile, seg_from_seg_kind
+from .chip_database import seg_kinds, drv_kinds, seg_tile_map, config_kinds, config_tile_map
 from .misc import TilePosition, IcecraftBitPosition
 from .config_item import ConfigItem, IndexedItem, ConnectionItem, NamedItem
 
@@ -24,6 +24,26 @@ def get_segments(tiles: Iterable[TileType]) -> List[SegType]:
 		segs.update(tile_segs)
 	
 	return sorted(segs)
+
+def get_seg_kind_examples():
+	"""get an example segment for every segemtn kind"""
+	seg_kind_to_tile = [[] for _ in range(len(seg_kinds))]
+	for tile in sorted(seg_tile_map):
+		for seg_ref in sorted(seg_tile_map[tile]):
+			seg_kind_to_tile[seg_ref[0]].append((tile, seg_ref[1]))
+	
+	examples = []
+	for kind_index, tile_data in enumerate(seg_kind_to_tile):
+		tile_pos, role = tile_data[0]
+		seg = seg_from_seg_kind(seg_kinds[kind_index], tile_pos, role)
+		#print(f"{kind_index:03d}: {tile_pos} {drv_kinds[kind_index][0]}, {str_max([seg[i][2] for i in drv_kinds[kind_index][1]], 8)}\n{str_max(seg, 10)}\n")
+		examples.append((
+			seg,
+			tile_pos,
+			drv_kinds[kind_index],
+		))
+	
+	return examples
 
 def get_raw_config_data(tile: TileType) -> Dict[str, Union[Tuple[NamedBitsType], Tuple[MultiBitsType], Tuple[RawLUTType], ConDictType]]:
 	config_kind_index = tile_to_config_kind_index[tile]
