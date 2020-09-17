@@ -109,7 +109,10 @@ def get_driver_indices(ic: icebox.iceconfig, segment: SegType) -> DriverType:
 		# current net is destination
 		if net_name in get_destination_names(ic, x, y):
 			config_drivers.append(i)
-			break
+		
+		# padin is configured by extra bits, even so this tile is the driver in the end
+		if net_name.startswith("padin"):
+			config_drivers.append(i)
 	
 	# check consistency
 	if len(hard_drivers) > 1:
@@ -379,6 +382,10 @@ def write_chip_data(chip_file: TextIO) -> None:
 	
 	chip_file.write("seg_kinds = ")
 	write_iterable_iterable(chip_file, seg_kinds, 5, level, indent, True)
+	chip_file.write("\n\n")
+	
+	chip_file.write("drv_kinds = ")
+	write_iterable_iterable(chip_file, drv_kinds, 20, level, indent, True)
 	chip_file.write("\n\n")
 	
 	chip_file.write("seg_tile_map = ")
