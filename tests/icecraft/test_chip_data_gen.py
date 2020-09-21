@@ -79,7 +79,7 @@ class ChipDataGenTest(unittest.TestCase):
 			res = mock_ic.tile_db(*tile)
 			self.assertEqual(exp, res)
 	
-	def test_test_data(self):
+	def test_meta_test_data(self):
 		self.check_segments(self.org_seg_kinds, self.org_drv_kinds, self.org_tile_map, self.all_segs)
 	
 	def test_get_seg_kinds_and_drivers(self):
