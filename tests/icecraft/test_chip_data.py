@@ -188,29 +188,70 @@ class ChipDataTest(unittest.TestCase):
 				),)
 				self.check_segments(ic, ic_segs, cd_segs)
 	
-	def generic_get_segments_test(self, tiles, ic):
-		res = chip_data.get_segments(tiles)
-		res_set = set(res)
+	def get_driver_type(self, ic, segment, seg_index):
+		"""
+		None -> not a driver
+		True -> hardwired driver
+		False -> configurable driver
+		"""
+		x, y, net_name = segment[seg_index]
 		
-		self.assertEqual(len(res), len(res_set))
+		if net_name.startswith("padin"):
+			return False
 		
-		exp_segs = ic.group_segments(tiles, connect_gb=True)
+		if (net_name.endswith("out") and net_name != "fabout") or net_name.startswith("ram/RDATA") or re.match(r"io_\d/D_IN", net_name):
+			return True
 		
-		self.check_segments(ic, exp_segs, res)
+		for entry in ic.tile_db(x, y):
+			if not ic.tile_has_entry(x, y, entry):
+				continue
+			
+			if entry[1] in ("buffer", "routing") and entry[3] == net_name:
+				return False
+		
+		return None
 	
-	def test_get_segments(self):
+	def check_drivers(self, ic, net_data):
+		for net in net_data:
+			for i in range(len(net.segment)):
+				drv_type = self.get_driver_type(ic, net.segment, i)
+				if drv_type is None:
+					self.assertNotIn(i, net.drivers)
+				else:
+					self.assertIn(i, net.drivers)
+					self.assertEqual(drv_type, net.hard_driven, f"{net.segment[i]}")
+			if net.hard_driven:
+				self.assertTrue(len(net.drivers) == 1)
+	
+	def generic_get_net_data_test(self, tiles, ic):
+		res = chip_data.get_net_data(tiles)
+		res_set = set(res)
+		segs = tuple(s.segment for s in res)
+		
+		# check: all entries unique
+		self.assertEqual(len(res), len(res_set))
+		self.assertEqual(len(segs), len(set(segs)))
+		
+		# check segments
+		exp_segs = ic.group_segments(tiles, connect_gb=True)
+		self.check_segments(ic, exp_segs, segs)
+		
+		# check drivers
+		self.check_drivers(ic, res)
+	
+	def test_get_net_data(self):
 		ic = icebox.iceconfig()
 		ic.setup_empty_8k()
 		
 		# single tiles
 		for tile in self.representative_tiles:
 			with self.subTest(tiles=tile):
-				self.generic_get_segments_test([tile], ic)
+				self.generic_get_net_data_test([tile], ic)
 		
 		# tile group
 		tiles = [(16, 17), (16, 18), (16, 19)]
 		with self.subTest(tiles=tiles):
-			self.generic_get_segments_test(tiles, ic)
+			self.generic_get_net_data_test(tiles, ic)
 	
 	def bits_to_str(self, bits):
 		return self.merge_bit_values(bits, [True]*len(bits))

@@ -7,7 +7,7 @@ sys.path.append("/usr/local/bin")
 import icebox
 
 import adapters.icecraft.chip_data_gen as chip_data_gen
-from adapters.icecraft.chip_data_utils import get_segs_for_tile
+from adapters.icecraft.chip_data_utils import get_net_data_for_tile
 
 class ChipDataGenTest(unittest.TestCase):
 	# test data
@@ -48,7 +48,7 @@ class ChipDataGenTest(unittest.TestCase):
 		(False, (1, )),
 	)
 	
-	def check_segments(self, seg_kinds, tile_map, all_segs):
+	def check_segments(self, seg_kinds, drv_kinds, tile_map, all_segs):
 		# group segments by tile
 		tile_segs = {}
 		for seg_grp in all_segs:
@@ -56,8 +56,8 @@ class ChipDataGenTest(unittest.TestCase):
 				tile_segs.setdefault((x, y), set()).add(tuple(sorted(seg_grp)))
 		
 		for tile_pos in tile_map:
-			segs = get_segs_for_tile(seg_kinds, tile_pos, tile_map[tile_pos])
-			segs = set(tuple(sorted(s)) for s in segs)
+			nets = get_net_data_for_tile(seg_kinds, drv_kinds, tile_pos, tile_map[tile_pos])
+			segs = set(tuple(sorted(s.segment)) for s in nets)
 			
 			self.assertEqual(tile_segs[tile_pos], segs, f"Wrong segments for {tile_pos}")
 	
@@ -80,13 +80,13 @@ class ChipDataGenTest(unittest.TestCase):
 			self.assertEqual(exp, res)
 	
 	def test_test_data(self):
-		self.check_segments(self.org_seg_kinds, self.org_tile_map, self.all_segs)
+		self.check_segments(self.org_seg_kinds, self.org_drv_kinds, self.org_tile_map, self.all_segs)
 	
 	def test_get_seg_kinds_and_drivers(self):
 		mock_ic = self.create_mock_iceconfig()
 		seg_kinds, tile_map, drv_kinds = chip_data_gen.get_seg_kinds_and_drivers(mock_ic, self.all_segs)
 		
-		self.check_segments(seg_kinds, tile_map, self.all_segs)
+		self.check_segments(seg_kinds, drv_kinds, tile_map, self.all_segs)
 		#  check drivers
 		self.check_drivers(self.org_seg_kinds, self.org_drv_kinds, seg_kinds, drv_kinds)
 	
@@ -100,7 +100,7 @@ class ChipDataGenTest(unittest.TestCase):
 		
 		# check consistence
 		self.assertEqual(set(self.org_seg_kinds), set(srt_seg_kinds))
-		self.check_segments(srt_seg_kinds, srt_tile_map, self.all_segs)
+		self.check_segments(srt_seg_kinds, srt_drv_kinds, srt_tile_map, self.all_segs)
 		
 		# drivers
 		self.check_drivers(self.org_seg_kinds, self.org_drv_kinds, srt_seg_kinds, srt_drv_kinds)

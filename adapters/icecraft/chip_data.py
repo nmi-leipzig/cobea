@@ -1,7 +1,7 @@
 # module to provide access to chip database
 
 from typing import Iterable, List, Dict, Union, Tuple, NewType
-from .chip_data_utils import TileType, SegType, BitType, DriverType, get_segs_for_tile, seg_from_seg_kind
+from .chip_data_utils import TileType, SegType, BitType, DriverType, NetData, get_net_data_for_tile, seg_from_seg_kind
 from .chip_database import seg_kinds, drv_kinds, seg_tile_map, config_kinds, config_tile_map
 from .misc import TilePosition, IcecraftBitPosition
 from .config_item import ConfigItem, IndexedItem, ConnectionItem, NamedItem
@@ -17,13 +17,13 @@ ConDictType = NewType("ConDictType", Dict[MultiBitsType, RawConType])
 # tile -> config_kind
 tile_to_config_kind_index = {t: k for k, tl in config_tile_map.items() for t in tl}
 
-def get_segments(tiles: Iterable[TileType]) -> List[SegType]:
-	segs = set()
+def get_net_data(tiles: Iterable[TileType]) -> List[NetData]:
+	nets = set()
 	for tile_pos in tiles:
-		tile_segs = get_segs_for_tile(seg_kinds, tile_pos, seg_tile_map[tile_pos])
-		segs.update(tile_segs)
+		tile_nets = get_net_data_for_tile(seg_kinds, drv_kinds, tile_pos, seg_tile_map[tile_pos])
+		nets.update(tile_nets)
 	
-	return sorted(segs)
+	return sorted(nets)
 
 def get_seg_kind_examples() -> List[Tuple[SegType, TileType, DriverType]]:
 	"""get an example segment for every segemtn kind"""
