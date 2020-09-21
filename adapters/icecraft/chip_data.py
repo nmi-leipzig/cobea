@@ -1,7 +1,7 @@
 # module to provide access to chip database
 
 from typing import Iterable, List, Dict, Union, Tuple, NewType
-from .chip_data_utils import TileType, SegType, BitType, get_segs_for_tile, seg_from_seg_kind
+from .chip_data_utils import TileType, SegType, BitType, DriverType, get_segs_for_tile, seg_from_seg_kind
 from .chip_database import seg_kinds, drv_kinds, seg_tile_map, config_kinds, config_tile_map
 from .misc import TilePosition, IcecraftBitPosition
 from .config_item import ConfigItem, IndexedItem, ConnectionItem, NamedItem
@@ -25,7 +25,7 @@ def get_segments(tiles: Iterable[TileType]) -> List[SegType]:
 	
 	return sorted(segs)
 
-def get_seg_kind_examples():
+def get_seg_kind_examples() -> List[Tuple[SegType, TileType, DriverType]]:
 	"""get an example segment for every segemtn kind"""
 	seg_kind_to_tile = [[] for _ in range(len(seg_kinds))]
 	for tile in sorted(seg_tile_map):
