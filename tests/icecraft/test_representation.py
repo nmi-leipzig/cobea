@@ -93,3 +93,22 @@ class IcecraftRepGenTest(unittest.TestCase):
 	def test_parameter_user(self):
 		rep_gen = icecraft.IcecraftRepGen()
 		check_parameter_user(self, rep_gen)
+	
+	def test_tiles_from_rectangle(self):
+		test_data = (
+			((2, 2, 2, 2), [(2, 2)]), # single tile
+			((3, 5, 7, 5), [(3, 5), (4, 5), (5, 5), (6, 5), (7, 5)]), # row
+			((7, 9, 7, 13), [(7, 9), (7, 10), (7, 11), (7, 12), (7, 13)]), # colum
+			((4, 6, 5, 7), [(4, 6), (4, 7), (5, 6), (5, 7)]), # no inner tile
+			((5, 8, 7, 10), [(5, 8), (5, 9), (5, 10), (6, 8), (6, 9), (6, 10), (7, 8), (7, 9), (7, 10)]), # inner tile
+		)
+		
+		for rect, exp in test_data:
+			res = icecraft.IcecraftRepGen.tiles_from_rectangle(*rect)
+			res_set = set(res)
+			
+			# no duplicates
+			self.assertEqual(len(res), len(res_set))
+			
+			# correct tiles
+			self.assertEqual(set(exp), res_set)

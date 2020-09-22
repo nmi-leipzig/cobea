@@ -1,11 +1,11 @@
-from typing import Sequence, Mapping
+from typing import Sequence, Mapping, List
 from dataclasses import dataclass
 
 from domain.interfaces import Representation, RepresentationGenerator
 from domain.model import TargetConfiguration, Gene, Chromosome
 from domain.request_model import RequestObject, Parameter
 
-from .misc import IcecraftLUTPosition, IcecraftColBufCtrl, IcecraftNetPosition, LUTFunction
+from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, IcecraftNetPosition, LUTFunction
 
 @dataclass
 class IcecraftRep(Representation):
@@ -44,6 +44,10 @@ class IcecraftRepGen(RepresentationGenerator):
 	@property
 	def parameters(self) -> Mapping[str, Parameter]:
 		return self._parameters
+	
+	@staticmethod
+	def tiles_from_rectangle(x_min: int, y_min: int, x_max: int, y_max: int) -> List[TilePosition]:
+		return [TilePosition(x, y) for x in range(x_min, x_max+1) for y in range(y_min, y_max+1)]
 	
 	def __call__(self, request: RequestObject) -> IcecraftRep:
 		return IcecraftRep([], [], [], tuple(sorted(request.output_lutffs)))
