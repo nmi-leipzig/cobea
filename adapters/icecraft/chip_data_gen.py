@@ -243,6 +243,23 @@ def sort_net_data(seg_kinds: List[SegType], seg_tile_map: Mapping[TileType, SegR
 	
 	return srt_seg_kinds, srt_tile_map, srt_drv_kinds
 
+def get_colbufctrl_data(ic: icebox.iceconfig, tiles: Iterable[TileType]) -> Mapping[TileType, Tuple[TileType, ...]]:
+	"""extract ColBufCtrl tiles mapping
+	
+	return map: colbufctrl_tile -> tuple(controlled_tiles)
+	"""
+	
+	cbc_db = ic.colbuf_db()
+	cbc_tile_map = {}
+	for cbc_x, cbc_y, x, y in cbc_db:
+		tile = (x, y)
+		if tile not in tiles:
+			continue
+		
+		cbc_tile_map.setdefault((cbc_x, cbc_y), set()).add(tile)
+	
+	return {c: tuple(sorted(t)) for c, t in cbc_tile_map.items()}
+
 def split_bit_values(bit_comb: Tuple[str, ...]) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[bool, ...]]:
 	"""
 	Split an collection of bit values in the icebox format into bit coordinates and values.

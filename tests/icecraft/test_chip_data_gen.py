@@ -217,3 +217,35 @@ class ChipDataGenTest(unittest.TestCase):
 				res = chip_data_gen.get_driver_indices(ic, seg)
 				
 				self.assertEqual(exp, res)
+	
+	def test_colbuf_db(self):
+		ic = icebox.iceconfig()
+		ic.setup_empty_8k()
+		cbc_db = ic.colbuf_db()
+		
+		# check uniqueness
+		image = [(x, y) for _, _, x, y in cbc_db]
+		self.assertEqual(len(image), len(set(image)))
+		
+		# check completeness
+		all_set = set((x, y) for x in range(ic.max_x+1) for y in range(ic.max_y+1))
+	
+	def test_get_colbufctrl_data(self):
+		ic = icebox.iceconfig()
+		ic.setup_empty_8k()
+		cbc_db = ic.colbuf_db()
+		
+		for tiles in (((1, 2), ), ((3, 5), (23, 5)), chip_data_gen.get_inner_tiles(ic)):
+			with self.subTest(desc=str(tiles)[:40]):
+				res = chip_data_gen.get_colbufctrl_data(ic, tiles)
+				# check correct mapping
+				# also finds controlled tiles that appear for multiple cbc tiles
+				for cbc, controlled_tiles in res.items():
+					for ct in controlled_tiles:
+						self.assertTrue((*cbc, *ct) in cbc_db, f"{cbc} -> {ct} not in colbuf_db")
+				
+				# check complete mapping
+				mapped_tiles = set()
+				for controlled_tiles in res.values():
+					mapped_tiles.update(controlled_tiles)
+				self.assertEqual(set(tiles), mapped_tiles)
