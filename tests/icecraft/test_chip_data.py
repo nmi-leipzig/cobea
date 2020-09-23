@@ -395,3 +395,23 @@ class ChipDataTest(unittest.TestCase):
 			with self.subTest(tiles=tile):
 				self.generic_get_config_items_test(ic, tile)
 	
+	def check_uniqueness(self, iterable):
+		self.assertEqual(len(iterable), len(set(iterable)))
+	
+	def test_get_colbufctrl(self):
+		ic = icebox.iceconfig()
+		ic.setup_empty_8k()
+		tile_cbc_map = {(x, y): (cx, cy) for cx, cy, x, y in ic.colbuf_db()}
+		
+		test_sets = [(t, ) for t in self.representative_tiles]
+		test_sets.append(self.representative_tiles)
+		
+		for tiles in test_sets:
+			with self.subTest(desc=f"tiles {str(tiles)[:40]}"):
+				res = chip_data.get_colbufctrl(tiles)
+				
+				self.check_uniqueness(res)
+				
+				exp_set = set(tile_cbc_map[t] for t in tiles)
+				
+				self.assertEqual(exp_set, set(res))

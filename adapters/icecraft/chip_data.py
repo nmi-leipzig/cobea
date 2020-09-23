@@ -2,7 +2,7 @@
 
 from typing import Iterable, List, Dict, Union, Tuple, NewType
 from .chip_data_utils import TileType, SegType, BitType, DriverType, NetData, get_net_data_for_tile, seg_from_seg_kind
-from .chip_database import seg_kinds, drv_kinds, seg_tile_map, config_kinds, config_tile_map
+from .chip_database import seg_kinds, drv_kinds, seg_tile_map, config_kinds, config_tile_map, colbufctrl_tile_map
 from .misc import TilePosition, IcecraftBitPosition
 from .config_item import ConfigItem, IndexedItem, ConnectionItem, NamedItem
 
@@ -16,6 +16,8 @@ ConDictType = NewType("ConDictType", Dict[MultiBitsType, RawConType])
 
 # tile -> config_kind
 tile_to_config_kind_index = {t: k for k, tl in config_tile_map.items() for t in tl}
+# tile -> colbufctrl tile
+tile_to_colbufctrl = {t: c for c, tl in colbufctrl_tile_map.items() for t in tl}
 
 def get_net_data(tiles: Iterable[TileType]) -> List[NetData]:
 	nets = set()
@@ -89,3 +91,11 @@ def get_config_items(tile: TileType) -> Dict[str, Tuple[Union[ConfigItem, Tuple[
 			raise ValueError(f"Unkown group {grp_name}")
 	
 	return item_dict
+
+def get_colbufctrl(tiles: Iterable[TileType]) -> List[TileType]:
+	colbufctrl_set = set()
+	for tile in tiles:
+		cbc = tile_to_colbufctrl[tile]
+		colbufctrl_set.add(cbc)
+	
+	return sorted(colbufctrl_set)
