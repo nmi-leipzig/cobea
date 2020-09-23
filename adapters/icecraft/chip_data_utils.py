@@ -16,7 +16,7 @@ DriverType = NewType("DriverType", Tuple[bool, Tuple[int, ...]])
 class NetData:
 	segment: SegType
 	hard_driven: bool
-	drivers: Tuple[DriverType, ...]
+	drivers: Tuple[int, ...]
 
 def seg_from_seg_kind(seg_kind: SegType, tile_pos: TileType, role: int) -> SegType:
 	"""reconstruct segment from segment kind, tile position and role"""
