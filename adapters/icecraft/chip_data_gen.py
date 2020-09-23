@@ -390,6 +390,8 @@ def write_chip_data(chip_file: TextIO) -> None:
 				raise ValueError(f"Unknown entry type: {entry[1]}")
 		config_data_list.append(config_data)
 	
+	colbufctrl_map = get_colbufctrl_data(ic, inner_tiles)
+	
 	indent = "\t"
 	level = 0
 	#chip_file.write("net_names = (\n")
@@ -440,6 +442,9 @@ def write_chip_data(chip_file: TextIO) -> None:
 	write_dict_iterable(chip_file, config_tile_map, 12, level, indent)
 	chip_file.write("\n\n")
 	
+	chip_file.write("colbufctrl_tile_map = ")
+	write_dict_iterable(chip_file, colbufctrl_map, 12, level, indent)
+	chip_file.write("\n\n")
 
 if __name__ == "__main__":
 	with open("chip_database.py", "w") as chip_file:
