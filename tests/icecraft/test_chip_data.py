@@ -1,6 +1,8 @@
 import unittest
 import sys
 import re
+import functools
+from multiprocessing import Pool
 
 sys.path.append("/usr/local/bin")
 import icebox
@@ -188,6 +190,18 @@ class ChipDataTest(unittest.TestCase):
 				),)
 				self.check_segments(ic, ic_segs, cd_segs)
 	
+	@functools.lru_cache(None)
+	def get_destinations(self, ic, x, y):
+		dst_names = []
+		for entry in ic.tile_db(x, y):
+			if not ic.tile_has_entry(x, y, entry):
+				continue
+			
+			if entry[1] in ("buffer", "routing"):
+				dst_names.append(entry[3])
+		
+		return dst_names
+	
 	def get_driver_type(self, ic, segment, seg_index):
 		"""
 		None -> not a driver
@@ -202,12 +216,8 @@ class ChipDataTest(unittest.TestCase):
 		if (net_name.endswith("out") and net_name != "fabout") or net_name.startswith("ram/RDATA") or re.match(r"io_\d/D_IN", net_name):
 			return True
 		
-		for entry in ic.tile_db(x, y):
-			if not ic.tile_has_entry(x, y, entry):
-				continue
-			
-			if entry[1] in ("buffer", "routing") and entry[3] == net_name:
-				return False
+		if net_name in self.get_destinations(ic, x, y):
+			return False
 		
 		return None
 	
@@ -223,7 +233,7 @@ class ChipDataTest(unittest.TestCase):
 			if net.hard_driven:
 				self.assertTrue(len(net.drivers) == 1)
 	
-	def generic_get_net_data_test(self, tiles, ic):
+	def generic_get_net_data_test(self, tiles, ic, exp_segs):
 		res = chip_data.get_net_data(tiles)
 		res_set = set(res)
 		segs = tuple(s.segment for s in res)
@@ -233,25 +243,31 @@ class ChipDataTest(unittest.TestCase):
 		self.assertEqual(len(segs), len(set(segs)))
 		
 		# check segments
-		exp_segs = ic.group_segments(tiles, connect_gb=True)
 		self.check_segments(ic, exp_segs, segs)
 		
 		# check drivers
 		self.check_drivers(ic, res)
 	
+	@staticmethod
+	def ic_seg(tiles, ic):
+		return ic.group_segments(tiles, connect_gb=True)
+	
+	
 	def test_get_net_data(self):
 		ic = icebox.iceconfig()
 		ic.setup_empty_8k()
 		
-		# single tiles
-		for tile in self.representative_tiles:
-			with self.subTest(tiles=tile):
-				self.generic_get_net_data_test([tile], ic)
+		test_tiles = [[t] for t in self.representative_tiles]
+		test_tiles.append([(16, 17), (16, 18), (16, 19)])
 		
-		# tile group
-		tiles = [(16, 17), (16, 18), (16, 19)]
-		with self.subTest(tiles=tiles):
-			self.generic_get_net_data_test(tiles, ic)
+		with Pool() as pool:
+			seg_func = functools.partial(self.ic_seg, ic=ic)
+			exp = pool.map(seg_func , test_tiles)
+		
+		for tiles, exp_segs in zip(test_tiles, exp):
+			with self.subTest(tiles=tiles):
+				self.generic_get_net_data_test(tiles, ic, exp_segs)
+		
 	
 	def bits_to_str(self, bits):
 		return self.merge_bit_values(bits, [True]*len(bits))
@@ -378,4 +394,4 @@ class ChipDataTest(unittest.TestCase):
 		for tile in self.representative_tiles:
 			with self.subTest(tiles=tile):
 				self.generic_get_config_items_test(ic, tile)
-		
+	
