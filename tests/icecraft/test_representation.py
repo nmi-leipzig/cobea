@@ -1,11 +1,22 @@
 import unittest
 
 import adapters.icecraft as icecraft
+from adapters.icecraft.representation import NetRelation
 from domain.request_model import RequestObject
+from adapters.icecraft.chip_data_utils import NetData
 
 from ..test_request_model import check_parameter_user
 
 class IcecraftRepGenTest(unittest.TestCase):
+	raw_nets = [
+		NetData(((2, 3, "internal"), ), False, (0,)),
+		NetData(((0, 3, "right"), (1, 3, "out"), (2, 3, "left")), True, (1, )),
+		NetData(((1, 3, "wire_in"), (2, 3, "wire_out")), False, (0, )),
+	]
+	
+	def create_net_relations(self):
+		return [icecraft.representation.NetRelation(n) for n in self.raw_nets]
+	
 	def test_creation(self):
 		dut = icecraft.IcecraftRepGen()
 	
@@ -112,3 +123,76 @@ class IcecraftRepGenTest(unittest.TestCase):
 			
 			# correct tiles
 			self.assertEqual(set(exp), res_set)
+	
+	def test_net_map_from_net_relations(self):
+		test_input = self.create_net_relations()
+		
+		res = icecraft.IcecraftRepGen.net_map_from_net_relations(test_input)
+		
+		# check all net_data in map
+		for net_rel in test_input:
+			for net_id in net_rel.segment:
+				net_res = res[net_id]
+				self.assertEqual(net_rel, net_res)
+		
+		# check consistency
+		for net_id, net_res in res.items():
+			self.assertIn(net_id, net_res.segment)
+			self.assertIn(net_res, test_input)
+	
+	def check_uniqueness(self, iterable):
+		self.assertEqual(len(iterable), len(set(iterable)))
+	
+	def test_populate_source_groups(self):
+		net_relations = self.create_net_relations()
+		net_map = icecraft.IcecraftRepGen.net_map_from_net_relations(net_relations)
+		
+		# left -> internal
+		# wire_out -> internal
+		# out -> wire_in
+		BitPos = icecraft.IcecraftBitPosition
+		ConnectionItem = icecraft.config_item.ConnectionItem
+		con_configs = [
+			ConnectionItem(
+				(BitPos.from_coords(2, 3, 7, 0), BitPos.from_coords(2, 3, 7, 1)),
+				"connection",
+				"internal",
+				((True, False), (True, True)),
+				("left", "wire_out")
+			),
+			ConnectionItem(
+				(BitPos.from_coords(1, 3, 6, 10), BitPos.from_coords(1, 3, 6, 11)),
+				"connection",
+				"out",
+				((True, False), ),
+				("wire_in", )
+			),
+			
+		]
+		
+		res = icecraft.IcecraftRepGen.populate_source_groups(net_map, con_configs)
+		
+		res_configs = [s.config_item for s in res]
+		self.check_uniqueness(res_configs)
+		
+		self.assertEqual(set(con_configs), set(res_configs))
+		
+		with self.subTest(desc="source group to destination"):
+			for src_grp in res:
+				self.assertIn(src_grp, src_grp.dst.src_grp_list)
+		
+		with self.subTest(desc="destination to source group"):
+			for net_rel in net_relations:
+				for src_grp in net_rel.src_grp_list:
+					self.assertEqual(net_rel, src_grp.dst)
+		
+		with self.subTest(desc="source group to source"):
+			for src_grp in res:
+				for i, src in enumerate(src_grp.src_list):
+					self.assertIn((*src_grp.tile, src_grp.config_item.src_nets[i]), src.segment)
+					self.assertIn(src_grp, src.dst_grp_list)
+		
+		with self.subTest(desc="source to source group"):
+			for net_rel in net_relations:
+				for index, dst_grp in zip(net_rel.dst_indices, net_rel.dst_grp_list):
+					self.assertEqual(net_rel, dst_grp.src_list[index])
