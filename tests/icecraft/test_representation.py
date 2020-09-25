@@ -163,9 +163,9 @@ class IcecraftRepGenTest(unittest.TestCase):
 			ConnectionItem(
 				(BitPos.from_coords(1, 3, 6, 10), BitPos.from_coords(1, 3, 6, 11)),
 				"connection",
-				"out",
+				"wire_in",
 				((True, False), ),
-				("wire_in", )
+				("out", )
 			),
 			
 		]
@@ -183,6 +183,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		with self.subTest(desc="destination to source group"):
 			for net_rel in net_relations:
+				if net_rel.hard_driven:
+					self.assertEqual(0, len(net_rel.src_grp_list), f"{net_rel.src_grp_list}")
 				for src_grp in net_rel.src_grp_list:
 					self.assertEqual(net_rel, src_grp.dst)
 		
