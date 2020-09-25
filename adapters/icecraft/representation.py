@@ -40,6 +40,9 @@ class NetRelation:
 	@property
 	def drivers(self) -> Tuple[int, ...]:
 		return self._net_data.drivers
+	
+	def __repr__(self) -> str:
+		return f"NetRelation({repr(self._net_data)})"
 
 class SourceGroup:
 	"""Group of sources for a destination, controlled by the same bits"""
@@ -66,6 +69,10 @@ class SourceGroup:
 	@property
 	def src_list(self) -> Tuple[NetRelation, ...]:
 		return self._src_list
+	
+	def __repr__(self) -> str:
+		bit_str = "".join([f"({b.group}, {b.index}), " for b in self.config_item.bits])
+		return f"SourceGroup(tile=({self.tile.x}, {self.tile.y}), bits=({bit_str}), dst={repr(self.dst)})"
 
 @dataclass
 class IcecraftRep(Representation):
