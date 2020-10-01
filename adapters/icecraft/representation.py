@@ -1,4 +1,4 @@
-from typing import Sequence, Mapping, List, Tuple, Iterable
+from typing import Sequence, Mapping, List, Tuple, Iterable, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
 
@@ -237,6 +237,11 @@ class IcecraftRepGen(RepresentationGenerator):
 		raw_nets = get_net_data(tiles)
 		#net_relations = [NetRelation(n) for n in raw_nets]
 		net_map = NetRelation.net_map_from_net_data(raw_nets, tiles)
+		#net_relations = sorted(set(net_map.values()))
+		
+		# exclude all nets with driver outside of tiles
+		# exclude exclude nets
+		
 		
 		config_map = {t: get_config_items(t) for t in tiles}
 		
@@ -246,3 +251,11 @@ class IcecraftRepGen(RepresentationGenerator):
 	def tiles_from_rectangle(x_min: int, y_min: int, x_max: int, y_max: int) -> List[TilePosition]:
 		return [TilePosition(x, y) for x in range(x_min, x_max+1) for y in range(y_min, y_max+1)]
 	
+	@staticmethod
+	def set_available(net_relations: Iterable[NetRelation], value: bool, cond: Callable[[NetRelation], bool]) -> None:
+		for net_rel in net_relations:
+			if net_rel.available == value:
+				continue
+			
+			if cond(net_rel):
+				net_rel.available = value

@@ -1,4 +1,5 @@
 import unittest
+import re
 
 import adapters.icecraft as icecraft
 from adapters.icecraft import TilePosition, IcecraftBitPosition
@@ -328,6 +329,7 @@ class SourceGroupTest(unittest.TestCase):
 					self.assertEqual(net_rel, dst_grp.src_list[index])
 
 class IcecraftRepGenTest(unittest.TestCase):
+	raw_nets = NetRelationTest.raw_nets
 	
 	def test_creation(self):
 		dut = icecraft.IcecraftRepGen()
@@ -435,3 +437,61 @@ class IcecraftRepGenTest(unittest.TestCase):
 			
 			# correct tiles
 			self.assertEqual(set(exp), res_set)
+	
+	def check_available(self, exp, net_relations):
+		for exp_value, net_rel in zip(exp, net_relations):
+			self.assertEqual(exp_value, net_rel.available, f"{net_rel}")
+	
+	def cond_func(self, net_rel):
+		for seg in net_rel.segment:
+			if re.match(r".*out$", seg[2]):
+				return True
+		return False
+	
+	def test_set_available(self):
+		tiles = set(TilePosition(*n.segment[i][:2]) for n in self.raw_nets for i in n.drivers)
+		part_tiles = set(tiles)
+		for net_index in (2, 12):
+			net = self.raw_nets[net_index]
+			seg_index = net.drivers[0]
+			part_tiles.remove((*net.segment[seg_index][:2], ))
+		net_relations = [NetRelation(d, part_tiles) for d in self.raw_nets]
+		
+		with self.subTest(desc="all to False"):
+			icecraft.IcecraftRepGen.set_available(net_relations, False, lambda x: True)
+			self.check_available([False]*len(net_relations), net_relations)
+		
+		with self.subTest(desc="all to True"):
+			icecraft.IcecraftRepGen.set_available(net_relations, True, lambda x: True)
+			exp = [True]*len(net_relations)
+			self.check_available([True]*len(net_relations), net_relations)
+		
+		with self.subTest(desc="no change"):
+			icecraft.IcecraftRepGen.set_available(net_relations, False, lambda x: False)
+			self.check_available(exp, net_relations)
+		
+		with self.subTest(desc="regex"):
+			# reset
+			icecraft.IcecraftRepGen.set_available(net_relations, True, lambda x: True)
+			
+			exp = [True]*len(net_relations)
+			exp[2] = exp[3] = exp[4] = exp[7] = exp[12] = False
+			icecraft.IcecraftRepGen.set_available(net_relations, False, lambda x: any(re.match(r".*out$", n) for _, _, n in x.segment))
+			self.check_available(exp, net_relations)
+		
+		with self.subTest(desc="regex function"):
+			# reset
+			icecraft.IcecraftRepGen.set_available(net_relations, True, lambda x: True)
+			icecraft.IcecraftRepGen.set_available(net_relations, False, self.cond_func)
+			self.check_available(exp, net_relations)
+		
+		with self.subTest(desc="external driver"):
+			# reset
+			icecraft.IcecraftRepGen.set_available(net_relations, True, lambda x: True)
+			
+			exp = [True]*len(net_relations)
+			exp[2] = exp[3] = exp[11] = exp[12] = False
+			icecraft.IcecraftRepGen.set_available(net_relations, False, lambda x: x.has_external_driver)
+			self.check_available(exp, net_relations)
+			
+		
