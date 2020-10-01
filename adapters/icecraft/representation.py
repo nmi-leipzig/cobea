@@ -127,15 +127,14 @@ class NetRelation:
 		return f"NetRelation({repr(self._net_data)})"
 	
 	@classmethod
-	def net_map_from_net_data(cls, net_data_iter: Iterable[NetData], inner_tiles: Iterable[TilePosition]) -> Mapping[NetId, "NetRelation"]:
-		"""create NetRelation instances and put them in a dictionary NetId -> NetRelation"""
-		net_map = {}
-		for net_data in net_data_iter:
-			net_rel = cls(net_data, inner_tiles)
-			for net_id in net_rel.segment:
-				net_map[net_id] = net_rel
-		
-		return net_map
+	def from_net_data_iter(cls, net_data_iter: Iterable[NetData], inner_tiles: Iterable[TilePosition]) -> List["NetRelation"]:
+		"""create NetRelation instances"""
+		return [cls(d, inner_tiles) for d in net_data_iter]
+	
+	@staticmethod
+	def create_net_map(net_relations: Iterable["NetRelation"]) -> Mapping[NetId, "NetRelation"]:
+		"""put NetRelation instances in a dictionary NetId -> NetRelation"""
+		return {net_id: net_rel for net_rel in net_relations for net_id in net_rel.segment}
 	
 
 class SourceGroup:
@@ -235,9 +234,8 @@ class IcecraftRepGen(RepresentationGenerator):
 		tiles = self.tiles_from_rectangle(request.x_min, request.y_min, request.x_max, request.y_max)
 		
 		raw_nets = get_net_data(tiles)
-		#net_relations = [NetRelation(n) for n in raw_nets]
-		net_map = NetRelation.net_map_from_net_data(raw_nets, tiles)
-		#net_relations = sorted(set(net_map.values()))
+		net_relations = NetRelation.from_net_data_iter(raw_nets, tiles)
+		net_map = NetRelation.create_net_map(net_relations)
 		
 		# exclude all nets with driver outside of tiles
 		# exclude exclude nets

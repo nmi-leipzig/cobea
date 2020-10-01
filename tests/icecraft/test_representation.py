@@ -83,6 +83,11 @@ class NetRelationTest(unittest.TestCase):
 			dut = NetRelation(net_data)
 			dut_2 = NetRelation(net_data, tiles)
 	
+	def test_from_net_data_iter(self):
+		res = NetRelation.from_net_data_iter(self.raw_nets, [])
+		for exp_data, net_rel in zip(self.raw_nets, res):
+			self.assertEqual(exp_data, net_rel.net_data)
+	
 	def test_net_data(self):
 		for net_data in self.raw_nets:
 			with self.subTest(net_data=net_data):
@@ -111,16 +116,21 @@ class NetRelationTest(unittest.TestCase):
 				dut.available = True
 				self.assertTrue(dut.available)
 	
-	def test_net_map_from_net_data(self):
+	def test_create_net_map(self):
 		test_input = self.raw_nets
-		
-		res = NetRelation.net_map_from_net_data(test_input, [])
+		net_relations = NetRelation.from_net_data_iter(test_input, [])
+		res = NetRelation.create_net_map(net_relations)
 		
 		# check all net_data in map
 		for net_data in test_input:
 			for net_id in net_data.segment:
 				net_res = res[net_id]
 				self.assertEqual(net_data, net_res.net_data)
+		
+		for net_rel in net_relations:
+			self.assertIn(net_rel, res.values())
+		
+		self.assertEqual(set(net_relations), set(res.values()))
 		
 		# check consistency
 		for net_id, net_res in res.items():
@@ -133,8 +143,8 @@ class NetRelationTest(unittest.TestCase):
 	
 	def test_is_viable_src(self):
 		tiles = set(TilePosition(*n.segment[i][:2]) for n in self.raw_nets for i in n.drivers)
-		net_map = NetRelation.net_map_from_net_data(self.raw_nets, tiles)
-		net_relations = [net_map[d.segment[0]] for d in self.raw_nets]
+		net_relations = NetRelation.from_net_data_iter(self.raw_nets, tiles)
+		net_map = NetRelation.create_net_map(net_relations)
 		exp = [False]*len(net_relations)
 		exp[2] = exp[7] = exp[12] = True
 		
@@ -202,9 +212,9 @@ class NetRelationTest(unittest.TestCase):
 		
 		# variance in external drivers
 		with self.subTest(desc="all external"):
-			net_map = NetRelation.net_map_from_net_data(self.raw_nets, [])
+			net_relations = NetRelation.from_net_data_iter(self.raw_nets, [])
+			net_map = NetRelation.create_net_map(net_relations)
 			SourceGroup.populate_net_relations(net_map, self.raw_configs)
-			net_relations = [net_map[d.segment[0]] for d in self.raw_nets]
 			exp = [True]*len(net_relations)
 			exp[4] = False
 			self.check_is_viable_source(exp, net_relations)
@@ -213,15 +223,16 @@ class NetRelationTest(unittest.TestCase):
 			part_tiles = set(tiles)
 			part_tiles.remove((*self.raw_nets[2].segment[0][:2], ))
 			part_tiles.remove((*self.raw_nets[9].segment[0][:2], ))
-			net_map = NetRelation.net_map_from_net_data(self.raw_nets, part_tiles)
+			net_relations = NetRelation.from_net_data_iter(self.raw_nets, part_tiles)
+			net_map = NetRelation.create_net_map(net_relations)
 			SourceGroup.populate_net_relations(net_map, self.raw_configs[1:2]+self.raw_configs[6:9])
-			net_relations = [net_map[d.segment[0]] for d in self.raw_nets]
 			exp = [True]*len(net_relations)
 			exp[0] = exp[4] = exp[5] = exp[6] = False
 			self.check_is_viable_source(exp, net_relations)
 	
 	def test_add_src_grp(self):
-		net_map = NetRelation.net_map_from_net_data(self.raw_nets, [])
+		net_relations = NetRelation.from_net_data_iter(self.raw_nets, [])
+		net_map = NetRelation.create_net_map(net_relations)
 		for rc in self.raw_configs:
 			with self.subTest(raw_conf=rc):
 				tile_pos = rc.bits[0].tile
@@ -241,7 +252,8 @@ class NetRelationTest(unittest.TestCase):
 				self.assertEqual(set(), set(prev_src_grps)-set(post_src_grps))
 	
 	def test_add_dst_grp(self):
-		net_map = NetRelation.net_map_from_net_data(self.raw_nets, [])
+		net_relations = NetRelation.from_net_data_iter(self.raw_nets, [])
+		net_map = NetRelation.create_net_map(net_relations)
 		for rc in self.raw_configs:
 			with self.subTest(raw_conf=rc):
 				tile_pos = rc.bits[0].tile
@@ -271,7 +283,8 @@ class SourceGroupTest(unittest.TestCase):
 	
 	def create_net_map(self):
 		tiles = [TilePosition(*r) for r in ((1, 3), (2, 3), (4, 1), (4, 2), (4, 3), (5, 0), (5, 3), (7, 0), (8, 0), (8, 3))]
-		net_map = NetRelation.net_map_from_net_data(self.raw_nets, tiles)
+		net_relations = NetRelation.from_net_data_iter(self.raw_nets, tiles)
+		net_map = NetRelation.create_net_map(net_relations)
 		
 		return net_map
 	
@@ -294,8 +307,8 @@ class SourceGroupTest(unittest.TestCase):
 		self.assertEqual(len(iterable), len(set(iterable)))
 	
 	def test_populate_net_relations(self):
-		net_map = NetRelation.net_map_from_net_data(self.raw_nets, [])
-		net_relations = set(net_map.values())
+		net_relations = NetRelation.from_net_data_iter(self.raw_nets, [])
+		net_map = NetRelation.create_net_map(net_relations)
 		
 		con_configs = self.raw_configs
 		
