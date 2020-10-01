@@ -1,21 +1,333 @@
 import unittest
 
 import adapters.icecraft as icecraft
-from adapters.icecraft.representation import NetRelation
+from adapters.icecraft import TilePosition, IcecraftBitPosition
+from adapters.icecraft.representation import NetRelation, SourceGroup
 from domain.request_model import RequestObject
 from adapters.icecraft.chip_data_utils import NetData
+from adapters.icecraft.config_item import ConnectionItem
 
 from ..test_request_model import check_parameter_user
 
-class IcecraftRepGenTest(unittest.TestCase):
+class NetRelationTest(unittest.TestCase):
 	raw_nets = [
-		NetData(((2, 3, "internal"), ), False, (0,)),
-		NetData(((0, 3, "right"), (1, 3, "out"), (2, 3, "left")), True, (1, )),
-		NetData(((1, 3, "wire_in"), (2, 3, "wire_out")), False, (0, )),
+		NetData(((2, 3, "internal"), ), False, (0,)), # 0
+		NetData(((2, 3, "internal_2"), ), False, (0,)), # 1
+		NetData(((0, 3, "right"), (1, 3, "out"), (2, 3, "left")), True, (1, )), # 2
+		NetData(((0, 3, "wire_in_1"), (1, 3, "wire_in_2"), (2, 3, "wire_out")), False, (0, 1)), # 3
+		NetData(((2, 3, "empty_out"), ), False, tuple()), # 4 no driver
+		NetData(((4, 2, "short_span_1"), (4, 3, "short_span_1")), False, (0, 1)), # 5
+		NetData(((4, 1, "short_span_2"), (4, 2, "short_span_2")), False, (0, 1)), # 6
+		NetData(((4, 2, "out"), ), True, (0, )), # 7
+		NetData(((5, 0, "long_span_1"), (5, 3, "long_span_1")), False, (0, 1)), # 8
+		NetData(((5, 3, "long_span_2"), (8, 3, "long_span_2")), False, (0, 1)), # 9
+		NetData(((8, 0, "long_span_3"), (8, 3, "long_span_3")), False, (0, 1)), # 10
+		NetData(((5, 0, "long_span_4"), (7, 0, "long_span_4"), (8, 0, "long_span_4")), False, (0, 1, 2)), # 11
+		NetData(((7, 0, "out"), ), True, (0, )), # 12
 	]
 	
-	def create_net_relations(self):
-		return [icecraft.representation.NetRelation(n) for n in self.raw_nets]
+	# left, wire_out -> internal
+	# wire_out -> internal_2
+	# out -> wire_in_2
+	# short_span_1 <-> short_span_2
+	# out -> short_span_2
+	# long_span_4 -> long_span_3 -> long_span_2 -> long_span_1
+	# out, long_span_1 -> long_span_4
+	raw_configs = [
+		ConnectionItem(
+			(IcecraftBitPosition.from_coords(2, 3, 7, 0), IcecraftBitPosition.from_coords(2, 3, 7, 1)),
+			"connection", "internal", ((True, False), (True, True)), ("left", "wire_out")
+		), # 0
+		ConnectionItem(
+			(IcecraftBitPosition.from_coords(2, 3, 7, 2), IcecraftBitPosition.from_coords(2, 3, 7, 3)),
+			"connection", "internal_2", ((True, True), ), ("wire_out", )
+		), # 1
+		ConnectionItem(
+			(IcecraftBitPosition.from_coords(1, 3, 6, 10), IcecraftBitPosition.from_coords(1, 3, 6, 11)),
+			"connection", "wire_in_2", ((True, False), ), ("out", )
+		), # 2
+		ConnectionItem(
+			(IcecraftBitPosition.from_coords(4, 2, 11, 30), ),
+			"connection", "short_span_1", ((True, ), ), ("short_span_2", )
+		), # 3
+		ConnectionItem(
+			(IcecraftBitPosition.from_coords(4, 2, 2, 0), IcecraftBitPosition.from_coords(4, 2, 2, 1)),
+			"connection", "short_span_2", ((False, True), (True, False)), ("short_span_1", "out")
+		), # 4
+		ConnectionItem(
+			(IcecraftBitPosition.from_coords(5, 3, 5, 1), ),
+			"connection", "long_span_1", ((True, ), ), ("long_span_2", )
+		), # 5
+		ConnectionItem(
+			(IcecraftBitPosition.from_coords(8, 3, 5, 1), ),
+			"connection", "long_span_2", ((True, ), ), ("long_span_3", )
+		), # 6
+		ConnectionItem(
+			(IcecraftBitPosition.from_coords(8, 0, 5, 1), ),
+			"connection", "long_span_3", ((True, ), ), ("long_span_4", )
+		), # 7
+		ConnectionItem(
+			(IcecraftBitPosition.from_coords(5, 0, 5, 1), ),
+			"connection", "long_span_4", ((True, ), ), ("long_span_1", )
+		), # 8
+		ConnectionItem(
+			(IcecraftBitPosition.from_coords(7, 0, 5, 3), ),
+			"connection", "long_span_4", ((True), ), ("out", )
+		), # 9
+	]
+	
+	def test_creation(self):
+		tiles = [TilePosition(1, 3), TilePosition(2, 3)]
+		for net_data in self.raw_nets:
+			dut = NetRelation(net_data)
+			dut_2 = NetRelation(net_data, tiles)
+	
+	def test_net_data(self):
+		for net_data in self.raw_nets:
+			with self.subTest(net_data=net_data):
+				dut = NetRelation(net_data)
+				self.assertEqual(dut.net_data, net_data)
+				self.assertEqual(dut.segment, net_data.segment)
+				self.assertEqual(dut.hard_driven, net_data.hard_driven)
+				self.assertEqual(dut.drivers, net_data.drivers)
+	
+	def test_has_external_driver(self):
+		for net_data in self.raw_nets:
+			for i in range(len(net_data.drivers)+1):
+				with self.subTest(net_data=net_data, i=i):
+					exp = (i != len(net_data.drivers))
+					tiles = [TilePosition(*net_data.segment[d][:2]) for d in net_data.drivers[:i]]
+					dut = NetRelation(net_data, tiles)
+					self.assertEqual(exp, dut.has_external_driver)
+	
+	def test_available(self):
+		for net_data in self.raw_nets:
+			with self.subTest(net_data=net_data):
+				dut = NetRelation(net_data)
+				self.assertTrue(dut.available)
+				dut.available = False
+				self.assertFalse(dut.available)
+				dut.available = True
+				self.assertTrue(dut.available)
+	
+	def test_net_map_from_net_data(self):
+		test_input = self.raw_nets
+		
+		res = NetRelation.net_map_from_net_data(test_input, [])
+		
+		# check all net_data in map
+		for net_data in test_input:
+			for net_id in net_data.segment:
+				net_res = res[net_id]
+				self.assertEqual(net_data, net_res.net_data)
+		
+		# check consistency
+		for net_id, net_res in res.items():
+			self.assertIn(net_id, net_res.segment)
+			self.assertIn(net_res.net_data, test_input)
+	
+	def check_is_viable_source(self, exp, net_relations):
+		for exp_value, net_rel in zip(exp, net_relations):
+			self.assertEqual(exp_value, net_rel.is_viable_src, f"{net_rel}")
+	
+	def test_is_viable_src(self):
+		tiles = set(TilePosition(*n.segment[i][:2]) for n in self.raw_nets for i in n.drivers)
+		net_map = NetRelation.net_map_from_net_data(self.raw_nets, tiles)
+		net_relations = [net_map[d.segment[0]] for d in self.raw_nets]
+		exp = [False]*len(net_relations)
+		exp[2] = exp[7] = exp[12] = True
+		
+		# variance in sources
+		with self.subTest(desc="unconnected"):
+			self.check_is_viable_source(exp, net_relations)
+		
+		with self.subTest(desc="directly connected"):
+			SourceGroup.populate_net_relations(net_map, self.raw_configs[:2])
+			exp[0] = True
+			self.check_is_viable_source(exp, net_relations)
+		
+		with self.subTest(desc="transitive connection"):
+			SourceGroup.populate_net_relations(net_map, self.raw_configs[2:3])
+			exp[1] = exp[3] = True
+			self.check_is_viable_source(exp, net_relations)
+		
+		with self.subTest(desc="short loop, additional driver"):
+			SourceGroup.populate_net_relations(net_map, self.raw_configs[3:5])
+			exp[5] = exp[6] = True
+			self.check_is_viable_source(exp, net_relations)
+		
+		with self.subTest(desc="long loop, no driver"):
+			SourceGroup.populate_net_relations(net_map, self.raw_configs[5:9])
+			self.check_is_viable_source(exp, net_relations)
+		
+		with self.subTest(desc="long loop, additional driver"):
+			SourceGroup.populate_net_relations(net_map, self.raw_configs[9:10])
+			exp[8] = exp[9] = exp[10] = exp[11] = True
+			self.check_is_viable_source(exp, net_relations)
+		
+		# variance in availability
+		
+		# not correctly implemented at the moment
+		#with self.subTest(desc="long loop, unavailable driver"):
+		#	net_relations[12].available = False
+		#	exp[8] = exp[9] = exp[10] = exp[11] = exp[12] = False
+		#	self.check_is_viable_source(exp, net_relations)
+		
+		with self.subTest(desc="long loop, again available driver"):
+			net_relations[12].available = True
+			exp[8] = exp[9] = exp[10] = exp[11] = exp[12] = True
+			self.check_is_viable_source(exp, net_relations)
+		
+		with self.subTest(desc="long loop, broken"):
+			net_relations[10].available = False
+			exp[8] = exp[9] = exp[10] = False
+			self.check_is_viable_source(exp, net_relations)
+		
+		with self.subTest(desc="short loop, broken"):
+			net_relations[6].available = False
+			exp[5] = exp[6] = False
+			self.check_is_viable_source(exp, net_relations)
+		
+		with self.subTest(desc="direct and transitive not available"):
+			net_relations[2].available = False
+			exp[0] = exp[1] = exp[2] = exp[3] = False
+			self.check_is_viable_source(exp, net_relations)
+		
+		with self.subTest(desc="none available"):
+			for i in range(len(net_relations)):
+				net_relations[i].available = False
+				exp[i] = False
+			self.check_is_viable_source(exp, net_relations)
+		
+		# variance in external drivers
+		with self.subTest(desc="all external"):
+			net_map = NetRelation.net_map_from_net_data(self.raw_nets, [])
+			SourceGroup.populate_net_relations(net_map, self.raw_configs)
+			net_relations = [net_map[d.segment[0]] for d in self.raw_nets]
+			exp = [True]*len(net_relations)
+			exp[4] = False
+			self.check_is_viable_source(exp, net_relations)
+		
+		with self.subTest(desc="partial external"):
+			part_tiles = set(tiles)
+			part_tiles.remove((*self.raw_nets[2].segment[0][:2], ))
+			part_tiles.remove((*self.raw_nets[9].segment[0][:2], ))
+			net_map = NetRelation.net_map_from_net_data(self.raw_nets, part_tiles)
+			SourceGroup.populate_net_relations(net_map, self.raw_configs[1:2]+self.raw_configs[6:9])
+			net_relations = [net_map[d.segment[0]] for d in self.raw_nets]
+			exp = [True]*len(net_relations)
+			exp[0] = exp[4] = exp[5] = exp[6] = False
+			self.check_is_viable_source(exp, net_relations)
+	
+	def test_add_src_grp(self):
+		net_map = NetRelation.net_map_from_net_data(self.raw_nets, [])
+		for rc in self.raw_configs:
+			with self.subTest(raw_conf=rc):
+				tile_pos = rc.bits[0].tile
+				dst = net_map[(*tile_pos, rc.dst_net)]
+				src_list = tuple(net_map[(*tile_pos, s)] for s in rc.src_nets)
+				src_grp = SourceGroup(rc, dst, src_list)
+				
+				prev_src_grps = list(dst.iter_src_grps())
+				self.assertNotIn(src_grp, prev_src_grps)
+				
+				dst.add_src_grp(src_grp)
+				
+				post_src_grps = list(dst.iter_src_grps())
+				self.assertIn(src_grp, post_src_grps)
+				self.assertEqual(len(prev_src_grps)+1, len(post_src_grps))
+				self.assertEqual(set([src_grp]), set(post_src_grps)-set(prev_src_grps))
+				self.assertEqual(set(), set(prev_src_grps)-set(post_src_grps))
+	
+	def test_add_dst_grp(self):
+		net_map = NetRelation.net_map_from_net_data(self.raw_nets, [])
+		for rc in self.raw_configs:
+			with self.subTest(raw_conf=rc):
+				tile_pos = rc.bits[0].tile
+				dst = net_map[(*tile_pos, rc.dst_net)]
+				src_list = tuple(net_map[(*tile_pos, s)] for s in rc.src_nets)
+				src_grp = SourceGroup(rc, dst, src_list)
+				
+				for i, net_rel in enumerate(src_list):
+					prev_dst_grps = list(net_rel.iter_dst_grps())
+					self.assertNotIn(src_grp, prev_dst_grps)
+					self.assertNotIn(dst, net_rel.iter_dst())
+					
+					net_rel.add_dst(src_grp, i)
+					
+					self.assertIn(dst, net_rel.iter_dst())
+					post_dst_grps = list(net_rel.iter_dst_grps())
+					self.assertIn(src_grp, post_dst_grps)
+					self.assertEqual(len(prev_dst_grps)+1, len(post_dst_grps))
+					self.assertEqual(set([src_grp]), set(post_dst_grps)-set(prev_dst_grps))
+					self.assertEqual(set(), set(prev_dst_grps)-set(post_dst_grps))
+					for dst_index, dst_grp in zip(net_rel.iter_dst_indices(), net_rel.iter_dst_grps()):
+						self.assertEqual(net_rel, dst_grp.src_list[dst_index])
+
+class SourceGroupTest(unittest.TestCase):
+	raw_nets = NetRelationTest.raw_nets
+	raw_configs = NetRelationTest.raw_configs
+	
+	def create_net_map(self):
+		tiles = [TilePosition(*r) for r in ((1, 3), (2, 3), (4, 1), (4, 2), (4, 3), (5, 0), (5, 3), (7, 0), (8, 0), (8, 3))]
+		net_map = NetRelation.net_map_from_net_data(self.raw_nets, tiles)
+		
+		return net_map
+	
+	def test_creation(self):
+		net_map = self.create_net_map()
+		for item in self.raw_configs:
+			with self.subTest(item=item):
+				tile = item.bits[0].tile
+				dst = net_map[(*tile, item.dst_net)]
+				src_list = tuple(net_map[(*tile, s)] for s in item.src_nets)
+				
+				dut = SourceGroup(item, dst, src_list)
+				
+				self.assertEqual(tile, dut.tile)
+				self.assertEqual(item, dut.config_item)
+				self.assertEqual(dst, dut.dst)
+				self.assertEqual(src_list, dut.src_list)
+	
+	def check_uniqueness(self, iterable):
+		self.assertEqual(len(iterable), len(set(iterable)))
+	
+	def test_populate_net_relations(self):
+		net_map = NetRelation.net_map_from_net_data(self.raw_nets, [])
+		net_relations = set(net_map.values())
+		
+		con_configs = self.raw_configs
+		
+		res = SourceGroup.populate_net_relations(net_map, con_configs)
+		
+		res_configs = [s.config_item for s in res]
+		self.check_uniqueness(res_configs)
+		
+		self.assertEqual(set(con_configs), set(res_configs))
+		
+		with self.subTest(desc="source group to destination"):
+			for src_grp in res:
+				self.assertIn(src_grp, src_grp.dst.iter_src_grps())
+		
+		with self.subTest(desc="destination to source group"):
+			for net_rel in net_relations:
+				if net_rel.hard_driven:
+					self.assertEqual(0, len(tuple(net_rel.iter_src_grps())), f"{tuple(net_rel.iter_src_grps())}")
+				for src_grp in net_rel.iter_src_grps():
+					self.assertEqual(net_rel, src_grp.dst)
+		
+		with self.subTest(desc="source group to source"):
+			for src_grp in res:
+				for i, src in enumerate(src_grp.src_list):
+					self.assertIn((*src_grp.tile, src_grp.config_item.src_nets[i]), src.segment)
+					self.assertIn(src_grp, src.iter_dst_grps())
+		
+		with self.subTest(desc="source to source group"):
+			for net_rel in net_relations:
+				for index, dst_grp in zip(net_rel.iter_dst_indices(), net_rel.iter_dst_grps()):
+					self.assertEqual(net_rel, dst_grp.src_list[index])
+
+class IcecraftRepGenTest(unittest.TestCase):
 	
 	def test_creation(self):
 		dut = icecraft.IcecraftRepGen()
@@ -123,78 +435,3 @@ class IcecraftRepGenTest(unittest.TestCase):
 			
 			# correct tiles
 			self.assertEqual(set(exp), res_set)
-	
-	def test_net_map_from_net_relations(self):
-		test_input = self.create_net_relations()
-		
-		res = icecraft.IcecraftRepGen.net_map_from_net_relations(test_input)
-		
-		# check all net_data in map
-		for net_rel in test_input:
-			for net_id in net_rel.segment:
-				net_res = res[net_id]
-				self.assertEqual(net_rel, net_res)
-		
-		# check consistency
-		for net_id, net_res in res.items():
-			self.assertIn(net_id, net_res.segment)
-			self.assertIn(net_res, test_input)
-	
-	def check_uniqueness(self, iterable):
-		self.assertEqual(len(iterable), len(set(iterable)))
-	
-	def test_populate_source_groups(self):
-		net_relations = self.create_net_relations()
-		net_map = icecraft.IcecraftRepGen.net_map_from_net_relations(net_relations)
-		
-		# left -> internal
-		# wire_out -> internal
-		# out -> wire_in
-		BitPos = icecraft.IcecraftBitPosition
-		ConnectionItem = icecraft.config_item.ConnectionItem
-		con_configs = [
-			ConnectionItem(
-				(BitPos.from_coords(2, 3, 7, 0), BitPos.from_coords(2, 3, 7, 1)),
-				"connection",
-				"internal",
-				((True, False), (True, True)),
-				("left", "wire_out")
-			),
-			ConnectionItem(
-				(BitPos.from_coords(1, 3, 6, 10), BitPos.from_coords(1, 3, 6, 11)),
-				"connection",
-				"wire_in",
-				((True, False), ),
-				("out", )
-			),
-			
-		]
-		
-		res = icecraft.IcecraftRepGen.populate_source_groups(net_map, con_configs)
-		
-		res_configs = [s.config_item for s in res]
-		self.check_uniqueness(res_configs)
-		
-		self.assertEqual(set(con_configs), set(res_configs))
-		
-		with self.subTest(desc="source group to destination"):
-			for src_grp in res:
-				self.assertIn(src_grp, src_grp.dst.src_grp_list)
-		
-		with self.subTest(desc="destination to source group"):
-			for net_rel in net_relations:
-				if net_rel.hard_driven:
-					self.assertEqual(0, len(net_rel.src_grp_list), f"{net_rel.src_grp_list}")
-				for src_grp in net_rel.src_grp_list:
-					self.assertEqual(net_rel, src_grp.dst)
-		
-		with self.subTest(desc="source group to source"):
-			for src_grp in res:
-				for i, src in enumerate(src_grp.src_list):
-					self.assertIn((*src_grp.tile, src_grp.config_item.src_nets[i]), src.segment)
-					self.assertIn(src_grp, src.dst_grp_list)
-		
-		with self.subTest(desc="source to source group"):
-			for net_rel in net_relations:
-				for index, dst_grp in zip(net_rel.dst_indices, net_rel.dst_grp_list):
-					self.assertEqual(net_rel, dst_grp.src_list[index])
