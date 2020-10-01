@@ -224,8 +224,8 @@ class IcecraftRepGen(RepresentationGenerator):
 			Parameter("joint_input_nets", str, default=[], multiple=True),
 			Parameter("lone_input_nets", IcecraftNetPosition, default=[], multiple=True),
 			Parameter("lut_functions", LUTFunction, default=[], multiple=True),
+			Parameter("prune_no_viable_src", bool, default=False),
 		]}
-		#TODO: add parameter for ignoring nets that can't be connected to a valid source
 	
 	@property
 	def parameters(self) -> Mapping[str, Parameter]:
