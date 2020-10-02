@@ -1,3 +1,4 @@
+import re
 from typing import Sequence, Mapping, List, Tuple, Iterable, Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
@@ -257,3 +258,16 @@ class IcecraftRepGen(RepresentationGenerator):
 			
 			if cond(net_rel):
 				net_rel.available = value
+	
+	@staticmethod
+	def create_regex_condition(regex_str: str) -> Callable[[NetRelation], bool]:
+		pat = re.compile(regex_str)
+		
+		def func(net_rel: NetRelation) -> bool:
+			for seg in net_rel.segment:
+				if pat.match(seg[2]):
+					return True
+			return False
+		
+		return func
+

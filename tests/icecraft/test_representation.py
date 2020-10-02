@@ -507,4 +507,20 @@ class IcecraftRepGenTest(unittest.TestCase):
 			icecraft.IcecraftRepGen.set_available(net_relations, False, lambda x: x.has_external_driver)
 			self.check_available(exp, net_relations)
 			
+	
+	def test_create_regex_condition(self):
+		test_data = (
+			(r"", (True, )*13),
+			(r"never_seen", (False, )*13),
+			(r"internal", (True, True, False, False, False, False, False, False, False, False, False, False, False)),
+			(r".*span_\d", (False, False, False, False, False, True, True, False, True, True, True, True, False))
+		)
 		
+		net_relations = NetRelation.from_net_data_iter(self.raw_nets, [])
+		
+		for regex_str, exp in test_data:
+			with self.subTest(regex=regex_str):
+				func = icecraft.IcecraftRepGen.create_regex_condition(regex_str)
+				for net_rel, exp_val in zip(net_relations, exp):
+					val = func(net_rel)
+					self.assertEqual(exp_val, val, f"{net_rel}")
