@@ -2,7 +2,7 @@ import unittest
 import re
 
 import adapters.icecraft as icecraft
-from adapters.icecraft import TilePosition, IcecraftBitPosition
+from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition
 from adapters.icecraft.representation import NetRelation, SourceGroup
 from domain.request_model import RequestObject
 from adapters.icecraft.chip_data_utils import NetData
@@ -524,3 +524,51 @@ class IcecraftRepGenTest(unittest.TestCase):
 				for net_rel, exp_val in zip(net_relations, exp):
 					val = func(net_rel)
 					self.assertEqual(exp_val, val, f"{net_rel}")
+	
+	def test_choose_nets(self):
+		tiles = set(TilePosition(*n.segment[i][:2]) for n in self.raw_nets for i in n.drivers)
+		for net_index in (2, 12):
+			net = self.raw_nets[net_index]
+			seg_index = net.drivers[0]
+			tiles.remove((*net.segment[seg_index][:2], ))
+		no_ext_drv = [True] * len(self.raw_nets)
+		no_ext_drv[2] = no_ext_drv[3] = no_ext_drv[11] = no_ext_drv[12] = False
+		
+		test_data = (
+			("empty parameters, only external driven unavailable", (
+				[], [], [], []
+			), [True, True, False, False, True, True, True, True, True, True, True, False, False]),
+			("exclude nets", (
+				[r".*span"], [], [], []
+			), [True, True, False, False, True, False, False, True, False, False, False, False, False]),
+			("include nets", (
+				[], ["left$"], [], []
+			), [True, True, True, False, True, True, True, True, True, True, True, False, False]),
+			("joint_input_nets", (
+				[], [], ["left"], []
+			), [True, True, True, False, True, True, True, True, True, True, True, False, False]),
+			("lone_input_nets", (
+				[], [], [], [IcecraftNetPosition.from_coords(2, 3, "left")]
+			), [True, True, True, False, True, True, True, True, True, True, True, False, False]),
+			("complete example", (
+				[r".*span"], ["^long_span_\d$"], ["out"], [IcecraftNetPosition.from_coords(2, 3, "left")]
+			), [True, True, True, False, True, False, False, True, True, True, True, True, True]),
+		)
+		
+		
+		with self.subTest(desc="default values of available"):
+			net_relations = NetRelation.from_net_data_iter(self.raw_nets, tiles)
+			self.check_available([True] * len(net_relations), net_relations)
+		
+		for desc, in_data, exp in test_data:
+			with self.subTest(desc=desc):
+				net_relations = NetRelation.from_net_data_iter(self.raw_nets, tiles)
+				net_map = NetRelation.create_net_map(net_relations)
+				
+				req = RequestObject()
+				req["exclude_nets"], req["include_nets"], req["joint_input_nets"], req["lone_input_nets"] = in_data
+				
+				icecraft.IcecraftRepGen._choose_nets(net_relations, net_map, req)
+				
+				self.check_available(exp, net_relations)
+		

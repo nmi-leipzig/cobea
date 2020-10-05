@@ -238,13 +238,36 @@ class IcecraftRepGen(RepresentationGenerator):
 		net_relations = NetRelation.from_net_data_iter(raw_nets, tiles)
 		net_map = NetRelation.create_net_map(net_relations)
 		
-		# exclude all nets with driver outside of tiles
-		# exclude exclude nets
+		self._choose_nets(net_relations, net_map, request)
+		
 		
 		
 		config_map = {t: get_config_items(t) for t in tiles}
 		
 		return IcecraftRep([], [], [], tuple(sorted(request.output_lutffs)))
+	
+	@classmethod
+	def _choose_nets(cls, net_relations: Iterable[NetRelation], net_map: Mapping[NetId, "NetRelation"], request: RequestObject) -> None:
+		# exclude exclude nets
+		for regex_str in request.exclude_nets:
+			cond_func = cls.create_regex_condition(regex_str)
+			cls.set_available(net_relations, False, cond_func)
+		# exclude all nets with driver outside of tiles
+		cls.set_available(net_relations, False, lambda n: n.has_external_driver)
+		
+		# include include nets
+		for regex_str in request.include_nets:
+			cond_func = cls.create_regex_condition(regex_str)
+			cls.set_available(net_relations, True, cond_func)
+		
+		# include joint input nets
+		for name in request.joint_input_nets:
+			cls.set_available(net_relations, True, lambda n: any([name==e for _, _, e in n.segment]))
+		
+		# include lone input nets
+		for net_pos in request.lone_input_nets:
+			seg = (net_pos.x, net_pos.y, net_pos.net)
+			net_map[seg].available = True
 	
 	@staticmethod
 	def tiles_from_rectangle(x_min: int, y_min: int, x_max: int, y_max: int) -> List[TilePosition]:
