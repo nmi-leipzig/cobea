@@ -8,9 +8,9 @@ from domain.model import TargetConfiguration, Gene, Chromosome
 from domain.request_model import RequestObject, Parameter
 
 from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, IcecraftNetPosition, LUTFunction
-from .chip_data import get_config_items, get_net_data
+from .chip_data import get_config_items, get_net_data, get_colbufctrl
 from .chip_data_utils import NetData, SegEntryType, SegType
-from .config_item import ConnectionItem
+from .config_item import ConnectionItem, IndexedItem
 
 NetId = SegEntryType
 
@@ -247,7 +247,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		return IcecraftRep([], [], [], tuple(sorted(request.output_lutffs)))
 	
 	@classmethod
-	def _choose_nets(cls, net_relations: Iterable[NetRelation], net_map: Mapping[NetId, "NetRelation"], request: RequestObject) -> None:
+	def _choose_nets(cls, net_relations: Iterable[NetRelation], net_map: Mapping[NetId, NetRelation], request: RequestObject) -> None:
 		# exclude exclude nets
 		for regex_str in request.exclude_nets:
 			cond_func = cls.create_regex_condition(regex_str)
@@ -293,4 +293,27 @@ class IcecraftRepGen(RepresentationGenerator):
 			return False
 		
 		return func
+	
+	@staticmethod
+	def get_colbufctrl_coordinates(net_map: Mapping[NetId, NetRelation], tiles: Iterable[TilePosition]) -> List[IcecraftColBufCtrl]:
+		coords = set()
+		for index in range(8):
+			net_tiles = []
+			for tile_pos in tiles:
+				net_rel = net_map[(*tile_pos, f"glb_netwk_{index}")]
+				if net_rel.available:
+					net_tiles.append(tile_pos)
+			
+			cbc_tiles = get_colbufctrl(net_tiles)
+			coords.update([IcecraftColBufCtrl(t, index) for t in cbc_tiles])
+		
+		return sorted(coords)
+	
+	@staticmethod
+	def get_colbufctrl_config(coords: Iterable[IcecraftColBufCtrl]) -> List[IndexedItem]:
+		cbc_conf = []
+		for cbc_coord in coords:
+			item_dict = get_config_items(cbc_coord.tile)
+			cbc_conf.append(item_dict["ColBufCtrl"][cbc_coord.z])
+		return cbc_conf
 

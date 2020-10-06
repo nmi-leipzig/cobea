@@ -2,11 +2,11 @@ import unittest
 import re
 
 import adapters.icecraft as icecraft
-from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition
+from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftColBufCtrl
 from adapters.icecraft.representation import NetRelation, SourceGroup
 from domain.request_model import RequestObject
 from adapters.icecraft.chip_data_utils import NetData
-from adapters.icecraft.config_item import ConnectionItem
+from adapters.icecraft.config_item import ConnectionItem, IndexedItem
 
 from ..test_request_model import check_parameter_user
 
@@ -571,4 +571,65 @@ class IcecraftRepGenTest(unittest.TestCase):
 				icecraft.IcecraftRepGen._choose_nets(net_relations, net_map, req)
 				
 				self.check_available(exp, net_relations)
+	
+	def test_get_colbufctrl_coordinates(self):
+		net_data_list = [NetData(tuple(
+			[(0, i, "padin_1")]+[(x, y, f"glb_netwk_{i}") for x in range(1, 33) for y in range(1, 33)]
+		), False, (0,)) for i in range(8)]
+		net_relations = NetRelation.from_net_data_iter(net_data_list, [])
+		net_map = NetRelation.create_net_map(net_relations)
 		
+		for net_rel, avail in zip(net_relations, (True, False, False, False, False, True, False, False)):
+			net_rel.available = avail
+		
+		test_data = (
+			("no tile", [], []),
+			("single tile", [TilePosition(16, 17)], [
+				IcecraftColBufCtrl.from_coords(16, 24, 0), IcecraftColBufCtrl.from_coords(16, 24, 5)
+			]),
+			("multiple tiles", [TilePosition(*t) for t in ((3, 24), (3, 25), (4, 24), (4, 25))], [
+				IcecraftColBufCtrl.from_coords(3, 24, 0), IcecraftColBufCtrl.from_coords(3, 24, 5),
+				IcecraftColBufCtrl.from_coords(3, 25, 0), IcecraftColBufCtrl.from_coords(3, 25, 5),
+				IcecraftColBufCtrl.from_coords(4, 24, 0), IcecraftColBufCtrl.from_coords(4, 24, 5),
+				IcecraftColBufCtrl.from_coords(4, 25, 0), IcecraftColBufCtrl.from_coords(4, 25, 5),
+			]),
+			("RAM tiles", [TilePosition(*t) for t in ((8, 3), (8, 29), (25, 16), (25, 17))], [
+				IcecraftColBufCtrl.from_coords(8, 8, 0), IcecraftColBufCtrl.from_coords(8, 8, 5),
+				IcecraftColBufCtrl.from_coords(8, 25, 0), IcecraftColBufCtrl.from_coords(8, 25, 5),
+				IcecraftColBufCtrl.from_coords(25, 9, 0), IcecraftColBufCtrl.from_coords(25, 9, 5),
+				IcecraftColBufCtrl.from_coords(25, 24, 0), IcecraftColBufCtrl.from_coords(25, 24, 5),
+			]),
+			("column", [TilePosition(6, y) for y in range(10, 17)], [
+				IcecraftColBufCtrl.from_coords(6, 9, 0), IcecraftColBufCtrl.from_coords(6, 9, 5),
+			]),
+		)
+		
+		for desc, tiles, exp in test_data:
+			with self.subTest(desc=desc):
+				res = icecraft.IcecraftRepGen.get_colbufctrl_coordinates(net_map, tiles)
+				
+				self.assertEqual(exp, res)
+		
+	
+	def test_get_colbufctrl_config(self):
+		test_data = (
+			(
+				[IcecraftColBufCtrl.from_coords(1, 8, 0), IcecraftColBufCtrl.from_coords(13, 9, 4)],
+				[
+					IndexedItem((IcecraftBitPosition.from_coords(1, 8, 9, 7), ), "ColBufCtrl", 0), 
+					IndexedItem((IcecraftBitPosition.from_coords(13, 9, 13, 7), ), "ColBufCtrl", 4), 
+				]
+			),
+			(
+				[IcecraftColBufCtrl.from_coords(8, 8, 0), IcecraftColBufCtrl.from_coords(25, 24, 4)],
+				[
+					IndexedItem((IcecraftBitPosition.from_coords(8, 8, 9, 7), ), "ColBufCtrl", 0), 
+					IndexedItem((IcecraftBitPosition.from_coords(25, 24, 13, 7), ), "ColBufCtrl", 4), 
+				]
+			),
+		)
+		
+		for coords, exp in test_data:
+			with self.subTest(coords=coords):
+				res = icecraft.IcecraftRepGen.get_colbufctrl_config(coords)
+				self.assertEqual(exp, res)
