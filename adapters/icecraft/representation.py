@@ -198,7 +198,7 @@ class IcecraftRep(Representation):
 	# constant genes, i.e. with exactly one allele
 	constant: Sequence[Gene]
 	#colbufctrl
-	colbufctrl: Sequence[IcecraftColBufCtrl]
+	colbufctrl: Sequence[IndexedItem]
 	# output_lutffs
 	output: Sequence[IcecraftLUTPosition]
 	
@@ -244,7 +244,10 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		config_map = {t: get_config_items(t) for t in tiles}
 		
-		return IcecraftRep([], [], [], tuple(sorted(request.output_lutffs)))
+		cbc_coords = self.get_colbufctrl_coordinates(net_map, tiles)
+		cbc_conf = self.get_colbufctrl_config(cbc_coords)
+		
+		return IcecraftRep([], [], cbc_conf, tuple(sorted(request.output_lutffs)))
 	
 	@classmethod
 	def _choose_nets(cls, net_relations: Iterable[NetRelation], net_map: Mapping[NetId, NetRelation], request: RequestObject) -> None:
