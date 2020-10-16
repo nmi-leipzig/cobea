@@ -6,11 +6,12 @@ from contextlib import contextmanager
 from domain.interfaces import Representation, RepresentationGenerator
 from domain.model import TargetConfiguration, Gene, Chromosome
 from domain.request_model import RequestObject, Parameter
+from domain.allele_sequence import Allele, AlleleList
 
-from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, IcecraftNetPosition, LUTFunction
+from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, IcecraftNetPosition, LUTFunction, IcecraftBitPosition
 from .chip_data import get_config_items, get_net_data, get_colbufctrl
 from .chip_data_utils import NetData, SegEntryType, SegType
-from .config_item import ConnectionItem, IndexedItem
+from .config_item import ConfigItem, ConnectionItem, IndexedItem
 
 NetId = SegEntryType
 
@@ -109,6 +110,16 @@ class NetRelation:
 		self._src_grp_list.append(src_grp)
 		self.update_has_viable_src()
 	
+	def multiple_src_tiles(self):
+		tile = None
+		for src_grp in self.iter_src_grps():
+			if tile is None:
+				tile = src_grp.tile
+			elif tile != src_grp.tile:
+				return True
+		
+		return False
+	
 	def iter_dst(self) -> Iterable["NetRelation"]:
 		for dst_grp in self._dst_grp_list:
 			yield dst_grp.dst
@@ -157,12 +168,23 @@ class SourceGroup:
 		return self._config_item
 	
 	@property
+	def bits(self) -> Tuple[IcecraftBitPosition, ...]:
+		return self._config_item.bits
+	
+	@property
 	def dst(self) -> NetRelation:
 		return self._dst
 	
 	@property
 	def src_list(self) -> Tuple[NetRelation, ...]:
 		return self._src_list
+	
+	def iter_srcs(self) -> Iterable[NetRelation]:
+		yield from self._src_list
+	
+	# iterate over bit values for sources
+	def iter_values(self) -> Iterable[Tuple[bool, ...]]:
+		yield from self._config_item.values
 	
 	def __repr__(self) -> str:
 		bit_str = "".join([f"({b.group}, {b.index}), " for b in self.config_item.bits])
@@ -319,4 +341,71 @@ class IcecraftRepGen(RepresentationGenerator):
 			item_dict = get_config_items(cbc_coord.tile)
 			cbc_conf.append(item_dict["ColBufCtrl"][cbc_coord.z])
 		return cbc_conf
-
+	
+	@classmethod
+	def create_genes(
+		cls,
+		net_relations: Iterable[NetRelation],
+		config_map: Mapping[TilePosition, ConfigItem],
+		use_function: Callable[[NetRelation], bool],
+		lut_functions: Iterable[LUTFunction]
+	) -> Tuple[List[Gene], List[Gene], List[int]]:
+		"""returns const_genes, genes and gene_section_lengths"""
+		ext_driven = []
+		single_tile_nets = {}
+		for net_rel in net_relations:
+			if not net_rel.available:
+				continue
+			
+			if net_rel.has_external_driver:
+				ext_driven.append(net_rel)
+				continue
+			
+			if net_rel.multiple_src_tiles():
+				pass
+			else:
+				single_tile_nets.setdefault(net_rel.tile, list).append(net_rel)
+		
+		
+	
+	@classmethod
+	def create_tile_genes(
+		cls,
+		single_tile_nets: Iterable[NetRelation],
+		config_map: Mapping[TilePosition, ConfigItem],
+		use_function: Callable[[NetRelation], bool],
+		lut_functions: Iterable[LUTFunction]
+	) -> Tuple[List[Gene], List[Gene], List[int]]:
+		"""returns const_genes, genes and gene_section_lengths"""
+		pass
+	
+	@staticmethod
+	def alleles_from_src_grps(src_grps: Sequence[SourceGroup], used_function: Callable[[NetRelation], bool]) -> Tuple[Tuple[IcecraftBitPosition], AlleleList]:
+		if len(src_grps) < 1:
+			raise ValueError("Can't create  alleles without at least one SourceGroup")
+		
+		all_bits = tuple()
+		for sg in src_grps:
+			all_bits += sg.bits
+		width = len(all_bits)
+		
+		alleles = []
+		alleles.append(Allele((False, )*width, "not driven"))
+		
+		# add available and used sources for each SourceGroup
+		# while bits from other SourceGroups remain False
+		suffix_len = 0
+		for src_grp in reversed(src_grps): # reverse to get values closer to sorted order
+			for src, vals in zip(src_grp.iter_srcs(), src_grp.iter_values()):
+				if not src.available or not used_function(src):
+					continue
+				allele = Allele(
+					(False, )*(width-len(vals)-suffix_len) + vals + (False, )*suffix_len,
+					""
+				)
+				alleles.append(allele)
+			
+			suffix_len += len(src_grp.bits)
+		
+		return all_bits, AlleleList(alleles)
+		
