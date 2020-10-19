@@ -264,11 +264,11 @@ class NetRelationTest(unittest.TestCase):
 				for i, net_rel in enumerate(src_list):
 					prev_dst_grps = list(net_rel.iter_dst_grps())
 					self.assertNotIn(src_grp, prev_dst_grps)
-					self.assertNotIn(dst, net_rel.iter_dst())
+					self.assertNotIn(dst, net_rel.iter_dsts())
 					
 					net_rel.add_dst(src_grp, i)
 					
-					self.assertIn(dst, net_rel.iter_dst())
+					self.assertIn(dst, net_rel.iter_dsts())
 					post_dst_grps = list(net_rel.iter_dst_grps())
 					self.assertIn(src_grp, post_dst_grps)
 					self.assertEqual(len(prev_dst_grps)+1, len(post_dst_grps))

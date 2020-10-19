@@ -50,7 +50,7 @@ class NetRelation:
 			self._propagate_valid_src()
 	
 	def _propagate_valid_src(self):
-		for dst in self.iter_dst():
+		for dst in self.iter_dsts():
 			dst.update_has_viable_src()
 	
 	@property
@@ -120,7 +120,7 @@ class NetRelation:
 		
 		return False
 	
-	def iter_dst(self) -> Iterable["NetRelation"]:
+	def iter_dsts(self) -> Iterable["NetRelation"]:
 		for dst_grp in self._dst_grp_list:
 			yield dst_grp.dst
 	
@@ -378,6 +378,9 @@ class IcecraftRepGen(RepresentationGenerator):
 	) -> Tuple[List[Gene], List[Gene], List[int]]:
 		"""returns const_genes, genes and gene_section_lengths"""
 		pass
+		# connections that only belong to this tile
+		# tile confs
+		# LUTs
 	
 	@staticmethod
 	def alleles_from_src_grps(src_grps: Sequence[SourceGroup], used_function: Callable[[NetRelation], bool]) -> Tuple[Tuple[IcecraftBitPosition], AlleleList]:
