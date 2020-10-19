@@ -29,6 +29,8 @@ class NetRelation:
 				self._has_external_driver = True
 				break
 		
+		self._multi_drv_tiles = self.multiple_driver_tiles_in_net_data(net_data)
+		
 		self.fixed = not self.hard_driven
 		# source groups that have this net as destination
 		self._src_grp_list = []
@@ -110,7 +112,16 @@ class NetRelation:
 		self._src_grp_list.append(src_grp)
 		self.update_has_viable_src()
 	
+	@property
+	def multiple_drv_tiles(self):
+		"""return True if at least two drivers are in different tiles"""
+		return self._multi_drv_tiles
+	
 	def multiple_src_tiles(self):
+		"""return True iff at least two source are in different tiles
+		
+		checks only currently available scr_grps, while multiple_drv_tiles checks all possible drivers
+		"""
 		tile = None
 		for src_grp in self.iter_src_grps():
 			if tile is None:
@@ -147,6 +158,18 @@ class NetRelation:
 	def create_net_map(net_relations: Iterable["NetRelation"]) -> Mapping[NetId, "NetRelation"]:
 		"""put NetRelation instances in a dictionary NetId -> NetRelation"""
 		return {net_id: net_rel for net_rel in net_relations for net_id in net_rel.segment}
+	
+	@staticmethod
+	def multiple_driver_tiles_in_net_data(net_data: NetData) -> bool:
+		prev_pos = None
+		for index in net_data.drivers:
+			pos = net_data.segment[index][:2]
+			if prev_pos is None:
+				prev_pos = pos
+			elif prev_pos != pos:
+				return True
+		
+		return False
 	
 
 class SourceGroup:
@@ -361,7 +384,7 @@ class IcecraftRepGen(RepresentationGenerator):
 				ext_driven.append(net_rel)
 				continue
 			
-			if net_rel.multiple_src_tiles():
+			if net_rel.multiple_drv_tiles:
 				pass
 			else:
 				single_tile_nets.setdefault(net_rel.tile, list).append(net_rel)
@@ -378,9 +401,11 @@ class IcecraftRepGen(RepresentationGenerator):
 	) -> Tuple[List[Gene], List[Gene], List[int]]:
 		"""returns const_genes, genes and gene_section_lengths"""
 		pass
-		# connections that only belong to this tile
+		# find all tiles
+		#tiles = set([s.])
 		# tile confs
 		# LUTs
+		# connections that only belong to this tile
 	
 	@staticmethod
 	def alleles_from_src_grps(src_grps: Sequence[SourceGroup], used_function: Callable[[NetRelation], bool]) -> Tuple[Tuple[IcecraftBitPosition], AlleleList]:
