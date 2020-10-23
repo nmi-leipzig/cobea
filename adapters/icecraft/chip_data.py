@@ -13,6 +13,7 @@ ValueType = NewType("ValueType", Tuple[bool, ...])
 SrcType = NewType("SrcType", Tuple[ValueType, str])
 RawConType = NewType("RawConType", Tuple[str, Tuple[SrcType, ...]])
 ConDictType = NewType("ConDictType", Dict[MultiBitsType, RawConType])
+ConfigDictType = NewType("ConfigDictType",Dict[str, Tuple[Union[ConfigItem, Tuple[IndexedItem]]]])
 
 # tile -> config_kind
 tile_to_config_kind_index = {t: k for k, tl in config_tile_map.items() for t in tl}
@@ -54,7 +55,7 @@ def get_raw_config_data(tile: TileType) -> Dict[str, Union[Tuple[NamedBitsType],
 def bits_to_bit_positions(tile_pos: TilePosition, bits: Iterable[BitType]) -> Tuple[IcecraftBitPosition]:
 	return tuple(IcecraftBitPosition(tile_pos, *b) for b in bits)
 
-def get_config_items(tile: TileType) -> Dict[str, Tuple[Union[ConfigItem, Tuple[IndexedItem]]]]:
+def get_config_items(tile: TileType) -> ConfigDictType:
 	tile_pos = TilePosition(*tile)
 	raw_groups = get_raw_config_data(tile)
 	item_dict = {}
