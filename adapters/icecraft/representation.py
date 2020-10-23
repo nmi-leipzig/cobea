@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from domain.interfaces import Representation, RepresentationGenerator
 from domain.model import TargetConfiguration, Gene, Chromosome
 from domain.request_model import RequestObject, Parameter
-from domain.allele_sequence import Allele, AlleleList
+from domain.allele_sequence import Allele, AlleleList, AlleleAll
 
 from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, IcecraftNetPosition, LUTFunction, IcecraftBitPosition
 from .chip_data import get_config_items, get_net_data, get_colbufctrl, ConfigDictType
@@ -412,7 +412,7 @@ class IcecraftRepGen(RepresentationGenerator):
 	def create_genes(
 		cls,
 		net_relations: Iterable[NetRelation],
-		config_map: Mapping[TilePosition, ConfigItem],
+		config_map: Mapping[TilePosition, ConfigDictType],
 		use_function: Callable[[NetRelation], bool],
 		lut_functions: Iterable[LUTFunction]
 	) -> Tuple[List[Gene], List[Gene], List[int]]:
@@ -438,11 +438,21 @@ class IcecraftRepGen(RepresentationGenerator):
 	def create_tile_genes(
 		cls,
 		single_tile_nets: Iterable[NetRelation],
-		config_map: Mapping[TilePosition, ConfigItem],
+		config_map: Mapping[TilePosition, ConfigDictType],
 		use_function: Callable[[NetRelation], bool],
 		lut_functions: Iterable[LUTFunction]
 	) -> Tuple[List[Gene], List[Gene], List[int]]:
 		"""returns const_genes, genes and gene_section_lengths"""
+		const_genes = []
+		genes = []
+		sec_len=[]
+		
+		def empty_if_missing(dictionary, key):
+			try:
+				return dictionary[key]
+			except KeyError:
+				return []
+		
 		# sort nets by tile
 		single_tile_map = {}
 		for net in single_tile_nets:
@@ -454,11 +464,31 @@ class IcecraftRepGen(RepresentationGenerator):
 		tiles.update(config_map)
 		
 		for tile in sorted(tiles):
+			count = 0
 			# tile confs
-			pass
+			for tile_conf in empty_if_missing(config_map[tile], "tile"):
+				if tile_conf.kind in ("NegClk", ):
+					genes.append(cls.create_all_allele_gene(tile_conf))
+					count += 1
+				else:
+					raise ValueError(f"Unsupported tile config '{tile_conf.kind}'")
 			# LUTs
 			# connections that only belong to this tile
+			
+			if count > 0:
+				sec_len.append(count)
 		
+		
+		return const_genes, genes, sec_len
+	
+	@staticmethod
+	def create_all_allele_gene(item: ConfigItem) -> Gene:
+		"""create gene from ConfigItem with all possible alleles"""
+		return Gene(
+			item.bits,
+			AlleleAll(len(item.bits)),
+			f"tile ({item.bits[0].x}, {item.bits[0].y}) {item.kind}"
+		)
 	
 	@staticmethod
 	def alleles_from_src_grps(src_grps: Sequence[SourceGroup], used_function: Callable[[NetRelation], bool]) -> Tuple[Tuple[IcecraftBitPosition], AlleleList]:

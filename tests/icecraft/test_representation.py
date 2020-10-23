@@ -6,6 +6,8 @@ import adapters.icecraft as icecraft
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftColBufCtrl
 from adapters.icecraft.representation import NetRelation, SourceGroup
 from domain.request_model import RequestObject
+from domain.model import Gene
+from domain.allele_sequence import AlleleList, AlleleAll
 from adapters.icecraft.chip_data_utils import NetData
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
 
@@ -823,4 +825,48 @@ class IcecraftRepGenTest(unittest.TestCase):
 			in_map[one_cis_pos]["tile"] += (ConfigItem((IcecraftBitPosition.from_coords(*one_cis_pos, 1, 51), ), "CarryInSet"), )
 			with self.assertRaises(ValueError):
 				self.generic_carry_in_net_test(exp_map, exp_nets, in_map, in_nets)
-			
+	
+	def test_create_tile_genes(self):
+		test_cases = (
+			(
+				"NegClk",
+				[], 
+				{
+					(4, 2): {"tile": (ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), "NegClk"), )},
+					(4, 3): {},
+				},
+				lambda x: True,
+				[],
+				[],
+				[Gene((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), AlleleAll(1), "")],
+				[1]
+			),
+		)
+		exception_cases = (
+			(
+				"CarryInSet",
+				ValueError,
+				[], 
+				{
+					(4, 2): {"tile": (
+						ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), "NegClk"),
+						ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 3), ), "CarryInSet"),
+					)}
+				},
+				lambda x: True,
+				[]
+			),
+		)
+		
+		for desc, single_tile_nets, config_map, use_function, lut_functions, exp_const, exp_genes, exp_sec in test_cases:
+			with self.subTest(desc=desc):
+				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_tile_genes(single_tile_nets, config_map, use_function, lut_functions)
+				
+				self.assertEqual(exp_const, res_const)
+				self.assertEqual(exp_genes, res_genes)
+				self.assertEqual(exp_sec, res_sec)
+		
+		for desc, excep, single_tile_nets, config_map, use_function, lut_functions in exception_cases:
+			with self.subTest(desc=desc):
+				with self.assertRaises(excep):
+					icecraft.IcecraftRepGen.create_tile_genes(single_tile_nets, config_map, use_function, lut_functions)
