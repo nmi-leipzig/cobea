@@ -1,12 +1,13 @@
 import unittest
 import re
+import copy
 
 import adapters.icecraft as icecraft
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftColBufCtrl
 from adapters.icecraft.representation import NetRelation, SourceGroup
 from domain.request_model import RequestObject
 from adapters.icecraft.chip_data_utils import NetData
-from adapters.icecraft.config_item import ConnectionItem, IndexedItem
+from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
 
 from ..test_request_model import check_parameter_user
 
@@ -364,6 +365,7 @@ class SourceGroupTest(unittest.TestCase):
 
 class IcecraftRepGenTest(unittest.TestCase):
 	raw_nets = NetRelationTest.raw_nets
+	raw_configs = NetRelationTest.raw_configs
 	
 	def test_creation(self):
 		dut = icecraft.IcecraftRepGen()
@@ -780,3 +782,45 @@ class IcecraftRepGenTest(unittest.TestCase):
 					self.assertEqual(exp_allele_values, allele_values, "Wrong allele order")
 				else:
 					self.assertRaises(exp_exception, icecraft.IcecraftRepGen.alleles_from_src_grps, src_grps, used_func)
+	
+	def generic_carry_in_net_test(self, exp_map, exp_nets, config_map, raw_nets):
+		in_map = copy.deepcopy(config_map)
+		in_nets = list(raw_nets)
+		
+		icecraft.IcecraftRepGen.carry_in_set_net(in_map, in_nets)
+		
+		self.assertEqual(exp_map, in_map)
+		self.assertEqual(exp_nets, in_nets)
+	
+	def test_carry_in_set_net(self):
+		one_cis_pos = (4, 2)
+		no_cis_pos = (8, 3)
+		in_nets = list(self.raw_nets)
+		
+		# create config map from connection config
+		in_map = {}
+		for con_item in self.raw_configs:
+			tile_configs = in_map.setdefault(con_item.bits[0].tile, {"connection": tuple()})
+			tile_configs["connection"] += (con_item, )
+		for x, y in (one_cis_pos, no_cis_pos):
+			in_map[(x, y)]["tile"] = (ConfigItem((IcecraftBitPosition.from_coords(x, y, 0, 2), ), "NegClk"), )
+		
+		exp_map = copy.deepcopy(in_map)
+		in_map[one_cis_pos]["tile"] += (ConfigItem((IcecraftBitPosition.from_coords(*one_cis_pos, 1, 50), ), "CarryInSet"), )
+		
+		exp_map[one_cis_pos]["connection"] += (ConnectionItem(
+			(IcecraftBitPosition.from_coords(*one_cis_pos, 1, 50), ),
+			"connection", "carry_in_mux", ((True, ), ), (icecraft.representation.CARRY_ONE_IN, )
+		), )
+		
+		exp_nets = list(in_nets)
+		exp_nets.append(NetData(((*one_cis_pos, icecraft.representation.CARRY_ONE_IN), ), True, (0, )))
+		
+		with self.subTest(desc="no and one CarryInSet items and map entries without 'tile' key"):
+			self.generic_carry_in_net_test(exp_map, exp_nets, in_map, in_nets)
+		
+		with self.subTest(desc="two CarryInSet items"):
+			in_map[one_cis_pos]["tile"] += (ConfigItem((IcecraftBitPosition.from_coords(*one_cis_pos, 1, 51), ), "CarryInSet"), )
+			with self.assertRaises(ValueError):
+				self.generic_carry_in_net_test(exp_map, exp_nets, in_map, in_nets)
+			

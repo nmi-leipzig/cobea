@@ -9,11 +9,14 @@ from domain.request_model import RequestObject, Parameter
 from domain.allele_sequence import Allele, AlleleList
 
 from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, IcecraftNetPosition, LUTFunction, IcecraftBitPosition
-from .chip_data import get_config_items, get_net_data, get_colbufctrl
+from .chip_data import get_config_items, get_net_data, get_colbufctrl, ConfigDictType
 from .chip_data_utils import NetData, SegEntryType, SegType
 from .config_item import ConfigItem, ConnectionItem, IndexedItem
 
 NetId = SegEntryType
+
+# name of the dummy net representing CarryInSet
+CARRY_ONE_IN = "carry_one_in"
 
 class NetRelation:
 	"""Represent a nets context and relations to other nets and configrations"""
@@ -279,7 +282,11 @@ class IcecraftRepGen(RepresentationGenerator):
 	def __call__(self, request: RequestObject) -> IcecraftRep:
 		tiles = self.tiles_from_rectangle(request.x_min, request.y_min, request.x_max, request.y_max)
 		
+		config_map = {t: get_config_items(t) for t in tiles}
+		
 		raw_nets = get_net_data(tiles)
+		self.carry_in_set_net(config_map, raw_nets)
+		
 		net_relations = NetRelation.from_net_data_iter(raw_nets, tiles)
 		net_map = NetRelation.create_net_map(net_relations)
 		
@@ -287,12 +294,48 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		
 		
-		config_map = {t: get_config_items(t) for t in tiles}
 		
 		cbc_coords = self.get_colbufctrl_coordinates(net_map, tiles)
 		cbc_conf = self.get_colbufctrl_config(cbc_coords)
 		
 		return IcecraftRep([], [], cbc_conf, tuple(sorted(request.output_lutffs)))
+	
+	@staticmethod
+	def carry_in_set_net(config_map: Mapping[TilePosition, ConfigDictType], raw_nets: List[NetData]) -> None:
+		"""Replace CarryInSet tile ConfigItem with a dummy net that  can be connected to carry_in_mux"""
+		for tile, conf in config_map.items():
+			try:
+				index_list = [i for i, c in enumerate(conf["tile"]) if c.kind == "CarryInSet"]
+			except KeyError:
+				# no tile config items
+				continue
+			
+			if len(index_list) > 1:
+				raise ValueError(f"Multiple CarryInSet entries for tile {tile}: {index_list}")
+			
+			try:
+				index = index_list[0]
+			except IndexError:
+				# no CarryInSet
+				continue
+			
+			carry_set_item = conf["tile"][index]
+			conf["tile"] = conf["tile"][:index] + conf["tile"][index+1:]
+			
+			raw_nets.append(NetData(
+				((*tile, CARRY_ONE_IN), ),
+				True,
+				(0, )
+			))
+			con_item = ConnectionItem(
+				carry_set_item.bits,
+				"connection",
+				"carry_in_mux",
+				((True, ), ),
+				(CARRY_ONE_IN, )
+			)
+			conf["connection"] += (con_item, )
+		
 	
 	@classmethod
 	def _choose_nets(cls, net_relations: Iterable[NetRelation], net_map: Mapping[NetId, NetRelation], request: RequestObject) -> None:
@@ -400,12 +443,22 @@ class IcecraftRepGen(RepresentationGenerator):
 		lut_functions: Iterable[LUTFunction]
 	) -> Tuple[List[Gene], List[Gene], List[int]]:
 		"""returns const_genes, genes and gene_section_lengths"""
-		pass
+		# sort nets by tile
+		single_tile_map = {}
+		for net in single_tile_nets:
+			tile = net.iter_src_grps()[0].tile
+			single_tile_map.setdefault(tile, list).append(net)
+		
 		# find all tiles
-		#tiles = set([s.])
-		# tile confs
-		# LUTs
-		# connections that only belong to this tile
+		tiles = set(single_tile_map)
+		tiles.update(config_map)
+		
+		for tile in sorted(tiles):
+			# tile confs
+			pass
+			# LUTs
+			# connections that only belong to this tile
+		
 	
 	@staticmethod
 	def alleles_from_src_grps(src_grps: Sequence[SourceGroup], used_function: Callable[[NetRelation], bool]) -> Tuple[Tuple[IcecraftBitPosition], AlleleList]:
