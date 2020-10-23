@@ -46,7 +46,9 @@ class BitPosition(ABC):
 class Gene:
 	bit_positions: Tuple[BitPosition]
 	alleles: AlleleSequence
-	description: str
+	# human readable description of the gene function
+	# should not be relevant for the function itself
+	description: str = field(compare=False)
 
 @dataclass(frozen=True)
 class Chromosome:
