@@ -1,9 +1,10 @@
 import unittest
 import re
 import copy
+import itertools
 
 import adapters.icecraft as icecraft
-from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftColBufCtrl
+from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftColBufCtrl, LUTFunction
 from adapters.icecraft.representation import NetRelation, SourceGroup
 from domain.request_model import RequestObject
 from domain.model import Gene
@@ -870,3 +871,33 @@ class IcecraftRepGenTest(unittest.TestCase):
 			with self.subTest(desc=desc):
 				with self.assertRaises(excep):
 					icecraft.IcecraftRepGen.create_tile_genes(single_tile_nets, config_map, use_function, lut_functions)
+	
+	def test_lut_function_to_truth_table(self):
+		for func_enum in LUTFunction:
+			for in_count in range(5):
+				for used_inputs in itertools.combinations(range(4), in_count):
+					with self.subTest(func_enum=func_enum, used_inputs=used_inputs):
+						truth_table = icecraft.IcecraftRepGen.lut_function_to_truth_table(func_enum, used_inputs)
+						for in_values in itertools.product((0, 1), repeat=in_count):
+							index = 0
+							for i, shift in zip(in_values, used_inputs):
+								index |= i << shift
+							
+							if func_enum == LUTFunction.AND:
+								expected = all(in_values)
+							elif func_enum == LUTFunction.OR:
+								expected = any(in_values)
+							elif func_enum == LUTFunction.NAND:
+								expected = not all(in_values)
+							elif func_enum == LUTFunction.NOR:
+								expected = not any(in_values)
+							elif func_enum == LUTFunction.PARITY:
+								expected = (in_values.count(1) % 2) == 1
+							elif func_enum == LUTFunction.CONST_0:
+								expected = False
+							elif func_enum == LUTFunction.CONST_1:
+								expected = True
+							else:
+								self.error("No test for {}".format(func_enum))
+							
+							self.assertEqual(expected, truth_table[index], "Wrong truth table value {} {} for input 0b{:04b}".format(func_enum.name, used_inputs, index))

@@ -519,4 +519,29 @@ class IcecraftRepGen(RepresentationGenerator):
 			suffix_len += len(src_grp.bits)
 		
 		return all_bits, AlleleList(alleles)
+	
+	@staticmethod
+	def lut_function_to_truth_table(lut_function, used_inputs):
+		if lut_function in (LUTFunction.AND, LUTFunction.NAND):
+			values = []
+			for i in range(16):
+				in_values = [(i>>j)&1 for j in used_inputs]
+				value = all(in_values)
+				if lut_function == LUTFunction.NAND:
+					value = not value
+				values.append(value)
+			return tuple(values)
+		elif lut_function == LUTFunction.OR:
+			return (False, ) + (True, )*15
+		elif lut_function == LUTFunction.NOR:
+			return (True, ) + (False, )*15
+		elif lut_function == LUTFunction.PARITY:
+			return (False, True, True, False, True, False, False, True, True, False, False, True, False, True, True, False)
+		elif lut_function == LUTFunction.CONST_0:
+			return (False, )*16
+		elif lut_function == LUTFunction.CONST_1:
+			return (True, )*16
+		else:
+			raise ValueError("Unsupported LUT function '{}'".format(lut_function))
 		
+	
