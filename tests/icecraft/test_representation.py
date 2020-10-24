@@ -879,9 +879,6 @@ class IcecraftRepGenTest(unittest.TestCase):
 					with self.subTest(func_enum=func_enum, used_inputs=used_inputs):
 						truth_table = icecraft.IcecraftRepGen.lut_function_to_truth_table(func_enum, used_inputs)
 						for in_values in itertools.product((0, 1), repeat=in_count):
-							index = 0
-							for i, shift in zip(in_values, used_inputs):
-								index |= i << shift
 							
 							if func_enum == LUTFunction.AND:
 								expected = all(in_values)
@@ -900,4 +897,15 @@ class IcecraftRepGenTest(unittest.TestCase):
 							else:
 								self.error("No test for {}".format(func_enum))
 							
-							self.assertEqual(expected, truth_table[index], "Wrong truth table value {} {} for input 0b{:04b}".format(func_enum.name, used_inputs, index))
+							used_index = 0
+							for i, shift in zip(in_values, used_inputs):
+								used_index |= i << shift
+							
+							# output should be invariant to value of unused inputs
+							unused_inputs = sorted(set(range(4))-set(used_inputs))
+							for invariant_values in itertools.product((0, 1), repeat=len(unused_inputs)):
+								index = used_index
+								for i, shift in zip(invariant_values, unused_inputs):
+									index |= i << shift
+								
+								self.assertEqual(expected, truth_table[index], f"Wrong truth table value {func_enum.name} {used_inputs} for input 0b{index:04b}")

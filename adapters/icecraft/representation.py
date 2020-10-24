@@ -522,26 +522,30 @@ class IcecraftRepGen(RepresentationGenerator):
 	
 	@staticmethod
 	def lut_function_to_truth_table(lut_function, used_inputs):
-		if lut_function in (LUTFunction.AND, LUTFunction.NAND):
-			values = []
-			for i in range(16):
-				in_values = [(i>>j)&1 for j in used_inputs]
-				value = all(in_values)
-				if lut_function == LUTFunction.NAND:
-					value = not value
-				values.append(value)
-			return tuple(values)
-		elif lut_function == LUTFunction.OR:
-			return (False, ) + (True, )*15
-		elif lut_function == LUTFunction.NOR:
-			return (True, ) + (False, )*15
-		elif lut_function == LUTFunction.PARITY:
-			return (False, True, True, False, True, False, False, True, True, False, False, True, False, True, True, False)
-		elif lut_function == LUTFunction.CONST_0:
+		if lut_function == LUTFunction.CONST_0:
 			return (False, )*16
 		elif lut_function == LUTFunction.CONST_1:
 			return (True, )*16
+		
+		
+		if lut_function == LUTFunction.AND:
+			func = lambda x: all(x)
+		elif lut_function == LUTFunction.NAND:
+			func = lambda x: not all(x)
+		elif lut_function == LUTFunction.OR:
+			func = lambda x: any(x)
+		elif lut_function == LUTFunction.NOR:
+			func = lambda x: not any(x)
+		elif lut_function == LUTFunction.PARITY:
+			func = lambda x: x.count(1) % 2 == 1
 		else:
 			raise ValueError("Unsupported LUT function '{}'".format(lut_function))
+		
+		values = []
+		for i in range(16):
+			in_values = [(i>>j)&1 for j in used_inputs]
+			value = func(in_values)
+			values.append(value)
+		return tuple(values)
 		
 	
