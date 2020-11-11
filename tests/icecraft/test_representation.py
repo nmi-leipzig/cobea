@@ -2,6 +2,7 @@ import unittest
 import re
 import copy
 import itertools
+from typing import NamedTuple, Iterable, List, Mapping, Callable
 
 import adapters.icecraft as icecraft
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftColBufCtrl, LUTFunction
@@ -9,6 +10,7 @@ from adapters.icecraft.representation import NetRelation, SourceGroup
 from domain.request_model import RequestObject
 from domain.model import Gene
 from domain.allele_sequence import AlleleList, AlleleAll
+from adapters.icecraft.chip_data import ConfigDictType
 from adapters.icecraft.chip_data_utils import NetData
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
 
@@ -828,8 +830,26 @@ class IcecraftRepGenTest(unittest.TestCase):
 				self.generic_carry_in_net_test(exp_map, exp_nets, in_map, in_nets)
 	
 	def test_create_tile_genes(self):
+		class TileGenesTestData(NamedTuple):
+			desc: str
+			single_tile_nets: Iterable[NetRelation]
+			config_map: Mapping[TilePosition, ConfigDictType]
+			use_function: Callable[[NetRelation], bool]
+			lut_functions: Iterable[LUTFunction]
+			exp_const: List[Gene]
+			exp_genes: List[Gene]
+			exp_sec: List[int]
+		
+		class TileGenesErrorTestData(NamedTuple):
+			desc: str
+			excep: Exception
+			single_tile_nets: Iterable[NetRelation]
+			config_map: Mapping[TilePosition, ConfigDictType]
+			use_function: Callable[[NetRelation], bool]
+			lut_functions: Iterable[LUTFunction]
+		
 		test_cases = (
-			(
+			TileGenesTestData(
 				"NegClk",
 				[], 
 				{
@@ -844,7 +864,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			),
 		)
 		exception_cases = (
-			(
+			TileGenesErrorTestData(
 				"CarryInSet",
 				ValueError,
 				[], 
@@ -859,18 +879,18 @@ class IcecraftRepGenTest(unittest.TestCase):
 			),
 		)
 		
-		for desc, single_tile_nets, config_map, use_function, lut_functions, exp_const, exp_genes, exp_sec in test_cases:
-			with self.subTest(desc=desc):
-				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_tile_genes(single_tile_nets, config_map, use_function, lut_functions)
+		for tc in test_cases:
+			with self.subTest(desc=tc.desc):
+				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_nets, tc.config_map, tc.use_function, tc.lut_functions)
 				
-				self.assertEqual(exp_const, res_const)
-				self.assertEqual(exp_genes, res_genes)
-				self.assertEqual(exp_sec, res_sec)
+				self.assertEqual(tc.exp_const, res_const)
+				self.assertEqual(tc.exp_genes, res_genes)
+				self.assertEqual(tc.exp_sec, res_sec)
 		
-		for desc, excep, single_tile_nets, config_map, use_function, lut_functions in exception_cases:
-			with self.subTest(desc=desc):
-				with self.assertRaises(excep):
-					icecraft.IcecraftRepGen.create_tile_genes(single_tile_nets, config_map, use_function, lut_functions)
+		for tc in exception_cases:
+			with self.subTest(desc=tc.desc):
+				with self.assertRaises(tc.excep):
+					icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_nets, tc.config_map, tc.use_function, tc.lut_functions)
 	
 	def test_lut_function_to_truth_table(self):
 		for func_enum in LUTFunction:
