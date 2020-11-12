@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from domain.interfaces import Representation, RepresentationGenerator
 from domain.model import TargetConfiguration, Gene, Chromosome
 from domain.request_model import RequestObject, Parameter
-from domain.allele_sequence import Allele, AlleleList, AlleleAll
+from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 
 from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, IcecraftNetPosition, LUTFunction, IcecraftBitPosition
 from .chip_data import get_config_items, get_net_data, get_colbufctrl, ConfigDictType
@@ -430,7 +430,7 @@ class IcecraftRepGen(RepresentationGenerator):
 			if net_rel.multiple_drv_tiles:
 				pass
 			else:
-				single_tile_nets.setdefault(net_rel.tile, list).append(net_rel)
+				single_tile_nets.setdefault(net_rel.tile, []).append(net_rel)
 		
 		
 	
@@ -455,9 +455,18 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		# sort nets by tile
 		single_tile_map = {}
+		lut_input_map = {}
 		for net in single_tile_nets:
-			tile = net.iter_src_grps()[0].tile
-			single_tile_map.setdefault(tile, list).append(net)
+			tile = TilePosition(*net.segment[0][:2])
+			single_tile_map.setdefault(tile, []).append(net)
+			# assumption: LUT inputs are single tile nets
+			for _, _, name in net.segment:
+				res = re.match(r"lutff_(?P<lut>\d)/in_(?P<input>\d)", name)
+				if res is None:
+					continue
+				
+				lut_input_map.setdefault(tile, {}).setdefault(int(res.group("lut")), [None]*4)[int(res.group("input"))] = net
+				break
 		
 		# find all tiles
 		tiles = set(single_tile_map)
@@ -472,7 +481,57 @@ class IcecraftRepGen(RepresentationGenerator):
 					count += 1
 				else:
 					raise ValueError(f"Unsupported tile config '{tile_conf.kind}'")
+			
 			# LUTs
+			for lut_conf_iter in empty_if_missing(config_map[tile], "lut"):
+				for lut_conf in lut_conf_iter:
+					if lut_conf.kind in ("DffEnable", "Set_NoReset", "AsyncSetReset"):
+						tmp_gene = cls.create_all_allele_gene(
+							lut_conf,
+							f"tile ({tile.x}, {tile.y}) LUT {lut_conf.index} {lut_conf.kind}"
+						)
+						genes.append(tmp_gene)
+						count += 1
+					elif lut_conf.kind == "TruthTable":
+						in_nets = lut_input_map[tile][lut_conf.index]
+						used_inputs = [i for i, n in enumerate(in_nets) if use_function(n)]
+						unused_inputs = [i for i in range(len(in_nets)) if i not in used_inputs]
+						if len(lut_functions) == 0:
+							# no restrictions regarding functions
+							alleles = AllelePow(4, unused_inputs)
+						else:
+							values_list = []
+							desc_list = []
+							for func_enum in lut_functions:
+								values = cls.lut_function_to_truth_table(func_enum, used_inputs)
+								try:
+									index = values_list.index(values)
+									desc_list[index] += f", {func_enum.name}"
+								except ValueError:
+									values_list.append(values)
+									desc_list.append(func_enum.name)
+								
+							ordered = sorted(zip(values_list, desc_list), key=lambda e: e[0])
+							alleles = AlleleList([Allele(v, d) for v, d in ordered])
+							
+						tmp_gene = Gene(
+							lut_conf.bits,
+							alleles,
+							f"tile ({tile.x}, {tile.y}) LUT {lut_conf.index} {lut_conf.kind}"
+						)
+						
+						if len(tmp_gene.alleles) > 1:
+							genes.append(tmp_gene)
+							count += 1
+						elif len(tmp_gene.alleles) == 1:
+							const_genes.append(tmp_gene)
+						else:
+							raise Exception("Gene without alleles")
+					elif lut_conf.kind in ("CarryEnable"):
+						continue
+					else:
+						raise ValueError(f"Unsupported lut config '{lut_conf.kind}'")
+			
 			# connections that only belong to this tile
 			
 			if count > 0:
@@ -482,12 +541,14 @@ class IcecraftRepGen(RepresentationGenerator):
 		return const_genes, genes, sec_len
 	
 	@staticmethod
-	def create_all_allele_gene(item: ConfigItem) -> Gene:
+	def create_all_allele_gene(item: ConfigItem, desc: str=None) -> Gene:
 		"""create gene from ConfigItem with all possible alleles"""
+		if desc is None:
+			desc = f"tile ({item.bits[0].x}, {item.bits[0].y}) {item.kind}"
 		return Gene(
 			item.bits,
 			AlleleAll(len(item.bits)),
-			f"tile ({item.bits[0].x}, {item.bits[0].y}) {item.kind}"
+			desc
 		)
 	
 	@staticmethod
@@ -521,7 +582,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		return all_bits, AlleleList(alleles)
 	
 	@staticmethod
-	def lut_function_to_truth_table(lut_function, used_inputs):
+	def lut_function_to_truth_table(lut_function: LUTFunction, used_inputs: Iterable[int]) -> Tuple[bool, ...]:
 		if lut_function == LUTFunction.CONST_0:
 			return (False, )*16
 		elif lut_function == LUTFunction.CONST_1:

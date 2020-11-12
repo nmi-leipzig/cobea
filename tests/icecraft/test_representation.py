@@ -2,14 +2,14 @@ import unittest
 import re
 import copy
 import itertools
-from typing import NamedTuple, Iterable, List, Mapping, Callable
+from typing import NamedTuple, Iterable, List, Mapping, Callable, Tuple
 
 import adapters.icecraft as icecraft
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftColBufCtrl, LUTFunction
 from adapters.icecraft.representation import NetRelation, SourceGroup
 from domain.request_model import RequestObject
 from domain.model import Gene
-from domain.allele_sequence import AlleleList, AlleleAll
+from domain.allele_sequence import AlleleList, AlleleAll, AllelePow, Allele
 from adapters.icecraft.chip_data import ConfigDictType
 from adapters.icecraft.chip_data_utils import NetData
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
@@ -829,6 +829,9 @@ class IcecraftRepGenTest(unittest.TestCase):
 			with self.assertRaises(ValueError):
 				self.generic_carry_in_net_test(exp_map, exp_nets, in_map, in_nets)
 	
+	def create_bits(self, x:int , y: int, bit_coords: Iterable[Tuple[int, int]]) -> Tuple[IcecraftBitPosition, ...]:
+		return tuple(IcecraftBitPosition.from_coords(x, y, g, i) for g, i in bit_coords)
+	
 	def test_create_tile_genes(self):
 		class TileGenesTestData(NamedTuple):
 			desc: str
@@ -848,6 +851,21 @@ class IcecraftRepGenTest(unittest.TestCase):
 			use_function: Callable[[NetRelation], bool]
 			lut_functions: Iterable[LUTFunction]
 		
+		def lut_in_profile(net):
+			res = re.match(r"lutff_(\d)/in_(\d)", net.segment[0][2])
+			if res is None:
+				return True
+			
+			l = int(res.group(1))
+			i = int(res.group(2))
+			
+			if ((l == 1) and (i == 1)) or ((l == 2) and (i == 3)) or ((l == 3) and (i in (1, 2))) or ((l == 4) and (i in (0, 3))) \
+			or ((l == 5) and (i in (0, 1, 2))) or ((l == 6) and (i in (0, 1, 3))) or (l == 7):
+				return False
+			else:
+				# remaining, including all inputs of LUT 0
+				return True
+		
 		test_cases = (
 			TileGenesTestData(
 				"NegClk",
@@ -861,6 +879,203 @@ class IcecraftRepGenTest(unittest.TestCase):
 				[],
 				[Gene((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), AlleleAll(1), "")],
 				[1]
+			),
+			TileGenesTestData(
+				"LUT, no function restriction",
+				NetRelation.from_net_data_iter([
+					NetData(((2, 3, f"lutff_{l}/in_{i}"), ), False, (0, )) for l in range(8) for i in range(4)
+				], [(2, 3)]), 
+				{
+					(2, 3): {"lut": (
+						(
+							IndexedItem(self.create_bits(2, 3, ((0+2*l, 44),)), 'CarryEnable', l),
+							IndexedItem(self.create_bits(2, 3, ((0+2*l, 45),)), 'DffEnable', l),
+							IndexedItem(self.create_bits(2, 3, ((1+2*l, 44),)), 'Set_NoReset', l),
+							IndexedItem(self.create_bits(2, 3, ((1+2*l, 45),)), 'AsyncSetReset', l),
+							IndexedItem(self.create_bits(2, 3, ((0+2*l, 40), (1+2*l, 40), (1+2*l, 41), (0+2*l, 41), (0+2*l, 42), (1+2*l, 42), (1+2*l, 43), (0+2*l, 43), (0+2*l, 39), (1+2*l, 39), (1+2*l, 38), (0+2*l, 38), (0+2*l, 37), (1+2*l, 37), (1+2*l, 36), (0+2*l, 36))), 'TruthTable', l),
+						) for l in range(8)
+					)},
+					(4, 3): {},
+				},
+				lut_in_profile,
+				[],
+				[],
+				[
+					Gene(self.create_bits(2, 3, ((0, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((1, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((1, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((0, 40), (1, 40), (1, 41), (0, 41), (0, 42), (1, 42), (1, 43), (0, 43), (0, 39), (1, 39), (1, 38), (0, 38), (0, 37), (1, 37), (1, 36), (0, 36))), AllelePow(4, []), ""),
+					Gene(self.create_bits(2, 3, ((2, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((3, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((3, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((2, 40), (3, 40), (3, 41), (2, 41), (2, 42), (3, 42), (3, 43), (2, 43), (2, 39), (3, 39), (3, 38), (2, 38), (2, 37), (3, 37), (3, 36), (2, 36))), AllelePow(4, [1]), ""),
+					Gene(self.create_bits(2, 3, ((4, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((5, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((5, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((4, 40), (5, 40), (5, 41), (4, 41), (4, 42), (5, 42), (5, 43), (4, 43), (4, 39), (5, 39), (5, 38), (4, 38), (4, 37), (5, 37), (5, 36), (4, 36))), AllelePow(4, [3]), ""),
+					Gene(self.create_bits(2, 3, ((6, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((7, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((7, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((6, 40), (7, 40), (7, 41), (6, 41), (6, 42), (7, 42), (7, 43), (6, 43), (6, 39), (7, 39), (7, 38), (6, 38), (6, 37), (7, 37), (7, 36), (6, 36))), AllelePow(4, [1, 2]), ""),
+					Gene(self.create_bits(2, 3, ((8, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((9, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((9, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((8, 40), (9, 40), (9, 41), (8, 41), (8, 42), (9, 42), (9, 43), (8, 43), (8, 39), (9, 39), (9, 38), (8, 38), (8, 37), (9, 37), (9, 36), (8, 36))), AllelePow(4, [0, 3]), ""),
+					Gene(self.create_bits(2, 3, ((10, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((11, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((11, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((10, 40), (11, 40), (11, 41), (10, 41), (10, 42), (11, 42), (11, 43), (10, 43), (10, 39), (11, 39), (11, 38), (10, 38), (10, 37), (11, 37), (11, 36), (10, 36))), AllelePow(4, [0, 1, 2]), ""),
+					Gene(self.create_bits(2, 3, ((12, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((13, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((13, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((12, 40), (13, 40), (13, 41), (12, 41), (12, 42), (13, 42), (13, 43), (12, 43), (12, 39), (13, 39), (13, 38), (12, 38), (12, 37), (13, 37), (13, 36), (12, 36))), AllelePow(4, [0, 1, 3]), ""),
+					Gene(self.create_bits(2, 3, ((14, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((15, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((15, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((14, 40), (15, 40), (15, 41), (14, 41), (14, 42), (15, 42), (15, 43), (14, 43), (14, 39), (15, 39), (15, 38), (14, 38), (14, 37), (15, 37), (15, 36), (14, 36))), AllelePow(4, [0, 1, 2, 3]), ""),
+				],
+				[32]
+			),
+			TileGenesTestData(
+				"LUT, function restricted",
+				NetRelation.from_net_data_iter([
+					NetData(((2, 3, f"lutff_{l}/in_{i}"), ), False, (0, )) for l in range(8) for i in range(4)
+				], [(2, 3)]), 
+				{
+					(2, 3): {"lut": (
+						(
+							IndexedItem(self.create_bits(2, 3, ((0+2*l, 44),)), 'CarryEnable', l),
+							IndexedItem(self.create_bits(2, 3, ((0+2*l, 45),)), 'DffEnable', l),
+							IndexedItem(self.create_bits(2, 3, ((1+2*l, 44),)), 'Set_NoReset', l),
+							IndexedItem(self.create_bits(2, 3, ((1+2*l, 45),)), 'AsyncSetReset', l),
+							IndexedItem(self.create_bits(2, 3, ((0+2*l, 40), (1+2*l, 40), (1+2*l, 41), (0+2*l, 41), (0+2*l, 42), (1+2*l, 42), (1+2*l, 43), (0+2*l, 43), (0+2*l, 39), (1+2*l, 39), (1+2*l, 38), (0+2*l, 38), (0+2*l, 37), (1+2*l, 37), (1+2*l, 36), (0+2*l, 36))), 'TruthTable', l),
+						) for l in range(8)
+					)},
+					(4, 3): {},
+				},
+				lut_in_profile,
+				list(LUTFunction),
+				[],
+				[
+					Gene(self.create_bits(2, 3, ((0, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((1, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((1, 45),)), AlleleAll(1), ""),
+					Gene(
+						self.create_bits(2, 3, ((0, 40), (1, 40), (1, 41), (0, 41), (0, 42), (1, 42), (1, 43), (0, 43), (0, 39), (1, 39), (1, 38), (0, 38), (0, 37), (1, 37), (1, 36), (0, 36))),
+						AlleleList((
+							Allele((False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False), ""),
+							Allele((False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, True), ""),
+							Allele((False, True, True, False, True, False, False, True, True, False, False, True, False, True, True, False), ""),
+							Allele((False, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True), ""),
+							Allele((True, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False), ""),
+							Allele((True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, False), ""),
+							Allele((True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True), ""),
+						)),
+						""
+					),
+					Gene(self.create_bits(2, 3, ((2, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((3, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((3, 45),)), AlleleAll(1), ""),
+					Gene(
+						self.create_bits(2, 3, ((2, 40), (3, 40), (3, 41), (2, 41), (2, 42), (3, 42), (3, 43), (2, 43), (2, 39), (3, 39), (3, 38), (2, 38), (2, 37), (3, 37), (3, 36), (2, 36))),
+						AlleleList((
+							Allele((False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False), ""),
+							Allele((False, False, False, False, False, False, False, False, False, False, False, False, False, True, False, True), ""),
+							Allele((False, True, False, True, True, False, True, False, True, False, True, False, False, True, False, True), ""),
+							Allele((False, True, False, True, True, True, True, True, True, True, True, True, True, True, True, True), ""),
+							Allele((True, False, True, False, False, False, False, False, False, False, False, False, False, False, False, False), ""),
+							Allele((True, True, True, True, True, True, True, True, True, True, True, True, True, False, True, False), ""),
+							Allele((True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True), ""),
+						)),
+						""
+					),
+					Gene(self.create_bits(2, 3, ((4, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((5, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((5, 45),)), AlleleAll(1), ""),
+					Gene(
+						self.create_bits(2, 3, ((4, 40), (5, 40), (5, 41), (4, 41), (4, 42), (5, 42), (5, 43), (4, 43), (4, 39), (5, 39), (5, 38), (4, 38), (4, 37), (5, 37), (5, 36), (4, 36))),
+						AlleleList((
+							Allele((False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False),""),
+							Allele((False, False, False, False, False, False, False, True, False, False, False, False, False, False, False, True),""),
+							Allele((False, True, True, False, True, False, False, True, False, True, True, False, True, False, False, True),""),
+							Allele((False, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True),""),
+							Allele((True, False, False, False, False, False, False, False, True, False, False, False, False, False, False, False),""),
+							Allele((True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, False),""),
+							Allele((True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True),""),
+						)),
+						""
+					),
+					Gene(self.create_bits(2, 3, ((6, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((7, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((7, 45),)), AlleleAll(1), ""),
+					Gene(
+						self.create_bits(2, 3, ((6, 40), (7, 40), (7, 41), (6, 41), (6, 42), (7, 42), (7, 43), (6, 43), (6, 39), (7, 39), (7, 38), (6, 38), (6, 37), (7, 37), (7, 36), (6, 36))),
+						AlleleList((
+							Allele((False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False),""),
+							Allele((False, False, False, False, False, False, False, False, False, True, False, True, False, True, False, True),""),
+							Allele((False, True, False, True, False, True, False, True, True, False, True, False, True, False, True, False),""),
+							Allele((False, True, False, True, False, True, False, True, True, True, True, True, True, True, True, True),""),
+							Allele((True, False, True, False, True, False, True, False, False, False, False, False, False, False, False, False),""),
+							Allele((True, True, True, True, True, True, True, True, True, False, True, False, True, False, True, False),""),
+							Allele((True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True),""),
+						)),
+						""
+					),
+					Gene(self.create_bits(2, 3, ((8, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((9, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((9, 45),)), AlleleAll(1), ""),
+					Gene(
+						self.create_bits(2, 3, ((8, 40), (9, 40), (9, 41), (8, 41), (8, 42), (9, 42), (9, 43), (8, 43), (8, 39), (9, 39), (9, 38), (8, 38), (8, 37), (9, 37), (9, 36), (8, 36))),
+						AlleleList((
+							Allele((False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False), ""),
+							Allele((False, False, False, False, False, False, True, True, False, False, False, False, False, False, True, True), ""),
+							Allele((False, False, True, True, True, True, False, False, False, False, True, True, True, True, False, False), ""),
+							Allele((False, False, True, True, True, True, True, True, False, False, True, True, True, True, True, True), ""),
+							Allele((True, True, False, False, False, False, False, False, True, True, False, False, False, False, False, False), ""),
+							Allele((True, True, True, True, True, True, False, False, True, True, True, True, True, True, False, False), ""),
+							Allele((True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True), ""),
+						)),
+						""
+					),
+					Gene(self.create_bits(2, 3, ((10, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((11, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((11, 45),)), AlleleAll(1), ""),
+					Gene(
+						self.create_bits(2, 3, ((10, 40), (11, 40), (11, 41), (10, 41), (10, 42), (11, 42), (11, 43), (10, 43), (10, 39), (11, 39), (11, 38), (10, 38), (10, 37), (11, 37), (11, 36), (10, 36))),
+						AlleleList((
+							Allele((False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False), "CONST_0"),
+							Allele((False, False, False, False, False, False, False, False, True, True, True, True, True, True, True, True), "AND, OR, PARITY"),
+							Allele((True, True, True, True, True, True, True, True, False, False, False, False, False, False, False, False), "NAND, NOR"),
+							Allele((True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True), "CONST_1"),
+						)),
+						""
+					),
+					Gene(self.create_bits(2, 3, ((12, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((13, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((13, 45),)), AlleleAll(1), ""),
+					Gene(
+						self.create_bits(2, 3, ((12, 40), (13, 40), (13, 41), (12, 41), (12, 42), (13, 42), (13, 43), (12, 43), (12, 39), (13, 39), (13, 38), (12, 38), (12, 37), (13, 37), (13, 36), (12, 36))),
+						AlleleList((
+							Allele((False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False), ""),
+							Allele((False, False, False, False, True, True, True, True, False, False, False, False, True, True, True, True), ""),
+							Allele((True, True, True, True, False, False, False, False, True, True, True, True, False, False, False, False), ""),
+							Allele((True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True), ""),
+						)),
+						""
+					),
+					Gene(self.create_bits(2, 3, ((14, 45),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((15, 44),)), AlleleAll(1), ""),
+					Gene(self.create_bits(2, 3, ((15, 45),)), AlleleAll(1), ""),
+					Gene(
+						self.create_bits(2, 3, ((14, 40), (15, 40), (15, 41), (14, 41), (14, 42), (15, 42), (15, 43), (14, 43), (14, 39), (15, 39), (15, 38), (14, 38), (14, 37), (15, 37), (15, 36), (14, 36))),
+						AlleleList((
+							Allele((False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False), "CONST_0, OR, NAND, PARITY"),
+							Allele((True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True), "CONST_1, AND, NOR"),
+						)),
+						""
+					),
+				],
+				[32]
 			),
 		)
 		exception_cases = (
