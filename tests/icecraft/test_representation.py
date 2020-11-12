@@ -837,7 +837,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			desc: str
 			single_tile_nets: Iterable[NetRelation]
 			config_map: Mapping[TilePosition, ConfigDictType]
-			use_function: Callable[[NetRelation], bool]
+			used_function: Callable[[NetRelation], bool]
 			lut_functions: Iterable[LUTFunction]
 			exp_const: List[Gene]
 			exp_genes: List[Gene]
@@ -848,7 +848,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			excep: Exception
 			single_tile_nets: Iterable[NetRelation]
 			config_map: Mapping[TilePosition, ConfigDictType]
-			use_function: Callable[[NetRelation], bool]
+			used_function: Callable[[NetRelation], bool]
 			lut_functions: Iterable[LUTFunction]
 		
 		def lut_in_profile(net):
@@ -1096,7 +1096,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		for tc in test_cases:
 			with self.subTest(desc=tc.desc):
-				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_nets, tc.config_map, tc.use_function, tc.lut_functions)
+				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions)
 				
 				self.assertEqual(tc.exp_const, res_const)
 				self.assertEqual(tc.exp_genes, res_genes)
@@ -1105,7 +1105,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		for tc in exception_cases:
 			with self.subTest(desc=tc.desc):
 				with self.assertRaises(tc.excep):
-					icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_nets, tc.config_map, tc.use_function, tc.lut_functions)
+					icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions)
 	
 	def test_lut_function_to_truth_table(self):
 		for func_enum in LUTFunction:

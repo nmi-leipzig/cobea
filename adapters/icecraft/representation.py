@@ -413,7 +413,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		cls,
 		net_relations: Iterable[NetRelation],
 		config_map: Mapping[TilePosition, ConfigDictType],
-		use_function: Callable[[NetRelation], bool],
+		used_function: Callable[[NetRelation], bool],
 		lut_functions: Iterable[LUTFunction]
 	) -> Tuple[List[Gene], List[Gene], List[int]]:
 		"""returns const_genes, genes and gene_section_lengths"""
@@ -439,7 +439,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		cls,
 		single_tile_nets: Iterable[NetRelation],
 		config_map: Mapping[TilePosition, ConfigDictType],
-		use_function: Callable[[NetRelation], bool],
+		used_function: Callable[[NetRelation], bool],
 		lut_functions: Iterable[LUTFunction]
 	) -> Tuple[List[Gene], List[Gene], List[int]]:
 		"""returns const_genes, genes and gene_section_lengths"""
@@ -494,7 +494,7 @@ class IcecraftRepGen(RepresentationGenerator):
 						count += 1
 					elif lut_conf.kind == "TruthTable":
 						in_nets = lut_input_map[tile][lut_conf.index]
-						used_inputs = [i for i, n in enumerate(in_nets) if use_function(n)]
+						used_inputs = [i for i, n in enumerate(in_nets) if n.available and used_function(n)]
 						unused_inputs = [i for i in range(len(in_nets)) if i not in used_inputs]
 						if len(lut_functions) == 0:
 							# no restrictions regarding functions
@@ -533,6 +533,7 @@ class IcecraftRepGen(RepresentationGenerator):
 						raise ValueError(f"Unsupported lut config '{lut_conf.kind}'")
 			
 			# connections that only belong to this tile
+			
 			
 			if count > 0:
 				sec_len.append(count)
