@@ -116,6 +116,9 @@ class AlleleAll(AlleleSequence):
 				index |= 1
 		
 		return index
+	
+	def __repr__(self):
+		return f"AlleleAll(bit_count={self.bit_count})"
 
 class AllelePow(AlleleSequence):
 	"""all possible output combinations of a LUT with used and unused inputs
@@ -190,6 +193,9 @@ class AllelePow(AlleleSequence):
 	def __hash__(self):
 		return hash((self._input_count, self._unused))
 	
+	def __repr__(self):
+		return f"AllelePow(input_count={self._input_count}, unused_inputs={self._unused})"
+		
 	def size_in_bits(self) -> float:
 		return float(self._pos_outputs)
 	
