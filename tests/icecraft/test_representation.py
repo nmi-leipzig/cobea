@@ -1001,21 +1001,110 @@ class IcecraftRepGenTest(unittest.TestCase):
 		)
 		test_cases.append(ec)
 		
+		org_tile = TilePosition(2, 3)
+		net_data_list = []
+		net_names = ("unavail", "no_src_grps", "one_src", "one_src_grp", "two_src_grps", "unused")
+		for i in range(2):
+			net_data_list.extend(NetData(((*org_tile, f"{n}_{i}"), ), False, (0, )) for n in net_names)
+			# external
+			net_data_list.append(NetData(((*org_tile, f"external_{i}"), (3, 4, f"external_{i}")), False, (0, 1)))
+			# hard driven
+			net_data_list.append(NetData(((*org_tile, f"hard_driven_{i}"), ), True, (0, )))
+		
+		offset = len(net_data_list)//2
+		net_rels = NetRelation.from_net_data_iter(net_data_list, [org_tile])
+		net_rels[0].available = False
+		net_rels[offset].available = False
+		dst_nets = {n.segment[0][2][:-2]: n for n in net_rels[:offset]}
+		src_nets = {n.segment[0][2][:-2]: n for n in net_rels[offset:]}
+		
+		gene_data = []
+		# bits, dst_name, srcs, del_indices, conf_lengths
+		# a tuple describes the data to construct a gene and the original connection item
+		# del_indices define indices of srcs that will not be included in the gene
+		# conf_lengths define which parts of the bits are included in one connection item
+		class RawGene(NamedTuple):
+			raw_bits: List[Tuple[int, int]]
+			dst_label: str
+			src_list: List[Tuple[Tuple[bool, ...], str]]
+			del_indices: List[int]
+			conf_lengths: List[int]
+		
+		one_src_grp = [
+			((False, True), "hard_driven"),
+			((True, False), "external"),
+			((True, True), "unavail"),
+		]
+		two_src_grps = [
+			((False, False, True),  "external"),
+			((False, True, False), "unused"),
+			((False, True, True), "hard_driven"),
+			((True, False, False), "unavail"),
+		]
+		gene_data.append(RawGene([(0, 6), (0, 7)], "unavail", one_src_grp, [0, 1, 2], [2]))
+		# no RawGene for no_src_grps
+		gene_data.append(RawGene([(2, 6)], "one_src", [((True, ), "external")], [], [1]))
+		gene_data.append(RawGene([(3, 6), (3, 7)], "one_src_grp", one_src_grp, [2], [2]))
+		gene_data.append(RawGene([(4, 0), (4, 5), (4, 6)], "two_src_grps", two_src_grps, [1, 3], [1, 2]))
+		gene_data.append(RawGene([(5, 0), (5, 5), (5, 6)], "unused", two_src_grps, [0, 1, 2, 3], [1, 2]))
+		gene_data.append(RawGene([(6, 0), (6, 5), (6, 6)], "external", two_src_grps, [0, 1, 2, 3], [1, 2]))
+		# no RawGene for hard_driven
+		
+		con_items = []
+		exp_const = []
+		exp_genes = []
+		for gd in gene_data:
+			all_bits = self.create_bits(*org_tile, gd.raw_bits)
+			alleles = [Allele((False, )*len(all_bits), "")]
+			alleles.extend([Allele(v, "") for i, (v, _) in enumerate(gd.src_list) if i not in gd.del_indices])
+			gene = Gene(all_bits, AlleleList(alleles), "")
+			
+			if len(alleles) > 1:
+				exp_genes.append(gene)
+			else:
+				exp_const.append(gene)
+			
+			dst_net = dst_nets[gd.dst_label]
+			dst_name = dst_net.segment[0][2]
+			prev = 0
+			for l in gd.conf_lengths:
+				part_values_list = []
+				part_src_list = []
+				part_bits = all_bits[prev:prev+l]
+				for values, src_label in gd.src_list:
+					part_values = values[prev:prev+l]
+					if not any(part_values):
+						continue
+					
+					part_values_list.append(part_values)
+					
+					src_net = src_nets[src_label]
+					src_name = src_net.segment[0][2]
+					part_src_list.append(src_name)
+				
+				con_items.append(ConnectionItem(
+					part_bits,
+					"connection",
+					dst_name,
+					tuple(part_values_list),
+					tuple(part_src_list)
+				))
+				
+				prev += l
+		
+		net_map = NetRelation.create_net_map(net_rels)
+		src_grps = SourceGroup.populate_net_relations(net_map, con_items)
+		self.maxDiff = None
 		ec = TileGenesTestData(
 			"Single tile nets",
-			# net without source groups
-			# unavailable net
-			# unused net
-			# used net
-			[], 
-			{},
-			lambda x: True,
-			[],
-			[],
-			[Gene((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), AlleleAll(1), "")],
-			[1]
+			single_tile_nets = net_rels, 
+			config_map = {org_tile: {"con": tuple(con_items)}},
+			used_function = lambda n: not n.segment[0][2].startswith("unused"),
+			exp_const = exp_const,
+			exp_genes = exp_genes,
+			exp_sec = [3]
 		)
-		#test_cases.append(ec)
+		test_cases.append(ec)
 		
 		exception_cases = []
 		ec = TileGenesErrorTestData(

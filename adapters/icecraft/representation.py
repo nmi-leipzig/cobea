@@ -453,6 +453,15 @@ class IcecraftRepGen(RepresentationGenerator):
 			except KeyError:
 				return []
 		
+		def add_gene(gene):
+			if len(gene.alleles) > 1:
+				genes.append(gene)
+			elif len(gene.alleles) == 1:
+				const_genes.append(gene)
+			else:
+				raise Exception("Gene without alleles")
+			
+		
 		# sort nets by tile
 		single_tile_map = {}
 		lut_input_map = {}
@@ -473,14 +482,15 @@ class IcecraftRepGen(RepresentationGenerator):
 		tiles.update(config_map)
 		
 		for tile in sorted(tiles):
-			count = 0
+			prev_len = len(genes)
 			# tile confs
 			for tile_conf in empty_if_missing(config_map[tile], "tile"):
 				if tile_conf.kind in ("NegClk", ):
-					genes.append(cls.create_all_allele_gene(tile_conf))
-					count += 1
+					tmp_gene = cls.create_all_allele_gene(tile_conf)
 				else:
 					raise ValueError(f"Unsupported tile config '{tile_conf.kind}'")
+				
+				add_gene(tmp_gene)
 			
 			# LUTs
 			for lut_conf_iter in empty_if_missing(config_map[tile], "lut"):
@@ -490,8 +500,6 @@ class IcecraftRepGen(RepresentationGenerator):
 							lut_conf,
 							f"tile ({tile.x}, {tile.y}) LUT {lut_conf.index} {lut_conf.kind}"
 						)
-						genes.append(tmp_gene)
-						count += 1
 					elif lut_conf.kind == "TruthTable":
 						in_nets = lut_input_map[tile][lut_conf.index]
 						used_inputs = [i for i, n in enumerate(in_nets) if n.available and used_function(n)]
@@ -520,23 +528,42 @@ class IcecraftRepGen(RepresentationGenerator):
 							f"tile ({tile.x}, {tile.y}) LUT {lut_conf.index} {lut_conf.kind}"
 						)
 						
-						if len(tmp_gene.alleles) > 1:
-							genes.append(tmp_gene)
-							count += 1
-						elif len(tmp_gene.alleles) == 1:
-							const_genes.append(tmp_gene)
-						else:
-							raise Exception("Gene without alleles")
 					elif lut_conf.kind in ("CarryEnable"):
 						continue
 					else:
 						raise ValueError(f"Unsupported lut config '{lut_conf.kind}'")
+					
+					add_gene(tmp_gene)
 			
 			# connections that only belong to this tile
+			for net in empty_if_missing(single_tile_map, tile):
+				if net.hard_driven:
+					continue
+				
+				src_grps = list(net.iter_src_grps())
+				if len(src_grps) == 0:
+					continue
+				
+				if net.available and used_function(net) and not net.has_external_driver:
+					bits, alleles = cls.alleles_from_src_grps(src_grps, used_function)
+					tmp_gene = Gene(
+						bits,
+						alleles,
+						f"tile ({tile.x}, {tile.y}) driver {net.segment[0][2]}"
+					)
+				else:
+					bits = cls.bits_of_src_grps(src_grps)
+					tmp_gene = Gene(
+						bits,
+						AlleleList([Allele((False, )*len(bits), "not driven")]),
+						f"tile ({tile.x}, {tile.y}) {net.segment[0][2]} not driven"
+					)
+				
+				add_gene(tmp_gene)
 			
-			
-			if count > 0:
-				sec_len.append(count)
+			new_count = len(genes) - prev_len
+			if new_count > 0:
+				sec_len.append(new_count)
 		
 		
 		return const_genes, genes, sec_len
@@ -553,13 +580,19 @@ class IcecraftRepGen(RepresentationGenerator):
 		)
 	
 	@staticmethod
-	def alleles_from_src_grps(src_grps: Sequence[SourceGroup], used_function: Callable[[NetRelation], bool]) -> Tuple[Tuple[IcecraftBitPosition], AlleleList]:
-		if len(src_grps) < 1:
-			raise ValueError("Can't create  alleles without at least one SourceGroup")
-		
+	def bits_of_src_grps(src_grps: Iterable[SourceGroup]) -> Tuple[IcecraftBitPosition, ...]:
 		all_bits = tuple()
 		for sg in src_grps:
 			all_bits += sg.bits
+		
+		return all_bits
+	
+	@classmethod
+	def alleles_from_src_grps(cls, src_grps: Sequence[SourceGroup], used_function: Callable[[NetRelation], bool]) -> Tuple[Tuple[IcecraftBitPosition, ...], AlleleList]:
+		if len(src_grps) < 1:
+			raise ValueError("Can't create  alleles without at least one SourceGroup")
+		
+		all_bits = cls.bits_of_src_grps(src_grps)
 		width = len(all_bits)
 		
 		alleles = []
@@ -588,7 +621,6 @@ class IcecraftRepGen(RepresentationGenerator):
 			return (False, )*16
 		elif lut_function == LUTFunction.CONST_1:
 			return (True, )*16
-		
 		
 		if lut_function == LUTFunction.AND:
 			func = lambda x: all(x)
