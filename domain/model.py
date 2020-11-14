@@ -44,7 +44,7 @@ class BitPosition(ABC):
 
 @dataclass(frozen=True)
 class Gene:
-	bit_positions: Tuple[BitPosition]
+	bit_positions: Tuple[BitPosition, ...]
 	alleles: AlleleSequence
 	# human readable description of the gene function
 	# should not be relevant for the function itself
@@ -53,7 +53,7 @@ class Gene:
 @dataclass(frozen=True)
 class Chromosome:
 	identifier: int
-	allele_indices: Tuple[int]
+	allele_indices: Tuple[int, ...]
 	
 	def __getitem__(self, key):
 		return self.allele_indices[key]

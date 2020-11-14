@@ -8,12 +8,12 @@ from .config_item import ConfigItem, IndexedItem, ConnectionItem, NamedItem
 
 MultiBitsType = NewType("MultiBitsType", Tuple[BitType, ...])
 NamedBitsType = NewType("NamedBitsType", Tuple[MultiBitsType, str])
-RawLUTType = NewType("RawLUTType", Tuple[NamedBitsType])
+RawLUTType = NewType("RawLUTType", Tuple[NamedBitsType, ...])
 ValueType = NewType("ValueType", Tuple[bool, ...])
 SrcType = NewType("SrcType", Tuple[ValueType, str])
 RawConType = NewType("RawConType", Tuple[str, Tuple[SrcType, ...]])
 ConDictType = NewType("ConDictType", Dict[MultiBitsType, RawConType])
-ConfigDictType = NewType("ConfigDictType",Dict[str, Tuple[Union[ConfigItem, Tuple[IndexedItem]]]])
+ConfigDictType = NewType("ConfigDictType",Dict[str, Tuple[Union[ConfigItem, Tuple[IndexedItem, ...]]]])
 
 # tile -> config_kind
 tile_to_config_kind_index = {t: k for k, tl in config_tile_map.items() for t in tl}
@@ -48,11 +48,11 @@ def get_seg_kind_examples() -> List[Tuple[SegType, TileType, DriverType]]:
 	
 	return examples
 
-def get_raw_config_data(tile: TileType) -> Dict[str, Union[Tuple[NamedBitsType], Tuple[MultiBitsType], Tuple[RawLUTType], ConDictType]]:
+def get_raw_config_data(tile: TileType) -> Dict[str, Union[Tuple[NamedBitsType, ...], Tuple[MultiBitsType, ...], Tuple[RawLUTType, ...], ConDictType]]:
 	config_kind_index = tile_to_config_kind_index[tile]
 	return config_kinds[config_kind_index]
 
-def bits_to_bit_positions(tile_pos: TilePosition, bits: Iterable[BitType]) -> Tuple[IcecraftBitPosition]:
+def bits_to_bit_positions(tile_pos: TilePosition, bits: Iterable[BitType]) -> Tuple[IcecraftBitPosition, ...]:
 	return tuple(IcecraftBitPosition(tile_pos, *b) for b in bits)
 
 def get_config_items(tile: TileType) -> ConfigDictType:
