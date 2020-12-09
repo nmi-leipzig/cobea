@@ -1,0 +1,3 @@
+[submodule "adapters/icecraft/ice_board"]
+	path = adapters/icecraft/ice_board
+	url = git@git.informatik.uni-leipzig.de:ehs/ice/ice_board.git
