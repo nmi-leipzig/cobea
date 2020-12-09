@@ -432,7 +432,19 @@ class IcecraftRepGen(RepresentationGenerator):
 			else:
 				single_tile_nets.setdefault(net_rel.tile, []).append(net_rel)
 		
-		
+	
+	@classmethod
+	def create_unused_gene(cls, src_grps: Sequence[SourceGroup], desc: str=None) -> Gene:
+		if desc is None:
+			desc = "not driven"
+		bits = cls.bits_of_src_grps(src_grps)
+		if len(bits) == 0:
+			raise ValueError("No bits in unused gene")
+		return Gene(
+			bits,
+			AlleleList([Allele((False, )*len(bits), "not driven")]),
+			desc
+		)
 	
 	@classmethod
 	def create_tile_genes(
@@ -552,12 +564,7 @@ class IcecraftRepGen(RepresentationGenerator):
 						f"tile ({tile.x}, {tile.y}) driver {net.segment[0][2]}"
 					)
 				else:
-					bits = cls.bits_of_src_grps(src_grps)
-					tmp_gene = Gene(
-						bits,
-						AlleleList([Allele((False, )*len(bits), "not driven")]),
-						f"tile ({tile.x}, {tile.y}) {net.segment[0][2]} not driven"
-					)
+					tmp_gene = cls.create_unused_gene(src_grps, f"tile ({tile.x}, {tile.y}) {net.segment[0][2]} not driven")
 				
 				add_gene(tmp_gene)
 			

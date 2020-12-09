@@ -2,7 +2,7 @@ import unittest
 import re
 import copy
 import itertools
-from typing import NamedTuple, Iterable, List, Mapping, Callable, Tuple
+from typing import NamedTuple, Iterable, List, Mapping, Callable, Tuple, Union
 
 import adapters.icecraft as icecraft
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftColBufCtrl, LUTFunction
@@ -662,10 +662,18 @@ class IcecraftRepGenTest(unittest.TestCase):
 				res = icecraft.IcecraftRepGen.get_colbufctrl_config(coords)
 				self.assertEqual(exp, res)
 	
-	def test_alleles_from_src_grps(self):
+	def generate_src_grps_test_cases(self, x, y):
+		class SrcGrpsTestData(NamedTuple):
+			desc: str # description
+			con_items: Iterable[ConnectionItem] = [] # connection config items
+			used_func: Callable[[NetRelation], bool] = lambda x: True # used function
+			unavails: List[int] = [] # indices of unavailable nets
+			exp_bits: Tuple[IcecraftBitPosition, ...] = tuple() # expected bits
+			exp_allele_values: Tuple[Tuple[bool, ...], ...] = tuple() # expected allele values
+			exp_excep: Union[Exception, None] = None # expected exception
+		
 		bit_pos = IcecraftBitPosition.from_coords
-		x = 2
-		y = 3
+		
 		net_data_list = [NetData(((x, y, f"src_{i}"), ), True, (0,)) for i in range(4)]
 		net_data_list.extend([NetData(((x+1, y, f"src_{i+4}"), ), True, (0,)) for i in range(4)])
 		net_data_list.append(NetData(((x, y, "dst"), (x+1, y, "dst")), False, (0, 1)))
@@ -690,103 +698,112 @@ class IcecraftRepGenTest(unittest.TestCase):
 			),
 		]
 		test_cases = (
-			(
-				"single source group", # description
-				tile_items[:1], # connection config items
-				lambda x: True, # used function
-				[], # indices of unavailable nets
-				tile_items[0].bits, # expected bits
-				((False, False), (True, False), (True, True)), # expected allele values
-				None # expected exception
+			SrcGrpsTestData(
+				"single source group",
+				tile_items[:1],
+				exp_bits = tile_items[0].bits,
+				exp_allele_values = ((False, False), (True, False), (True, True)),
 			),
-			(
+			SrcGrpsTestData(
 				"multiple source groups, single tile",
 				tile_items[:2],
-				lambda x: True,
-				[],
-				tile_items[0].bits+tile_items[1].bits,
-				(
+				exp_bits = tile_items[0].bits+tile_items[1].bits,
+				exp_allele_values = (
 					(False, False, False, False), (False, False, False, True),
 					(False, False, True, False), (True, False, False, False),
 					(True, True, False, False)
 				),
-				None
 			),
-			(
+			SrcGrpsTestData(
 				"multiple source groups, multiple tiles",
 				tile_items[:1]+other_items[1:2],
-				lambda x: True,
-				[],
-				tile_items[0].bits+other_items[1].bits,
-				(
+				exp_bits = tile_items[0].bits+other_items[1].bits,
+				exp_allele_values = (
 					(False, False, False, False), (False, False, False, True),
 					(False, False, True, False), (True, False, False, False),
 					(True, True, False, False)
 				),
-				None
 			),
-			(
+			SrcGrpsTestData(
 				"no source group",
-				[],
-				lambda x: True,
-				[],
-				tuple(),
-				tuple(),
-				ValueError
+				exp_excep = ValueError
 			),
-			(
+			SrcGrpsTestData(
 				"used function",
 				tile_items[:2],
 				lambda x: "src_0" not in [n for _, _, n in x.segment],
-				[],
-				tile_items[0].bits+tile_items[1].bits,
-				(
+				exp_bits = tile_items[0].bits+tile_items[1].bits,
+				exp_allele_values = (
 					(False, False, False, False), (False, False, False, True),
 					(False, False, True, False), (True, True, False, False)
 				),
-				None
 			),
-			(
+			SrcGrpsTestData(
 				"not available",
 				tile_items[:2],
-				lambda x: True,
-				[1],
-				tile_items[0].bits+tile_items[1].bits,
-				(
+				unavails = [1],
+				exp_bits = tile_items[0].bits+tile_items[1].bits,
+				exp_allele_values = (
 					(False, False, False, False), (False, False, False, True),
 					(False, False, True, False), (True, False, False, False)
 				),
-				None
 			),
-			(
+			SrcGrpsTestData(
 				"none available",
 				tile_items[:2],
 				lambda x: int(x.segment[0][2][-1])%2 != 0,
 				[1, 3],
 				tile_items[0].bits+tile_items[1].bits,
 				((False, False, False, False), ),
-				None
 			),
 		)
 		
-		for desc, con_items, used_func, unavails, exp_bits, exp_allele_values, exp_exception in test_cases:
-			with self.subTest(desc=desc):
+		return net_data_list, test_cases
+	
+	def test_alleles_from_src_grps(self):
+		x = 2
+		y = 3
+		net_data_list, test_cases = self.generate_src_grps_test_cases(x, y)
+		
+		for tc in test_cases:
+			with self.subTest(desc=tc.desc):
 				net_relations = NetRelation.from_net_data_iter(net_data_list, [(x, y)])
 				net_map = NetRelation.create_net_map(net_relations)
-				src_grps = SourceGroup.populate_net_relations(net_map, con_items)
+				src_grps = SourceGroup.populate_net_relations(net_map, tc.con_items)
 				
-				for i in unavails:
+				for i in tc.unavails:
 					net_relations[i].available = False
 				
-				if exp_exception is None:
-					bits, alleles = icecraft.IcecraftRepGen.alleles_from_src_grps(src_grps, used_func)
+				if tc.exp_excep is None:
+					bits, alleles = icecraft.IcecraftRepGen.alleles_from_src_grps(src_grps, tc.used_func)
 					allele_values = tuple(a.values for a in alleles)
 					
-					self.assertEqual(exp_bits, bits)
-					self.assertEqual(set(exp_allele_values), set(allele_values), "Wrong alleles")
-					self.assertEqual(exp_allele_values, allele_values, "Wrong allele order")
+					self.assertEqual(tc.exp_bits, bits)
+					self.assertEqual(set(tc.exp_allele_values), set(allele_values), "Wrong alleles")
+					self.assertEqual(tc.exp_allele_values, allele_values, "Wrong allele order")
 				else:
-					self.assertRaises(exp_exception, icecraft.IcecraftRepGen.alleles_from_src_grps, src_grps, used_func)
+					self.assertRaises(tc.exp_excep, icecraft.IcecraftRepGen.alleles_from_src_grps, src_grps, tc.used_func)
+	
+	def test_create_unused_gene(self):
+		x = 2
+		y = 3
+		net_data_list, test_cases = self.generate_src_grps_test_cases(x, y)
+		
+		for tc in test_cases:
+				net_relations = NetRelation.from_net_data_iter(net_data_list, [(x, y)])
+				net_map = NetRelation.create_net_map(net_relations)
+				src_grps = SourceGroup.populate_net_relations(net_map, tc.con_items)
+				
+				if tc.exp_excep is None:
+					res = icecraft.IcecraftRepGen.create_unused_gene(src_grps)
+					
+					self.assertEqual(tc.exp_bits, res.bit_positions)
+					self.assertEqual(1, len(res.alleles))
+					self.assertFalse(any(res.alleles[0].values), "All allele values have to be False")
+					
+				else:
+					self.assertRaises(tc.exp_excep, icecraft.IcecraftRepGen.create_unused_gene, src_grps)
+			
 	
 	def generic_carry_in_net_test(self, exp_map, exp_nets, config_map, raw_nets):
 		in_map = copy.deepcopy(config_map)
@@ -879,6 +896,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			else:
 				return True
 		
+		# corresponding to cases in lut_in_unused
 		truth_tables_enum = [
 			(
 				(False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False),
