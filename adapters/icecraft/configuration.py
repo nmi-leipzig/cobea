@@ -6,22 +6,7 @@ from typing import Iterable, List, Tuple, Sequence
 sys.path.append("/usr/local/bin")
 import icebox
 
-sys.path.append(
-	os.path.join(
-		os.path.dirname(
-			os.path.dirname(
-				os.path.dirname(
-					os.path.dirname(os.path.abspath(__file__))
-				)
-			)
-		),
-		"components",
-		"board"
-	)
-	
-)
-from configuration import Configuration
-from fpga_board import FPGABoard
+from .ice_board import Configuration, FPGABoard
 
 from domain.model import TargetConfiguration
 

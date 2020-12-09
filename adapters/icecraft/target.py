@@ -1,23 +1,7 @@
 import os
-import sys
 from typing import Union
 
-sys.path.append(
-	os.path.join(
-		os.path.dirname(
-			os.path.dirname(
-				os.path.dirname(
-					os.path.dirname(os.path.abspath(__file__))
-				)
-			)
-		),
-		"components",
-		"board"
-	)
-	
-)
-from fpga_board import FPGABoard
-from fpga_manager import FPGAManager
+from .ice_board import FPGABoard, FPGAManager
 
 from domain.interfaces import TargetDevice, TargetManager
 from domain.model import TargetConfiguration

@@ -1,23 +1,7 @@
-import os
-import sys
 from enum import Enum, auto
 from dataclasses import dataclass
 
-sys.path.append(
-	os.path.join(
-		os.path.dirname(
-			os.path.dirname(
-				os.path.dirname(
-					os.path.dirname(os.path.abspath(__file__))
-				)
-			)
-		),
-		"components",
-		"board"
-	)
-	
-)
-from device_data import BRAMMode, TilePosition
+from .ice_board.device_data import BRAMMode, TilePosition
 
 from domain.model import BitPosition
 
