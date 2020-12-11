@@ -1081,6 +1081,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		net_rels[offset].available = False
 		dst_nets = {n.segment[0][2][:-2]: n for n in net_rels[:offset]}
 		src_nets = {n.segment[0][2][:-2]: n for n in net_rels[offset:]}
+		single_nets = [n for n in net_rels if not n.segment[0][2].startswith("external")]
 		
 		gene_data = []
 		# bits, dst_name, srcs, del_indices, conf_lengths
@@ -1093,6 +1094,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			src_list: List[Tuple[Tuple[bool, ...], str]]
 			del_indices: List[int]
 			conf_lengths: List[int]
+			create_gene: bool = True
 		
 		one_src_grp = [
 			((False, True), "hard_driven"),
@@ -1111,22 +1113,23 @@ class IcecraftRepGenTest(unittest.TestCase):
 		gene_data.append(RawGene([(3, 6), (3, 7)], "one_src_grp", one_src_grp, [2], [2]))
 		gene_data.append(RawGene([(4, 0), (4, 5), (4, 6)], "two_src_grps", two_src_grps, [1, 3], [1, 2]))
 		gene_data.append(RawGene([(5, 0), (5, 5), (5, 6)], "unused", two_src_grps, [0, 1, 2, 3], [1, 2]))
-		gene_data.append(RawGene([(6, 0), (6, 5), (6, 6)], "external", two_src_grps, [0, 1, 2, 3], [1, 2]))
+		gene_data.append(RawGene([(6, 0), (6, 5), (6, 6)], "external", two_src_grps, [0, 1, 2, 3], [1, 2], False))
 		# no RawGene for hard_driven
 		
 		con_items = []
 		exp_const = []
 		exp_genes = []
 		for gd in gene_data:
-			all_bits = self.create_bits(*org_tile, gd.raw_bits)
-			alleles = [Allele((False, )*len(all_bits), "")]
-			alleles.extend([Allele(v, "") for i, (v, _) in enumerate(gd.src_list) if i not in gd.del_indices])
-			gene = Gene(all_bits, AlleleList(alleles), "")
-			
-			if len(alleles) > 1:
-				exp_genes.append(gene)
-			else:
-				exp_const.append(gene)
+			if gd.create_gene:
+				all_bits = self.create_bits(*org_tile, gd.raw_bits)
+				alleles = [Allele((False, )*len(all_bits), "")]
+				alleles.extend([Allele(v, "") for i, (v, _) in enumerate(gd.src_list) if i not in gd.del_indices])
+				gene = Gene(all_bits, AlleleList(alleles), "")
+				
+				if len(alleles) > 1:
+					exp_genes.append(gene)
+				else:
+					exp_const.append(gene)
 			
 			dst_net = dst_nets[gd.dst_label]
 			dst_name = dst_net.segment[0][2]
@@ -1161,7 +1164,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		self.maxDiff = None
 		ec = TileGenesTestData(
 			"Single tile nets",
-			single_tile_nets = net_rels, 
+			single_tile_nets = single_nets, 
 			config_map = {org_tile: {"con": tuple(con_items)}},
 			used_function = lambda n: not n.segment[0][2].startswith("unused"),
 			exp_const = exp_const,
@@ -1192,6 +1195,41 @@ class IcecraftRepGenTest(unittest.TestCase):
 					ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 3), ), "CarryInSet"),
 				)}
 			},
+		)
+		exception_cases.append(ec)
+		
+		org_tile = TilePosition(4, 2)
+		other_tile = TilePosition(3, 1)
+		net_data_list = [
+			NetData(((*other_tile, "dst"), (*org_tile, "dst")), False, (0, 1)),
+			NetData(((*other_tile, f"src_1"), ), True, (0, )),
+			NetData(((*org_tile, f"src_2"), ), True, (0, )),
+		]
+		
+		ec = TileGenesErrorTestData(
+			"multitile",
+			ValueError,
+			NetRelation.from_net_data_iter(net_data_list, [other_tile, org_tile]),
+			{
+				org_tile: {"con": (
+					ConnectionItem(
+						self.create_bits(*other_tile, [(9, 7), (9, 8)]),
+						"connection",
+						"dst",
+						((True, True), ),
+						("src_1", )
+					),
+				)},
+				other_tile: {"con": (
+					ConnectionItem(
+						self.create_bits(*org_tile, [(4, 5), (4, 6)]),
+						"connection",
+						"dst",
+						((True, True), ),
+						("src_2", )
+					),
+				)}
+			}
 		)
 		exception_cases.append(ec)
 		
