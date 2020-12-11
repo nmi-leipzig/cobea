@@ -2,6 +2,7 @@ import re
 from typing import Sequence, Mapping, List, Tuple, Iterable, Callable, Union
 from dataclasses import dataclass
 from contextlib import contextmanager
+from collections import defaultdict
 
 from domain.interfaces import Representation, RepresentationGenerator
 from domain.model import TargetConfiguration, Gene, Chromosome
@@ -547,7 +548,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		# sort nets by tile
 		single_tile_map = {}
-		lut_input_map = {}
+		lut_input_map = defaultdict(lambda: defaultdict(set))
 		for net in single_tile_nets:
 			if net.multiple_drv_tiles:
 				raise ValueError("net with multiple driver tiles can't be handled as tile genes")
@@ -559,7 +560,8 @@ class IcecraftRepGen(RepresentationGenerator):
 				if res is None:
 					continue
 				
-				lut_input_map.setdefault(tile, {}).setdefault(int(res.group("lut")), [None]*4)[int(res.group("input"))] = net
+				if net.available and used_function(net):
+					lut_input_map[tile][int(res.group("lut"))].add(int(res.group("input")))
 				break
 		
 		# find all tiles
@@ -586,9 +588,8 @@ class IcecraftRepGen(RepresentationGenerator):
 							f"tile ({tile.x}, {tile.y}) LUT {lut_conf.index} {lut_conf.kind}"
 						)
 					elif lut_conf.kind == "TruthTable":
-						in_nets = lut_input_map[tile][lut_conf.index]
-						used_inputs = [i for i, n in enumerate(in_nets) if n.available and used_function(n)]
-						unused_inputs = [i for i in range(len(in_nets)) if i not in used_inputs]
+						used_inputs = sorted(lut_input_map[tile][lut_conf.index])
+						unused_inputs = [i for i in range(4) if i not in used_inputs]
 						if len(lut_functions) == 0:
 							# no restrictions regarding functions
 							alleles = AllelePow(4, unused_inputs)
