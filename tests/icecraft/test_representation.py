@@ -294,6 +294,21 @@ class NetRelationTest(unittest.TestCase):
 		for net_rel, exp_val in zip(net_relations, exp):
 			self.assertEqual(exp_val, net_rel.multiple_src_tiles())
 	
+	def test_iter_drv_tiles(self):
+		test_cases = (
+			("no driver", NetData(((2, 3, "none"), ), False, tuple()), []),
+			("one driver", NetData(((2, 3, "one"), ), False, (0, )), [TilePosition(2, 3)]),
+			("two drivers single tile", NetData(((7, 1, "potato"), (7, 1, "tomato")), False, (0, 1)), [TilePosition(7, 1)]),
+			("two drivers, two tiles", NetData(((5, 6, "chip"), (1, 6, "chip")), False, (0, 1)), [TilePosition(1, 6), TilePosition(5, 6)]),
+			("hard wired", NetData(((7, 3, "out"), (8, 1, "in"), (9, 3, "out")), True, (1, )), [TilePosition(8, 1)]),
+		)
+		
+		for desc, net_data, exp in test_cases:
+			dut = NetRelation(net_data)
+			
+			res = list(dut.iter_drv_tiles())
+			self.assertEqual(exp, res)
+	
 	def test_multiple_driver_tiles_in_net_data(self):
 		exp_raw_nets = (False, False, False, True, False, True, True, False, True, True, True, True, False)
 		test_cases = [(f"raw net {i}", r, n) for i, (n, r) in enumerate(zip(self.raw_nets, exp_raw_nets))]

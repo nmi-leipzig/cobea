@@ -26,12 +26,14 @@ class NetRelation:
 		
 		# check for external drivers
 		self._has_external_driver = False
-		self._drv_tiles = []
+		drv_tile_set = set()
 		for drv_index in net_data.drivers:
 			drv_tile = TilePosition(*net_data.segment[drv_index][:2])
-			self._drv_tiles.append(drv_tile)
+			drv_tile_set.add(drv_tile)
 			if drv_tile not in inner_tiles:
 				self._has_external_driver = True
+		
+		self._drv_tiles = sorted(drv_tile_set)
 		
 		self._multi_drv_tiles = self.multiple_driver_tiles_in_net_data(net_data)
 		
