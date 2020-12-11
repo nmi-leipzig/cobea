@@ -551,7 +551,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		for net in single_tile_nets:
 			if net.multiple_drv_tiles:
 				raise ValueError("net with multiple driver tiles can't be handled as tile genes")
-			tile = TilePosition(*net.segment[0][:2])
+			tile = next(net.iter_drv_tiles())
 			single_tile_map.setdefault(tile, []).append(net)
 			# assumption: LUT inputs are single tile nets
 			for _, _, name in net.segment:

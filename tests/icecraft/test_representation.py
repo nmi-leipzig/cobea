@@ -1065,11 +1065,21 @@ class IcecraftRepGenTest(unittest.TestCase):
 		)
 		test_cases.append(ec)
 		
+		
 		org_tile = TilePosition(2, 3)
+		def org_name(n):
+			# find name of net in org_tile
+			for x, y, name in n.segment:
+				if org_tile.x == x and org_tile.y == y:
+					return name
+			raise ValueError("no name in original tile")
+		
 		net_data_list = []
 		net_names = ("unavail", "no_src_grps", "one_src", "one_src_grp", "two_src_grps", "unused")
 		for i in range(2):
-			net_data_list.extend(NetData(((*org_tile, f"{n}_{i}"), ), False, (0, )) for n in net_names)
+			net_data_list.extend(NetData(((*org_tile, f"{n}_{i}"), ), False, (0, )) for n in net_names[:3])
+			net_data_list.extend(NetData(((1, 1, f"other_{n}_{i}"), (*org_tile, f"{n}_{i}")), False, (1, )) for n in net_names[3:4])
+			net_data_list.extend(NetData(((*org_tile, f"{n}_{i}"), ), False, (0, )) for n in net_names[4:])
 			# external
 			net_data_list.append(NetData(((*org_tile, f"external_{i}"), (3, 4, f"external_{i}")), False, (0, 1)))
 			# hard driven
@@ -1079,8 +1089,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		net_rels = NetRelation.from_net_data_iter(net_data_list, [org_tile])
 		net_rels[0].available = False
 		net_rels[offset].available = False
-		dst_nets = {n.segment[0][2][:-2]: n for n in net_rels[:offset]}
-		src_nets = {n.segment[0][2][:-2]: n for n in net_rels[offset:]}
+		dst_nets = {org_name(n)[:-2]: n for n in net_rels[:offset]}
+		src_nets = {org_name(n)[:-2]: n for n in net_rels[offset:]}
 		single_nets = [n for n in net_rels if not n.segment[0][2].startswith("external")]
 		
 		gene_data = []
@@ -1132,7 +1142,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 					exp_const.append(gene)
 			
 			dst_net = dst_nets[gd.dst_label]
-			dst_name = dst_net.segment[0][2]
+			dst_name = org_name(dst_net)
 			prev = 0
 			for l in gd.conf_lengths:
 				part_values_list = []
@@ -1146,7 +1156,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 					part_values_list.append(part_values)
 					
 					src_net = src_nets[src_label]
-					src_name = src_net.segment[0][2]
+					src_name = org_name(src_net)
 					part_src_list.append(src_name)
 				
 				con_items.append(ConnectionItem(
