@@ -1,5 +1,5 @@
 import re
-from typing import Sequence, Mapping, List, Tuple, Iterable, Callable
+from typing import Sequence, Mapping, List, Tuple, Iterable, Callable, Union
 from dataclasses import dataclass
 from contextlib import contextmanager
 
@@ -26,11 +26,12 @@ class NetRelation:
 		
 		# check for external drivers
 		self._has_external_driver = False
+		self._drv_tiles = []
 		for drv_index in net_data.drivers:
 			drv_tile = TilePosition(*net_data.segment[drv_index][:2])
+			self._drv_tiles.append(drv_tile)
 			if drv_tile not in inner_tiles:
 				self._has_external_driver = True
-				break
 		
 		self._multi_drv_tiles = self.multiple_driver_tiles_in_net_data(net_data)
 		
@@ -114,6 +115,9 @@ class NetRelation:
 	def add_src_grp(self, src_grp: "SourceGroup") -> None:
 		self._src_grp_list.append(src_grp)
 		self.update_has_viable_src()
+	
+	def iter_drv_tiles(self) -> Iterable[TilePosition]:
+		yield from self._drv_tiles
 	
 	@property
 	def multiple_drv_tiles(self):
@@ -417,24 +421,84 @@ class IcecraftRepGen(RepresentationGenerator):
 		lut_functions: Iterable[LUTFunction]
 	) -> Tuple[List[Gene], List[Gene], List[int]]:
 		"""returns const_genes, genes and gene_section_lengths"""
-		ext_driven = []
-		single_tile_nets = {}
+		const_genes = []
+		genes = []
+		sec_len=[]
+		
+		def add_gene(gene):
+			if len(gene.alleles) > 1:
+				genes.append(gene)
+			elif len(gene.alleles) == 1:
+				const_genes.append(gene)
+			else:
+				raise Exception("Gene without alleles")
+		
+		# sort nets
+		unused_nets = []
+		ext_drv_nets = []
+		multi_drv_nets = []
+		single_tile_nets = []
 		for net_rel in net_relations:
 			if not net_rel.available:
 				continue
 			
-			if net_rel.has_external_driver:
-				ext_driven.append(net_rel)
+			if net_rel.hard_driven:
 				continue
 			
-			if net_rel.multiple_drv_tiles:
-				pass
-			else:
-				single_tile_nets.setdefault(net_rel.tile, []).append(net_rel)
+			if len(list(net_rel.iter_src_grps())) == 0:
+				continue
+			
+			drv_tiles = list(net_rel.iter_drv_tiles())
+			
+			if len(drv_tiles) == 0:
+				continue
+			
+			if not used_function(net_rel):
+				unused_nets.append(net_rel)
+				continue
+			
+			if net_rel.has_external_driver:
+				ext_drv_nets.append(net_rel)
+				continue
+			
+			if len(drv_tiles) > 1:
+				multi_drv_nets.append(net_rel)
+				continue
+			
+			single_tile_nets.append(net_rel)
 		
+		const_genes = [cls.create_unused_gene_from_net(n, f"unused {n.segment[0]}") for n in unused_nets]
+		
+		const_genes.extend(cls.create_unused_gene_from_net(e, f"externally driven {e.segment[0]}") for e in ext_drv_nets)
+		
+		for net_rel in multi_drv_nets:
+			src_grps = list(net_rel.iter_src_grps())
+			bits, alleles = cls.alleles_from_src_grps(src_grps, used_function)
+			tmp_gene = Gene(
+				bits,
+				alleles,
+				f"multitile driver {net_rel.segment[0]}"
+			)
+			
+			add_gene(tmp_gene)
+		# first gene section: nets having potential drivers in multiple nets
+		if len(genes) > 0:
+			sec_len.append(len(genes))
+		
+		single_const_genes, single_genes, single_sec_len = cls.create_tile_genes(
+			single_tile_nets,
+			config_map,
+			used_function,
+			lut_functions
+		)
+		const_genes.extend(single_const_genes)
+		genes.extend(single_genes)
+		sec_len.extend(single_sec_len)
+		
+		return const_genes, genes, sec_len
 	
 	@classmethod
-	def create_unused_gene(cls, src_grps: Sequence[SourceGroup], desc: str=None) -> Gene:
+	def create_unused_gene(cls, src_grps: Sequence[SourceGroup], desc: Union[str, None]=None) -> Gene:
 		if desc is None:
 			desc = "not driven"
 		bits = cls.bits_of_src_grps(src_grps)
@@ -445,6 +509,11 @@ class IcecraftRepGen(RepresentationGenerator):
 			AlleleList([Allele((False, )*len(bits), "not driven")]),
 			desc
 		)
+	
+	@classmethod
+	def create_unused_gene_from_net(cls, net_rel: NetRelation, desc: Union[str, None]=None) -> Gene:
+		src_grps = list(net_rel.iter_src_grps())
+		return cls.create_unused_gene(src_grps, desc)
 	
 	@classmethod
 	def create_tile_genes(

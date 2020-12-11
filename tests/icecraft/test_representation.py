@@ -800,10 +800,31 @@ class IcecraftRepGenTest(unittest.TestCase):
 					self.assertEqual(tc.exp_bits, res.bit_positions)
 					self.assertEqual(1, len(res.alleles))
 					self.assertFalse(any(res.alleles[0].values), "All allele values have to be False")
-					
 				else:
 					self.assertRaises(tc.exp_excep, icecraft.IcecraftRepGen.create_unused_gene, src_grps)
 			
+	
+	def test_create_unused_gene_from_net(self):
+		x = 5
+		y = 4
+		
+		net_data_list, test_cases = self.generate_src_grps_test_cases(x, y)
+		
+		for tc in test_cases:
+				net_relations = NetRelation.from_net_data_iter(net_data_list, [(x, y)])
+				net_map = NetRelation.create_net_map(net_relations)
+				src_grps = SourceGroup.populate_net_relations(net_map, tc.con_items)
+				
+				dst_net = [n for n in net_relations if n.segment[0][2]=="dst"][0]
+				
+				if tc.exp_excep is None:
+					res = icecraft.IcecraftRepGen.create_unused_gene_from_net(dst_net)
+					
+					self.assertEqual(tc.exp_bits, res.bit_positions)
+					self.assertEqual(1, len(res.alleles))
+					self.assertFalse(any(res.alleles[0].values), "All allele values have to be False")
+				else:
+					self.assertRaises(tc.exp_excep, icecraft.IcecraftRepGen.create_unused_gene_from_net, dst_net)
 	
 	def generic_carry_in_net_test(self, exp_map, exp_nets, config_map, raw_nets):
 		in_map = copy.deepcopy(config_map)
@@ -849,7 +870,25 @@ class IcecraftRepGenTest(unittest.TestCase):
 	def create_bits(self, x:int , y: int, bit_coords: Iterable[Tuple[int, int]]) -> Tuple[IcecraftBitPosition, ...]:
 		return tuple(IcecraftBitPosition.from_coords(x, y, g, i) for g, i in bit_coords)
 	
-	def test_create_tile_genes(self):
+	def test_create_genes(self):
+		# test cases for single tile nets also have to work for more general create_genes function
+		st_test_cases = self.generate_tile_genes_test_cases()
+		st_exception_cases = self.generate_tile_genes_fail_test_cases()
+		
+		for tc in st_test_cases:
+			with self.subTest(desc=f"single tile case: {tc.desc}"):
+				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions)
+				
+				self.assertEqual(tc.exp_const, res_const)
+				self.assertEqual(tc.exp_genes, res_genes)
+				self.assertEqual(tc.exp_sec, res_sec)
+		
+		for tc in st_exception_cases:
+			with self.subTest(desc=f"single tile exception case: {tc.desc}"):
+				with self.assertRaises(tc.excep):
+					icecraft.IcecraftRepGen.create_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions)
+	
+	def generate_tile_genes_test_cases(self):
 		class TileGenesTestData(NamedTuple):
 			desc: str
 			single_tile_nets: Iterable[NetRelation] = []
@@ -860,21 +899,13 @@ class IcecraftRepGenTest(unittest.TestCase):
 			exp_genes: List[Gene] = []
 			exp_sec: List[int] = []
 		
-		class TileGenesErrorTestData(NamedTuple):
-			desc: str
-			excep: Exception
-			single_tile_nets: Iterable[NetRelation] = []
-			config_map: Mapping[TilePosition, ConfigDictType] = {}
-			used_function: Callable[[NetRelation], bool] = lambda x: True
-			lut_functions: Iterable[LUTFunction] = []
-		
 		test_cases = []
 		
 		ec = TileGenesTestData(
 			"NegClk",
 			config_map = {
-				(4, 2): {"tile": (ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), "NegClk"), )},
-				(4, 3): {},
+				TilePosition(4, 2): {"tile": (ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), "NegClk"), )},
+				TilePosition(4, 3): {},
 			},
 			exp_genes = [Gene((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), AlleleAll(1), "")],
 			exp_sec = [1]
@@ -993,8 +1024,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 			NetData(((2, 3, f"lutff_{l}/in_{i}"), ), False, (0, )) for l in range(8) for i in range(4)
 		], [(2, 3)])
 		config_map = {
-			(2, 3): {"lut": tuple(lut_conf)},
-			(4, 3): {},
+			TilePosition(2, 3): {"lut": tuple(lut_conf)},
+			TilePosition(4, 3): {},
 		}
 		
 		ec = TileGenesTestData(
@@ -1124,18 +1155,36 @@ class IcecraftRepGenTest(unittest.TestCase):
 		)
 		test_cases.append(ec)
 		
+		return test_cases
+	
+	def generate_tile_genes_fail_test_cases(self):
+		class TileGenesErrorTestData(NamedTuple):
+			desc: str
+			excep: Exception
+			single_tile_nets: Iterable[NetRelation] = []
+			config_map: Mapping[TilePosition, ConfigDictType] = {}
+			used_function: Callable[[NetRelation], bool] = lambda x: True
+			lut_functions: Iterable[LUTFunction] = []
+		
 		exception_cases = []
+		
 		ec = TileGenesErrorTestData(
 			"CarryInSet",
 			ValueError,
 			config_map = {
-				(4, 2): {"tile": (
+				TilePosition(4, 2): {"tile": (
 					ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), "NegClk"),
 					ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 3), ), "CarryInSet"),
 				)}
 			},
 		)
 		exception_cases.append(ec)
+		
+		return exception_cases
+	
+	def test_create_tile_genes(self):
+		test_cases = self.generate_tile_genes_test_cases()
+		exception_cases = self.generate_tile_genes_fail_test_cases()
 		
 		for tc in test_cases:
 			with self.subTest(desc=tc.desc):
