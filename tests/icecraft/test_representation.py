@@ -1130,8 +1130,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		exp_const = []
 		exp_genes = []
 		for gd in gene_data:
+			all_bits = self.create_bits(*org_tile, gd.raw_bits)
 			if gd.create_gene:
-				all_bits = self.create_bits(*org_tile, gd.raw_bits)
 				alleles = [Allele((False, )*len(all_bits), "")]
 				alleles.extend([Allele(v, "") for i, (v, _) in enumerate(gd.src_list) if i not in gd.del_indices])
 				gene = Gene(all_bits, AlleleList(alleles), "")
@@ -1251,7 +1251,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		for tc in test_cases:
 			with self.subTest(desc=tc.desc):
-				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions)
+				net_map = NetRelation.create_net_map(tc.single_tile_nets)
+				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions, net_map)
 				
 				self.assertEqual(tc.exp_const, res_const)
 				self.assertEqual(tc.exp_genes, res_genes)
@@ -1260,7 +1261,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		for tc in exception_cases:
 			with self.subTest(desc=tc.desc):
 				with self.assertRaises(tc.excep):
-					icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions)
+					net_map = NetRelation.create_net_map(tc.single_tile_nets)
+					icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions, net_map)
 	
 	def test_lut_function_to_truth_table(self):
 		for func_enum in LUTFunction:

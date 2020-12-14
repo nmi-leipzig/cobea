@@ -421,9 +421,13 @@ class IcecraftRepGen(RepresentationGenerator):
 		net_relations: Iterable[NetRelation],
 		config_map: Mapping[TilePosition, ConfigDictType],
 		used_function: Callable[[NetRelation], bool],
-		lut_functions: Iterable[LUTFunction]
+		lut_functions: Iterable[LUTFunction],
+		net_map: Mapping[NetId, NetRelation] = None
 	) -> Tuple[List[Gene], List[Gene], List[int]]:
 		"""returns const_genes, genes and gene_section_lengths"""
+		if net_map is None:
+			net_map = NetRelation.create_net_map(net_relations)
+		
 		const_genes = []
 		genes = []
 		sec_len=[]
@@ -492,7 +496,8 @@ class IcecraftRepGen(RepresentationGenerator):
 			single_tile_nets,
 			config_map,
 			used_function,
-			lut_functions
+			lut_functions,
+			net_map
 		)
 		const_genes.extend(single_const_genes)
 		genes.extend(single_genes)
@@ -524,7 +529,8 @@ class IcecraftRepGen(RepresentationGenerator):
 		single_tile_nets: Iterable[NetRelation],
 		config_map: Mapping[TilePosition, ConfigDictType],
 		used_function: Callable[[NetRelation], bool],
-		lut_functions: Iterable[LUTFunction]
+		lut_functions: Iterable[LUTFunction],
+		net_map: Mapping[NetId, NetRelation]
 	) -> Tuple[List[Gene], List[Gene], List[int]]:
 		"""returns const_genes, genes and gene_section_lengths"""
 		const_genes = []
@@ -548,21 +554,11 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		# sort nets by tile
 		single_tile_map = {}
-		lut_input_map = defaultdict(lambda: defaultdict(set))
 		for net in single_tile_nets:
 			if net.multiple_drv_tiles:
 				raise ValueError("net with multiple driver tiles can't be handled as tile genes")
 			tile = next(net.iter_drv_tiles())
 			single_tile_map.setdefault(tile, []).append(net)
-			# assumption: LUT inputs are single tile nets
-			for _, _, name in net.segment:
-				res = re.match(r"lutff_(?P<lut>\d)/in_(?P<input>\d)", name)
-				if res is None:
-					continue
-				
-				if net.available and used_function(net):
-					lut_input_map[tile][int(res.group("lut"))].add(int(res.group("input")))
-				break
 		
 		# find all tiles
 		tiles = set(single_tile_map)
@@ -588,7 +584,17 @@ class IcecraftRepGen(RepresentationGenerator):
 							f"tile ({tile.x}, {tile.y}) LUT {lut_conf.index} {lut_conf.kind}"
 						)
 					elif lut_conf.kind == "TruthTable":
-						used_inputs = sorted(lut_input_map[tile][lut_conf.index])
+						used_inputs = []
+						for in_index in range(4):
+							try:
+								in_net = net_map[(tile.x, tile.y, f"lutff_{lut_conf.index}/in_{in_index}")]
+							except KeyError:
+								#TODO: warning
+								continue
+							
+							if in_net.available and used_function(in_net):
+								used_inputs.append(in_index)
+						
 						unused_inputs = [i for i in range(4) if i not in used_inputs]
 						if len(lut_functions) == 0:
 							# no restrictions regarding functions
