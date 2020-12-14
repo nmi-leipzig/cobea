@@ -1117,7 +1117,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			((False, True, True), "hard_driven"),
 			((True, False, False), "unavail"),
 		]
-		gene_data.append(RawGene([(0, 6), (0, 7)], "unavail", one_src_grp, [0, 1, 2], [2]))
+		gene_data.append(RawGene([(0, 6), (0, 7)], "unavail", one_src_grp, [0, 1, 2], [2], False))
 		# no RawGene for no_src_grps
 		gene_data.append(RawGene([(2, 6)], "one_src", [((True, ), "external")], [], [1]))
 		gene_data.append(RawGene([(3, 6), (3, 7)], "one_src_grp", one_src_grp, [2], [2]))

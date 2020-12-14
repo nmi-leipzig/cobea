@@ -632,11 +632,14 @@ class IcecraftRepGen(RepresentationGenerator):
 				if net.hard_driven:
 					continue
 				
+				if not net.available:
+					continue
+				
 				src_grps = list(net.iter_src_grps())
 				if len(src_grps) == 0:
 					continue
 				
-				if net.available and used_function(net) and not net.has_external_driver:
+				if used_function(net) and not net.has_external_driver:
 					bits, alleles = cls.alleles_from_src_grps(src_grps, used_function)
 					tmp_gene = Gene(
 						bits,
