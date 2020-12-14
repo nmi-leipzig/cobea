@@ -899,6 +899,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 				self.assertEqual(tc.exp_sec, res_sec)
 		
 		for tc in st_exception_cases:
+			if not tc.general:
+				continue
 			with self.subTest(desc=f"single tile exception case: {tc.desc}"):
 				with self.assertRaises(tc.excep):
 					icecraft.IcecraftRepGen.create_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions)
@@ -1193,6 +1195,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			config_map: Mapping[TilePosition, ConfigDictType] = {}
 			used_function: Callable[[NetRelation], bool] = lambda x: True
 			lut_functions: Iterable[LUTFunction] = []
+			general: bool = True # general error case, i.e. also for create_genes
 		
 		exception_cases = []
 		
@@ -1239,7 +1242,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 						("src_2", )
 					),
 				)}
-			}
+			},
+			general = False
 		)
 		exception_cases.append(ec)
 		
