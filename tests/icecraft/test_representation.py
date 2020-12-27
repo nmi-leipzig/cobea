@@ -10,7 +10,7 @@ from adapters.icecraft.representation import NetRelation, SourceGroup
 from domain.request_model import RequestObject
 from domain.model import Gene
 from domain.allele_sequence import AlleleList, AlleleAll, AllelePow, Allele
-from adapters.icecraft.chip_data import ConfigDictType
+from adapters.icecraft.chip_data import ConfigDictType, get_config_items, get_net_data
 from adapters.icecraft.chip_data_utils import NetData
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
 
@@ -884,6 +884,154 @@ class IcecraftRepGenTest(unittest.TestCase):
 	
 	def create_bits(self, x:int , y: int, bit_coords: Iterable[Tuple[int, int]]) -> Tuple[IcecraftBitPosition, ...]:
 		return tuple(IcecraftBitPosition.from_coords(x, y, g, i) for g, i in bit_coords)
+	
+	def transform_to_type(self, raw_data, type_hint):
+		from typing import get_type_hints
+		
+		if hasattr(type_hint, "__origin__"):
+			# from typing
+			org = type_hint.__origin__
+			args = type_hint.__args__
+			
+			if org == tuple:
+				if len(args) == 0:
+					return tuple(raw_data)
+				
+				if len(args) == 2 and args[1] == Ellipsis:
+					sub_types = [args[0]]*len(raw_data)
+				else:
+					sub_types = args
+				
+				data = []
+				for raw, sub in zip(raw_data, sub_types):
+					sub_data = self.transform_to_type(raw, sub)
+					data.append(sub_data)
+				return tuple(data)
+			elif org == list:
+				if len(args) == 0:
+					return list(raw_data)
+				
+				sub_type = args[0]
+				data = []
+				for raw in raw_data:
+					sub_data = self.transform_to_type(raw, sub_type)
+					data.append(sub_data)
+				return data
+			else:
+				raise ValueError(f"Unsupported typing class {type_hint}")
+		else:
+			sub_types = get_type_hints(type_hint).values()
+			
+			if len(sub_types) == 0:
+				return type_hint(raw_data)
+			
+			assert len(raw_data) == len(sub_types)
+			data = []
+			for raw, sub in zip(raw_data, sub_types):
+				sub_data = self.transform_to_type(raw, sub)
+				data.append(sub_data)
+			
+			return type_hint(*data)
+		
+		return None
+	
+	def test_create_genes_prev(self):
+		# test create_genes with stored results from previous implementation
+		class MappingCase(NamedTuple):
+			x_min: int
+			y_min: int
+			x_max: int
+			y_max: int
+			exclude_nets: List[Tuple[str, str]]
+			include_nets: List[Tuple[str, str]]
+			output_lutffs: List[Tuple[int, int, int]]
+			joint_input_nets: List[str]
+			lone_input_nets: List[Tuple[int, int, str]]
+			lut_functions: List[str]
+			genes: List[Tuple[Tuple[int, int], Tuple[Tuple[int, int], ...], List[Tuple[bool, ...]]]]
+			const_genes: List[Tuple[Tuple[int, int], Tuple[Tuple[int, int], ...], List[Tuple[bool, ...]]]]
+			colbufctrl: List[Tuple[int, int, int]]
+		
+		def gene_to_data(gene):
+			tile_pos = tuple(gene.bit_positions[0].tile)
+			bits = tuple((b.group, b.index) for b in gene.bit_positions)
+			if isinstance(gene.alleles, AlleleAll) or (isinstance(gene.alleles, AllelePow) and len(gene.alleles._unused) == 0):
+				values = []
+			else:
+				if len(gene.alleles) > 1000:
+					raise Exception(f"{len(gene.alleles)} alleles in {type(gene.alleles)}")
+				values = [a.values for a in gene.alleles]
+			
+			return (tile_pos, bits, values)
+		
+		import json
+		import os
+		from typing import get_type_hints
+		
+		json_path = os.path.join(os.path.dirname(__file__), "mapping_creation.json")
+		with open(json_path, "r") as json_file:
+			raw_data = json.load(json_file)
+			#print(raw_data)
+			#print(get_type_hints(MappingCase))
+			data = self.transform_to_type(raw_data, List[MappingCase])
+			#print(data)
+		
+		for i, mc in enumerate(data[1:2]):
+			with self.subTest(desc=f"mapping case {i}"):
+				tiles = icecraft.IcecraftRepGen.tiles_from_rectangle(mc.x_min, mc.y_min, mc.x_max, mc.y_max)
+				
+				config_map = {t: get_config_items(t) for t in tiles}
+				
+				raw_nets = get_net_data(tiles)
+				icecraft.IcecraftRepGen.carry_in_set_net(config_map, raw_nets)
+				
+				net_relations = NetRelation.from_net_data_iter(raw_nets, tiles)
+				net_map = NetRelation.create_net_map(net_relations)
+				con_items = []
+				for ci in config_map.values():
+					try:
+						tile_cons = ci["con"]
+					except KeyError:
+						continue
+					con_items.extend(tile_cons)
+				SourceGroup.populate_net_relations(net_map, con_items)
+				
+				req = RequestObject()
+				req["x_min"] = mc.x_min
+				req["y_min"] = mc.y_min
+				req["x_max"] = mc.x_max
+				req["y_max"] = mc.y_max
+				req["exclude_nets"] = [n for n, _ in mc.exclude_nets]
+				req["include_nets"] = [n for n, _ in mc.include_nets]
+				req["output_lutffs"] = [icecraft.IcecraftLUTPosition.from_coords(*c) for c in mc.output_lutffs]
+				req["joint_input_nets"] = mc.joint_input_nets
+				req["lone_input_nets"] = [IcecraftNetPosition.from_coords(*c) for c in mc.lone_input_nets]
+				req["lut_functions"] = [icecraft.LUTFunction[n] for n in mc.lut_functions]
+				icecraft.IcecraftRepGen._choose_nets(net_relations, net_map, req)
+				
+				print(f"available: {sum([n.available for n in net_relations])}")
+				print(config_map)
+				
+				const_res, gene_res, sec_res = icecraft.IcecraftRepGen.create_genes(
+					net_relations,
+					config_map,
+					lambda _: True,
+					req.lut_functions,
+					net_map
+				)
+				const_res_data = [gene_to_data(g) for g in const_res]
+				self.assertEqual(mc.const_genes, const_res_data)
+				
+				gene_res_data = [gene_to_data(g) for g in gene_res]
+				#self.assertEqual(sorted(mc.genes), sorted(gene_res_data))
+				for r in mc.genes:
+					if r not in gene_res_data:
+						print(f"-: {r[:2]}")
+				for r in gene_res_data:
+					if r not in mc.genes:
+						print(f"+: {r[:2]}")
+				
+				self.assertEqual(len(mc.genes), len(gene_res_data))
 	
 	def test_create_genes(self):
 		# test cases for single tile nets also have to work for more general create_genes function
