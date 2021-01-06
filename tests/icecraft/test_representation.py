@@ -1483,30 +1483,31 @@ class IcecraftRepGenTest(unittest.TestCase):
 			NetData(((*other_tile, f"src_1"), ), True, (0, )),
 			NetData(((*org_tile, f"src_2"), ), True, (0, )),
 		]
+		org_con = ConnectionItem(
+			self.create_bits(*other_tile, [(9, 7), (9, 8)]),
+			"connection",
+			"dst",
+			((True, True), ),
+			("src_1", )
+		)
+		other_con = ConnectionItem(
+			self.create_bits(*org_tile, [(4, 5), (4, 6)]),
+			"connection",
+			"dst",
+			((True, True), ),
+			("src_2", )
+		)
 		
+		net_rels = NetRelation.from_net_data_iter(net_data_list, [other_tile, org_tile])
+		net_map = NetRelation.create_net_map(net_rels)
+		src_grps = SourceGroup.populate_net_relations(net_map, [org_con, other_con])
 		ec = TileGenesErrorTestData(
 			"multitile",
 			ValueError,
-			NetRelation.from_net_data_iter(net_data_list, [other_tile, org_tile]),
+			net_rels,
 			{
-				org_tile: {"con": (
-					ConnectionItem(
-						self.create_bits(*other_tile, [(9, 7), (9, 8)]),
-						"connection",
-						"dst",
-						((True, True), ),
-						("src_1", )
-					),
-				)},
-				other_tile: {"con": (
-					ConnectionItem(
-						self.create_bits(*org_tile, [(4, 5), (4, 6)]),
-						"connection",
-						"dst",
-						((True, True), ),
-						("src_2", )
-					),
-				)}
+				org_tile: {"con": (org_con, )},
+				other_tile: {"con": (other_con, )}
 			},
 			general = False
 		)
