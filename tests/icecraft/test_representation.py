@@ -2,6 +2,7 @@ import unittest
 import re
 import copy
 import itertools
+import pdb
 from typing import NamedTuple, Iterable, List, Mapping, Callable, Tuple, Union
 
 import adapters.icecraft as icecraft
@@ -937,6 +938,15 @@ class IcecraftRepGenTest(unittest.TestCase):
 	
 	def test_create_genes_prev(self):
 		# test create_genes with stored results from previous implementation
+		class PrevGeneData(NamedTuple):
+			tile: Tuple[int, int]
+			bits: Tuple[Tuple[int, int], ...]
+			values: List[Tuple[bool, ...]]
+		
+		class GeneData(NamedTuple):
+			bits: Tuple[IcecraftBitPosition, ...]
+			values: List[Tuple[bool, ...]]
+		
 		class MappingCase(NamedTuple):
 			x_min: int
 			y_min: int
@@ -948,13 +958,11 @@ class IcecraftRepGenTest(unittest.TestCase):
 			joint_input_nets: List[str]
 			lone_input_nets: List[Tuple[int, int, str]]
 			lut_functions: List[str]
-			genes: List[Tuple[Tuple[int, int], Tuple[Tuple[int, int], ...], List[Tuple[bool, ...]]]]
-			const_genes: List[Tuple[Tuple[int, int], Tuple[Tuple[int, int], ...], List[Tuple[bool, ...]]]]
+			genes: List[PrevGeneData]
+			const_genes: List[PrevGeneData]
 			colbufctrl: List[Tuple[int, int, int]]
 		
 		def gene_to_data(gene):
-			tile_pos = tuple(gene.bit_positions[0].tile)
-			bits = tuple((b.group, b.index) for b in gene.bit_positions)
 			if isinstance(gene.alleles, AlleleAll) or (isinstance(gene.alleles, AllelePow) and len(gene.alleles._unused) == 0):
 				values = []
 			else:
@@ -962,11 +970,54 @@ class IcecraftRepGenTest(unittest.TestCase):
 					raise Exception(f"{len(gene.alleles)} alleles in {type(gene.alleles)}")
 				values = [a.values for a in gene.alleles]
 			
-			return (tile_pos, bits, values)
+			return GeneData(gene.bit_positions, values)
+		
+		def prev_to_data(prev_gene_data):
+			bits = self.create_bits(*prev_gene_data.tile, prev_gene_data.bits)
+			return GeneData(bits, prev_gene_data.values)
+		
+		def gen_bit_dict(gene_iter):
+			bit_dict = {b: g for g in gene_iter for b in g.bits}
+			return bit_dict
+		
+		def bits_to_str(bits):
+			parts = [f"B{b.group}[{b.index}]@({b.x}, {b.y})" for b in bits]
+			return f"({', '.join(parts)})"
+		
+		def compare_genes(gene_data, gene_dict):
+			for r in gene_data:
+				#if r not in gene_res_data:
+				#	print(f"-: {r[:2]} {str(r[2])[:400]}")
+				bit_set = set(r.bits)
+				missing_bits = []
+				img_genes = []
+				while len(bit_set) > 0:
+					bit = bit_set.pop()
+					try:
+						img = gene_dict[bit]
+					except KeyError:
+						missing_bits.append(bit)
+						continue
+					
+					img_genes.append(img)
+					
+					bit_set.difference_update(img.bits)
+				
+				if len(missing_bits) == 0 and len(img_genes) == 1:
+					img = img_genes[0]
+					if r.values != img.values:
+						print(f"*{bits_to_str(r.bits)}: values differ")
+				else:
+					if len(missing_bits) > 0:
+						print(f"-{bits_to_str(sorted(missing_bits))}: bits not found")
+					
+					for img in img_genes:
+						img_bits = set(r.bits) & set(img.bits)
+						print(f"*{bits_to_str(sorted(img_bits))}: represented in {bits_to_str(img.bits)}")
 		
 		import json
 		import os
-		from typing import get_type_hints
+		from pprint import pprint
 		
 		json_path = os.path.join(os.path.dirname(__file__), "mapping_creation.json")
 		with open(json_path, "r") as json_file:
@@ -1009,9 +1060,11 @@ class IcecraftRepGenTest(unittest.TestCase):
 				req["lut_functions"] = [icecraft.LUTFunction[n] for n in mc.lut_functions]
 				icecraft.IcecraftRepGen._choose_nets(net_relations, net_map, req)
 				
-				print(f"available: {sum([n.available for n in net_relations])}")
-				print(config_map)
+				#print(req)
+				#print(f"available: {sum([n.available for n in net_relations])}")
+				#pprint(config_map)
 				
+				#pdb.set_trace()
 				const_res, gene_res, sec_res = icecraft.IcecraftRepGen.create_genes(
 					net_relations,
 					config_map,
@@ -1019,21 +1072,85 @@ class IcecraftRepGenTest(unittest.TestCase):
 					req.lut_functions,
 					net_map
 				)
+				
+				const_exp_data = [prev_to_data(g) for g in mc.const_genes]
+				gene_exp_data = [prev_to_data(g) for g in mc.genes]
+				
+				exp_gene_dict = gen_bit_dict(const_exp_data)
+				exp_gene_dict.update(gen_bit_dict(gene_exp_data))
+				
 				const_res_data = [gene_to_data(g) for g in const_res]
-				self.assertEqual(mc.const_genes, const_res_data)
+				#self.assertEqual(mc.const_genes, const_res_data)
 				
 				gene_res_data = [gene_to_data(g) for g in gene_res]
 				#self.assertEqual(sorted(mc.genes), sorted(gene_res_data))
-				for r in mc.genes:
-					if r not in gene_res_data:
-						print(f"-: {r[:2]}")
-				for r in gene_res_data:
-					if r not in mc.genes:
-						print(f"+: {r[:2]}")
 				
-				self.assertEqual(len(mc.genes), len(gene_res_data))
+				res_gene_dict = gen_bit_dict(const_res_data)
+				res_gene_dict.update(gen_bit_dict(gene_res_data))
+				
+				print("expected genes in results")
+				compare_genes(gene_exp_data, res_gene_dict)
+				
+				print("result genes in expected")
+				compare_genes(gene_res_data, exp_gene_dict)
+				
+				#self.assertEqual(len(mc.genes), len(gene_res_data))
 	
 	def test_create_genes(self):
+		class GeneTestCase(NamedTuple):
+			desc: str
+			net_rels: Iterable[NetRelation] = []
+			config_map: Mapping[TilePosition, ConfigDictType] = {}
+			used_function: Callable[[NetRelation], bool] = lambda x: True
+			lut_functions: Iterable[LUTFunction] = []
+			exp_const: List[Gene] = []
+			exp_genes: List[Gene] = []
+			exp_sec: List[int] = []
+		
+		
+		test_cases = []
+		
+		# carry in set and carry mux
+		tile = TilePosition(26, 19)
+		net_rels = NetRelation.from_net_data_iter(
+			[
+				NetData(((*tile, "carry_in_mux"),), False, (0, )),
+				NetData(((tile.x, tile.y-1, "lutff_7/cout"), (*tile, "carry_in")), True, (0, )),
+				NetData(((*tile, icecraft.representation.CARRY_ONE_IN),), True, (0, )),
+			],
+			[tile]
+		)
+		ci_bits = self.create_bits(*tile, [(1, 49)])
+		one_bits = self.create_bits(*tile, [(1, 50)])
+		con_items = [
+			ConnectionItem(ci_bits, "connection", "carry_in_mux", ((True, ), ), ("carry_in", )),
+			ConnectionItem(one_bits, "connection", "carry_in_mux", ((True, ), ), (icecraft.representation.CARRY_ONE_IN, )),
+		]
+		net_map = NetRelation.create_net_map(net_rels)
+		src_grps = SourceGroup.populate_net_relations(net_map, con_items)
+		ec = GeneTestCase(
+			"carry mux",
+			net_rels,
+			{tile: {"con": tuple(con_items)}},
+			exp_genes = [
+				Gene(tuple(ci_bits+one_bits), AlleleList([Allele(v, "") for v in ((False, False), (False, True), (True, False))]), "")
+			],
+			exp_sec = [1]
+		)
+		test_cases.append(ec)
+		
+		for tc in test_cases:
+			with self.subTest(desc=tc.desc):
+				net_map = NetRelation.create_net_map(tc.net_rels)
+				#pdb.set_trace()
+				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_genes(tc.net_rels, tc.config_map, tc.used_function, tc.lut_functions, net_map)
+				
+				self.assertEqual(tc.exp_const, res_const)
+				self.assertEqual(tc.exp_genes, res_genes)
+				self.assertEqual(tc.exp_sec, res_sec)
+		
+	
+	def test_create_genes_tile_cases(self):
 		# test cases for single tile nets also have to work for more general create_genes function
 		st_test_cases = self.generate_tile_genes_test_cases()
 		st_exception_cases = self.generate_tile_genes_fail_test_cases()
