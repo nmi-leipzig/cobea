@@ -1131,7 +1131,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		ec = GeneTestCase(
 			"carry mux",
 			net_rels,
-			{tile: {"con": tuple(con_items)}},
+			{tile: {"connection": tuple(con_items)}},
 			exp_genes = [
 				Gene(tuple(ci_bits+one_bits), AlleleList([Allele(v, "") for v in ((False, False), (False, True), (True, False))]), "")
 			],
@@ -1442,7 +1442,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		ec = TileGenesTestData(
 			"Single tile nets",
 			single_tile_nets = single_nets, 
-			config_map = {org_tile: {"con": tuple(con_items)}},
+			config_map = {org_tile: {"connection": tuple(con_items)}},
 			used_function = lambda n: not n.segment[0][2].startswith("unused"),
 			exp_const = exp_const,
 			exp_genes = exp_genes,
@@ -1506,8 +1506,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 			ValueError,
 			net_rels,
 			{
-				org_tile: {"con": (org_con, )},
-				other_tile: {"con": (other_con, )}
+				org_tile: {"connection": (org_con, )},
+				other_tile: {"connection": (other_con, )}
 			},
 			general = False
 		)
