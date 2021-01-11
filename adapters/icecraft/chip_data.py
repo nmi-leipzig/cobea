@@ -1,6 +1,8 @@
 # module to provide access to chip database
 
+from dataclasses import dataclass
 from typing import Iterable, List, Dict, Union, Tuple, NewType
+
 from .chip_data_utils import TileType, SegType, BitType, DriverType, NetData, get_net_data_for_tile, seg_from_seg_kind
 from .chip_database import seg_kinds, drv_kinds, seg_tile_map, config_kinds, config_tile_map, colbufctrl_tile_map
 from .misc import TilePosition, IcecraftBitPosition
@@ -13,7 +15,16 @@ ValueType = NewType("ValueType", Tuple[bool, ...])
 SrcType = NewType("SrcType", Tuple[ValueType, str])
 RawConType = NewType("RawConType", Tuple[str, Tuple[SrcType, ...]])
 ConDictType = NewType("ConDictType", Dict[MultiBitsType, RawConType])
-ConfigDictType = NewType("ConfigDictType",Dict[str, Tuple[Union[ConfigItem, Tuple[IndexedItem, ...]]]])
+
+@dataclass
+class ConfigAssemblage:
+	"""collection of config items grouped by kind"""
+	connection: Tuple[ConnectionItem, ...] = tuple()
+	tile: Tuple[ConfigItem, ...] = tuple()
+	col_buf_ctrl: Tuple[IndexedItem, ...] = tuple()
+	lut: Tuple[Tuple[IndexedItem, ...], ...] = tuple()
+	ram_config: Tuple[NamedItem, ...] = tuple()
+	ram_cascade: Tuple[NamedItem, ...] = tuple()
 
 # tile -> config_kind
 tile_to_config_kind_index = {t: k for k, tl in config_tile_map.items() for t in tl}
@@ -55,10 +66,10 @@ def get_raw_config_data(tile: TileType) -> Dict[str, Union[Tuple[NamedBitsType, 
 def bits_to_bit_positions(tile_pos: TilePosition, bits: Iterable[BitType]) -> Tuple[IcecraftBitPosition, ...]:
 	return tuple(IcecraftBitPosition(tile_pos, *b) for b in bits)
 
-def get_config_items(tile: TileType) -> ConfigDictType:
+def get_config_items(tile: TileType) -> ConfigAssemblage:
 	tile_pos = TilePosition(*tile)
 	raw_groups = get_raw_config_data(tile)
-	item_dict = {}
+	item_dict = ConfigAssemblage()
 	for grp_name, grp_data in raw_groups.items():
 		if grp_name == "connection":
 			con_list = []
@@ -71,21 +82,25 @@ def get_config_items(tile: TileType) -> ConfigDictType:
 					tuple(s for _, s in src_data)
 				)
 				con_list.append(con_item)
-			item_dict["connection"] = tuple(con_list)
+			item_dict.connection = tuple(con_list)
 		elif grp_name == "tile":
-			item_dict["tile"] = tuple(
+			item_dict.tile = tuple(
 				ConfigItem(bits_to_bit_positions(tile_pos, b), k) for b, k in grp_data
 			)
 		elif grp_name == "ColBufCtrl":
-			item_dict["ColBufCtrl"] = tuple(
+			item_dict.col_buf_ctrl = tuple(
 				IndexedItem(bits_to_bit_positions(tile_pos, b), "ColBufCtrl", i) for i, b in enumerate(grp_data)
 			)
 		elif grp_name == "lut":
-			item_dict["lut"] = tuple(
+			item_dict.lut = tuple(
 				tuple(IndexedItem(bits_to_bit_positions(tile_pos, b), k, i) for b, k in e) for i, e in enumerate(grp_data)
 			)
-		elif grp_name in ("RamConfig", "RamCascade"):
-			item_dict[grp_name] = tuple(
+		elif grp_name == "RamConfig":
+			item_dict.ram_config = tuple(
+				NamedItem(bits_to_bit_positions(tile_pos, b), grp_name, n) for b, n in grp_data
+			)
+		elif grp_name == "RamCascade":
+			item_dict.ram_cascade = tuple(
 				NamedItem(bits_to_bit_positions(tile_pos, b), grp_name, n) for b, n in grp_data
 			)
 		else:

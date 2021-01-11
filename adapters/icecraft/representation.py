@@ -10,7 +10,7 @@ from domain.request_model import RequestObject, Parameter
 from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 
 from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, IcecraftNetPosition, LUTFunction, IcecraftBitPosition
-from .chip_data import get_config_items, get_net_data, get_colbufctrl, ConfigDictType
+from .chip_data import get_config_items, get_net_data, get_colbufctrl, ConfigAssemblage
 from .chip_data_utils import NetData, SegEntryType, SegType
 from .config_item import ConfigItem, ConnectionItem, IndexedItem
 
@@ -322,14 +322,10 @@ class IcecraftRepGen(RepresentationGenerator):
 		return IcecraftRep([], [], cbc_conf, tuple(sorted(request.output_lutffs)))
 	
 	@staticmethod
-	def carry_in_set_net(config_map: Mapping[TilePosition, ConfigDictType], raw_nets: List[NetData]) -> None:
+	def carry_in_set_net(config_map: Mapping[TilePosition, ConfigAssemblage], raw_nets: List[NetData]) -> None:
 		"""Replace CarryInSet tile ConfigItem with a dummy net that  can be connected to carry_in_mux"""
 		for tile, conf in config_map.items():
-			try:
-				index_list = [i for i, c in enumerate(conf["tile"]) if c.kind == "CarryInSet"]
-			except KeyError:
-				# no tile config items
-				continue
+			index_list = [i for i, c in enumerate(conf.tile) if c.kind == "CarryInSet"]
 			
 			if len(index_list) > 1:
 				raise ValueError(f"Multiple CarryInSet entries for tile {tile}: {index_list}")
@@ -340,8 +336,8 @@ class IcecraftRepGen(RepresentationGenerator):
 				# no CarryInSet
 				continue
 			
-			carry_set_item = conf["tile"][index]
-			conf["tile"] = conf["tile"][:index] + conf["tile"][index+1:]
+			carry_set_item = conf.tile[index]
+			conf.tile = conf.tile[:index] + conf.tile[index+1:]
 			
 			raw_nets.append(NetData(
 				((*tile, CARRY_ONE_IN), ),
@@ -355,7 +351,7 @@ class IcecraftRepGen(RepresentationGenerator):
 				((True, ), ),
 				(CARRY_ONE_IN, )
 			)
-			conf["connection"] += (con_item, )
+			conf.connection += (con_item, )
 		
 	
 	@classmethod
@@ -425,15 +421,15 @@ class IcecraftRepGen(RepresentationGenerator):
 	def get_colbufctrl_config(coords: Iterable[IcecraftColBufCtrl]) -> List[IndexedItem]:
 		cbc_conf = []
 		for cbc_coord in coords:
-			item_dict = get_config_items(cbc_coord.tile)
-			cbc_conf.append(item_dict["ColBufCtrl"][cbc_coord.z])
+			item_assemblage = get_config_items(cbc_coord.tile)
+			cbc_conf.append(item_assemblage.col_buf_ctrl[cbc_coord.z])
 		return cbc_conf
 	
 	@classmethod
 	def create_genes(
 		cls,
 		net_relations: Iterable[NetRelation],
-		config_map: Mapping[TilePosition, ConfigDictType],
+		config_map: Mapping[TilePosition, ConfigAssemblage],
 		used_function: Callable[[NetRelation], bool],
 		lut_functions: Iterable[LUTFunction],
 		net_map: Mapping[NetId, NetRelation] = None
@@ -541,7 +537,7 @@ class IcecraftRepGen(RepresentationGenerator):
 	def create_tile_genes(
 		cls,
 		single_tile_nets: Iterable[NetRelation],
-		config_map: Mapping[TilePosition, ConfigDictType],
+		config_map: Mapping[TilePosition, ConfigAssemblage],
 		used_function: Callable[[NetRelation], bool],
 		lut_functions: Iterable[LUTFunction],
 		net_map: Mapping[NetId, NetRelation]
@@ -581,7 +577,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		for tile in sorted(tiles):
 			prev_len = len(genes)
 			# tile confs
-			for tile_conf in empty_if_missing(config_map[tile], "tile"):
+			for tile_conf in config_map[tile].tile:
 				if tile_conf.kind in ("NegClk", ):
 					tmp_gene = cls.create_all_allele_gene(tile_conf)
 				else:
@@ -590,7 +586,7 @@ class IcecraftRepGen(RepresentationGenerator):
 				add_gene(tmp_gene)
 			
 			# LUTs
-			for lut_conf_iter in empty_if_missing(config_map[tile], "lut"):
+			for lut_conf_iter in config_map[tile].lut:
 				for lut_conf in lut_conf_iter:
 					if lut_conf.kind in ("DffEnable", "Set_NoReset", "AsyncSetReset"):
 						tmp_gene = cls.create_all_allele_gene(

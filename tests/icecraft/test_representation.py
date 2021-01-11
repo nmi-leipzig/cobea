@@ -13,7 +13,7 @@ from adapters.icecraft.representation import NetRelation, SourceGroup
 from domain.request_model import RequestObject
 from domain.model import Gene
 from domain.allele_sequence import AlleleList, AlleleAll, AllelePow, Allele
-from adapters.icecraft.chip_data import ConfigDictType, get_config_items, get_net_data
+from adapters.icecraft.chip_data import ConfigAssemblage, get_config_items, get_net_data
 from adapters.icecraft.chip_data_utils import NetData
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
 
@@ -867,15 +867,15 @@ class IcecraftRepGenTest(unittest.TestCase):
 		# create config map from connection config
 		in_map = {}
 		for con_item in self.raw_configs:
-			tile_configs = in_map.setdefault(con_item.bits[0].tile, {"connection": tuple()})
-			tile_configs["connection"] += (con_item, )
+			tile_configs = in_map.setdefault(con_item.bits[0].tile, ConfigAssemblage())
+			tile_configs.connection += (con_item, )
 		for x, y in (one_cis_pos, no_cis_pos):
-			in_map[(x, y)]["tile"] = (ConfigItem((IcecraftBitPosition.from_coords(x, y, 0, 2), ), "NegClk"), )
+			in_map[(x, y)].tile = (ConfigItem((IcecraftBitPosition.from_coords(x, y, 0, 2), ), "NegClk"), )
 		
 		exp_map = copy.deepcopy(in_map)
-		in_map[one_cis_pos]["tile"] += (ConfigItem((IcecraftBitPosition.from_coords(*one_cis_pos, 1, 50), ), "CarryInSet"), )
+		in_map[one_cis_pos].tile += (ConfigItem((IcecraftBitPosition.from_coords(*one_cis_pos, 1, 50), ), "CarryInSet"), )
 		
-		exp_map[one_cis_pos]["connection"] += (ConnectionItem(
+		exp_map[one_cis_pos].connection += (ConnectionItem(
 			(IcecraftBitPosition.from_coords(*one_cis_pos, 1, 50), ),
 			"connection", "carry_in_mux", ((True, ), ), (icecraft.representation.CARRY_ONE_IN, )
 		), )
@@ -887,7 +887,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			self.generic_carry_in_net_test(exp_map, exp_nets, in_map, in_nets)
 		
 		with self.subTest(desc="two CarryInSet items"):
-			in_map[one_cis_pos]["tile"] += (ConfigItem((IcecraftBitPosition.from_coords(*one_cis_pos, 1, 51), ), "CarryInSet"), )
+			in_map[one_cis_pos].tile += (ConfigItem((IcecraftBitPosition.from_coords(*one_cis_pos, 1, 51), ), "CarryInSet"), )
 			with self.assertRaises(ValueError):
 				self.generic_carry_in_net_test(exp_map, exp_nets, in_map, in_nets)
 	
@@ -1141,10 +1141,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 				net_map = NetRelation.create_net_map(net_relations)
 				con_items = []
 				for ci in config_map.values():
-					try:
-						tile_cons = ci["connection"]
-					except KeyError:
-						continue
+					tile_cons = ci.connection
 					con_items.extend(tile_cons)
 				SourceGroup.populate_net_relations(net_map, con_items)
 				
@@ -1224,7 +1221,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		class GeneTestCase(NamedTuple):
 			desc: str
 			net_rels: Iterable[NetRelation] = []
-			config_map: Mapping[TilePosition, ConfigDictType] = {}
+			config_map: Mapping[TilePosition, ConfigAssemblage] = {}
 			used_function: Callable[[NetRelation], bool] = lambda x: True
 			lut_functions: Iterable[LUTFunction] = []
 			exp_const: List[Gene] = []
@@ -1255,7 +1252,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		ec = GeneTestCase(
 			"carry mux",
 			net_rels,
-			{tile: {"connection": tuple(con_items)}},
+			{tile: ConfigAssemblage(connection=tuple(con_items))},
 			exp_genes = [
 				Gene(tuple(ci_bits+one_bits), AlleleList([Allele(v, "") for v in ((False, False), (False, True), (True, False))]), "")
 			],
@@ -1276,7 +1273,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		ec = GeneTestCase(
 			"glb2local_1 -> local_g0_5",
 			net_rels,
-			{tile: {"connection": tuple(con_items)}},
+			{tile: ConfigAssemblage(connection=tuple(con_items))},
 			exp_genes = [
 				Gene(bits, AlleleList([Allele(v, "") for v in ((False, False, False, False, False), (False, False, True, False, False))]), "")
 			],
@@ -1319,7 +1316,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		class TileGenesTestData(NamedTuple):
 			desc: str
 			single_tile_nets: Iterable[NetRelation] = []
-			config_map: Mapping[TilePosition, ConfigDictType] = {}
+			config_map: Mapping[TilePosition, ConfigAssemblage] = {}
 			used_function: Callable[[NetRelation], bool] = lambda x: True
 			lut_functions: Iterable[LUTFunction] = []
 			exp_const: List[Gene] = []
@@ -1331,8 +1328,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		ec = TileGenesTestData(
 			"NegClk",
 			config_map = {
-				TilePosition(4, 2): {"tile": (ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), "NegClk"), )},
-				TilePosition(4, 3): {},
+				TilePosition(4, 2): ConfigAssemblage(tile=(ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), "NegClk"), )),
+				TilePosition(4, 3): ConfigAssemblage(),
 			},
 			exp_genes = [Gene((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), AlleleAll(1), "")],
 			exp_sec = [1]
@@ -1451,8 +1448,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 			NetData(((2, 3, f"lutff_{l}/in_{i}"), ), False, (0, )) for l in range(8) for i in range(4)
 		], [(2, 3)])
 		config_map = {
-			TilePosition(2, 3): {"lut": tuple(lut_conf)},
-			TilePosition(4, 3): {},
+			TilePosition(2, 3): ConfigAssemblage(lut=tuple(lut_conf)),
+			TilePosition(4, 3): ConfigAssemblage(),
 		}
 		
 		ec = TileGenesTestData(
@@ -1587,7 +1584,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		ec = TileGenesTestData(
 			"Single tile nets",
 			single_tile_nets = single_nets, 
-			config_map = {org_tile: {"connection": tuple(con_items)}},
+			config_map = {org_tile: ConfigAssemblage(connection=tuple(con_items))},
 			used_function = lambda n: not n.segment[0][2].startswith("unused"),
 			exp_const = exp_const,
 			exp_genes = exp_genes,
@@ -1602,7 +1599,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			desc: str
 			excep: Exception
 			single_tile_nets: Iterable[NetRelation] = []
-			config_map: Mapping[TilePosition, ConfigDictType] = {}
+			config_map: Mapping[TilePosition, ConfigAssemblage] = {}
 			used_function: Callable[[NetRelation], bool] = lambda x: True
 			lut_functions: Iterable[LUTFunction] = []
 			general: bool = True # general error case, i.e. also for create_genes
@@ -1613,10 +1610,10 @@ class IcecraftRepGenTest(unittest.TestCase):
 			"CarryInSet",
 			ValueError,
 			config_map = {
-				TilePosition(4, 2): {"tile": (
+				TilePosition(4, 2): ConfigAssemblage(tile=(
 					ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), "NegClk"),
 					ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 3), ), "CarryInSet"),
-				)}
+				))
 			},
 		)
 		exception_cases.append(ec)
@@ -1651,8 +1648,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 			ValueError,
 			net_rels,
 			{
-				org_tile: {"connection": (org_con, )},
-				other_tile: {"connection": (other_con, )}
+				org_tile: ConfigAssemblage(connection=(org_con, )),
+				other_tile: ConfigAssemblage(connection=(other_con, ))
 			},
 			general = False
 		)

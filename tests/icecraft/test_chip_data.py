@@ -353,29 +353,29 @@ class ChipDataTest(unittest.TestCase):
 	def merge_bit_positions_values(self, bit_positions, values):
 		return self.merge_bit_values(self.bit_positions_to_bits(bit_positions), values)
 	
-	def config_items_to_raw(self, config_dict):
+	def config_items_to_raw(self, config_assemblage):
 		raw_set = set()
-		for grp_name, item_seq in config_dict.items():
-			if grp_name == "connection":
-				for item in item_seq:
-					raw_set.update([(tuple(sorted(self.merge_bit_positions_values(item.bits, v))), item.kind, s, item.dst_net) for v, s in zip(item.values, item.src_nets)])
-			elif grp_name == "tile":
-				raw_set.update([(tuple(sorted(self.bit_positions_to_str(i.bits))), i.kind) for i in item_seq])
-			elif grp_name == "ColBufCtrl":
-				raw_set.update([(tuple(sorted(self.bit_positions_to_str(i.bits))), "ColBufCtrl", f"glb_netwk_{i.index}") for i in item_seq])
-			elif grp_name == "lut":
-				for lut in item_seq:
-					bits = []
-					for l in lut:
-						bits.extend(l.bits)
-						index = l.index
-					raw_set.add((tuple(sorted(self.bit_positions_to_str(bits))), f"LC_{index}"))
-			elif grp_name in ("RamConfig", "RamCascade"):
-				raw_set.update(
-					(tuple(sorted(self.bit_positions_to_str(rc.bits))), rc.kind, rc.name) for rc in item_seq
-				)
-			else:
-				raise ValueError(f"Unknown configuration type {kind}")
+		
+		for item in config_assemblage.connection:
+			raw_set.update([(tuple(sorted(self.merge_bit_positions_values(item.bits, v))), item.kind, s, item.dst_net) for v, s in zip(item.values, item.src_nets)])
+		
+		raw_set.update([(tuple(sorted(self.bit_positions_to_str(i.bits))), i.kind) for i in config_assemblage.tile])
+		
+		raw_set.update([(tuple(sorted(self.bit_positions_to_str(i.bits))), "ColBufCtrl", f"glb_netwk_{i.index}") for i in config_assemblage.col_buf_ctrl])
+		
+		for lut in config_assemblage.lut:
+			bits = []
+			for l in lut:
+				bits.extend(l.bits)
+				index = l.index
+			raw_set.add((tuple(sorted(self.bit_positions_to_str(bits))), f"LC_{index}"))
+		
+		raw_set.update(
+			(tuple(sorted(self.bit_positions_to_str(rc.bits))), rc.kind, rc.name) for rc in config_assemblage.ram_config
+		)
+		raw_set.update(
+			(tuple(sorted(self.bit_positions_to_str(rc.bits))), rc.kind, rc.name) for rc in config_assemblage.ram_cascade
+		)
 		
 		return raw_set
 	
