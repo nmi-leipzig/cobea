@@ -3,7 +3,9 @@ import re
 import copy
 import itertools
 import pdb
-from typing import NamedTuple, Iterable, List, Mapping, Callable, Tuple, Union
+from typing import NamedTuple, Iterable, List, Mapping, Callable, Tuple, Union, Dict
+from enum import Enum, auto
+from dataclasses import dataclass, field
 
 import adapters.icecraft as icecraft
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftColBufCtrl, LUTFunction
@@ -16,6 +18,12 @@ from adapters.icecraft.chip_data_utils import NetData
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
 
 from ..test_request_model import check_parameter_user
+
+class Comparison(Enum):
+	DIFFERENT = auto()
+	DISORDERED = auto()
+	EQUIVALENT = auto()
+	IDENTICAL = auto()
 
 class NetRelationTest(unittest.TestCase):
 	raw_nets = [
@@ -936,6 +944,19 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		return None
 	
+	def compare_allele_seq(self, seq_a, seq_b):
+		if seq_a == seq_b:
+			return Comparison.IDENTICAL
+		
+		if len(seq_a) == len(seq_b):
+			if set(seq_a) == set(seq_b):
+				for a, b in zip(seq_a, seq_b):
+					if a != b:
+						return Comparison.DISORDERED
+				return Comparison.EQUIVALENT
+		
+		return Comparison.DIFFERENT
+	
 	def test_create_genes_prev(self):
 		# test create_genes with stored results from previous implementation
 		class PrevGeneData(NamedTuple):
@@ -946,6 +967,12 @@ class IcecraftRepGenTest(unittest.TestCase):
 		class GeneData(NamedTuple):
 			bits: Tuple[IcecraftBitPosition, ...]
 			values: List[Tuple[bool, ...]]
+			
+			def val_list(self):
+				if self.values != []:
+					return self.values
+				
+				return list(itertools.product((False, True), repeat=len(self.bits)))
 		
 		class MappingCase(NamedTuple):
 			x_min: int
@@ -984,7 +1011,56 @@ class IcecraftRepGenTest(unittest.TestCase):
 			parts = [f"B{b.group}[{b.index}]@({b.x}, {b.y})" for b in bits]
 			return f"({', '.join(parts)})"
 		
+		def sub_values(bits, gene_data):
+			indices = [gene_data.bits.index(b) for b in bits]
+			values = [tuple(v[i] for i in indices) for v in gene_data.values]
+			return values
+		
+		class MissingComp(NamedTuple):
+			gene: GeneData
+			missing: List[IcecraftBitPosition] = []
+		
+		class DiffValueComp(NamedTuple):
+			bits: Tuple[IcecraftBitPosition, ...]
+			missing: List[Tuple[bool, ...]] = []
+			additional: List[Tuple[bool, ...]] = []
+			
+			@classmethod
+			def from_sets(cls, bits, value_set, ref_set):
+				return cls(bits, sorted(ref_set-value_set), sorted(value_set-ref_set))
+			
+			@classmethod
+			def from_iters(cls, bits, value_iter, ref_iter):
+				return cls.from_sets(bits, set(value_iter), set(ref_iter))
+		
+		@dataclass
+		class GeneComp:
+			identical: List[Tuple[IcecraftBitPosition, ...]] = field(default_factory=list)
+			subset: Dict[Tuple[IcecraftBitPosition, ...], DiffValueComp] = field(default_factory=dict)
+			reordered_bits: Dict[Tuple[IcecraftBitPosition, ...], Tuple[IcecraftBitPosition, ...]] = field(default_factory=dict)
+			reordered_values: List[Tuple[IcecraftBitPosition, ...]] = field(default_factory=list)
+			different_values: Dict[Tuple[IcecraftBitPosition, ...], DiffValueComp] = field(default_factory=dict)
+			partial: Dict[Tuple[IcecraftBitPosition, ...], Tuple[IcecraftBitPosition, ...]] = field(default_factory=dict)
+			missing: Dict[IcecraftBitPosition, MissingComp] = field(default_factory=dict)
+		
 		def compare_genes(gene_data, gene_dict):
+			"""compare iterable of a group of GeneData to dict based on another group of GeneData
+			
+			the first group is seen as "expected" and the second group as to be tested
+			e.g. if a gene is in the first group, but not in the second, it is missing
+			if a value is not in the first group, but in the second it is additional
+			
+			compare_genes(a, gen_bit_dict(b)) -> compare_genes(b, gen_bit_dict(a))
+			identical -> identical
+			subset -> missing or partial
+			reordered_bits -> reordered_bits
+			reordered_values -> reordered_values
+			different_values.missing -> different_values.additional
+			different_values.additional -> different_values.missing
+			partial -> subset or missing
+			missing -> nothing (all bits of gene missing), partial or subset
+			"""
+			comp_res = GeneComp()
 			for r in gene_data:
 				#if r not in gene_res_data:
 				#	print(f"-: {r[:2]} {str(r[2])[:400]}")
@@ -1005,15 +1081,39 @@ class IcecraftRepGenTest(unittest.TestCase):
 				
 				if len(missing_bits) == 0 and len(img_genes) == 1:
 					img = img_genes[0]
-					if r.values != img.values:
-						print(f"*{bits_to_str(r.bits)}: values differ")
+					if len(img.bits) > len(r.bits):
+						#print(f"*{bits_to_str(r.bits)}: subset of {bits_to_str(img.bits)}")
+						comp_res.subset[r.bits] = DiffValueComp.from_iters(img.bits, r.val_list(), sub_values(r.bits, img))
+					elif img.bits != r.bits:
+						#print("f*{bits_to_str(r.bits)}: reordered bits")
+						#TODO: take a look at the values
+						comp_res.reordered_bits[r.bits] = img.bits
+					elif r.values != img.values:
+						r_set = set(r.val_list())
+						img_set = set(img.val_list())
+						if r_set == img_set:
+							#print(f"*{bits_to_str(r.bits)}: value order differs")
+							comp_res.reordered_values.append(r.bits)
+						else:
+							#print(f"*{bits_to_str(r.bits)}: values differ ({len(r.values)})")
+							#print(f"\t*{len(r_set-img_set)} missing, {len(img_set-r_set)} additional: {str(img_set-r_set)[:100]}")
+							comp_res.different_values[r.bits] = DiffValueComp(r.bits, list(r_set-img_set), list(img_set-r_set))
+					else:
+						comp_res.identical.append(r.bits)
 				else:
-					if len(missing_bits) > 0:
-						print(f"-{bits_to_str(sorted(missing_bits))}: bits not found")
+					#print(f"*{bits_to_str(r.bits)}:")
+					#if len(missing_bits) > 0:
+					#	print(f"\t-{bits_to_str(sorted(missing_bits))}: bits not found")
+					mc = MissingComp(r, missing_bits)
+					for mb in missing_bits:
+						comp_res.missing[mb] = mc
 					
 					for img in img_genes:
 						img_bits = set(r.bits) & set(img.bits)
-						print(f"*{bits_to_str(sorted(img_bits))}: represented in {bits_to_str(img.bits)}")
+						#print(f"\t*{bits_to_str(sorted(img_bits))}: represented in {bits_to_str(img.bits)}")
+						comp_res.partial[tuple(img_bits)] = r.bits
+			
+			return comp_res
 		
 		import json
 		import os
@@ -1027,7 +1127,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			data = self.transform_to_type(raw_data, List[MappingCase])
 			#print(data)
 		
-		for i, mc in enumerate(data[1:2]):
+		for i, mc in enumerate(data):#[1:2]):
 			with self.subTest(desc=f"mapping case {i}"):
 				tiles = icecraft.IcecraftRepGen.tiles_from_rectangle(mc.x_min, mc.y_min, mc.x_max, mc.y_max)
 				
@@ -1041,7 +1141,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 				con_items = []
 				for ci in config_map.values():
 					try:
-						tile_cons = ci["con"]
+						tile_cons = ci["connection"]
 					except KeyError:
 						continue
 					con_items.extend(tile_cons)
@@ -1061,7 +1161,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 				icecraft.IcecraftRepGen._choose_nets(net_relations, net_map, req)
 				
 				#print(req)
-				#print(f"available: {sum([n.available for n in net_relations])}")
+				print(f"available: {sum([n.available for n in net_relations])}")
 				#pprint(config_map)
 				
 				#pdb.set_trace()
@@ -1072,7 +1172,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 					req.lut_functions,
 					net_map
 				)
-				
+				#pdb.set_trace()
 				const_exp_data = [prev_to_data(g) for g in mc.const_genes]
 				gene_exp_data = [prev_to_data(g) for g in mc.genes]
 				
@@ -1088,11 +1188,34 @@ class IcecraftRepGenTest(unittest.TestCase):
 				res_gene_dict = gen_bit_dict(const_res_data)
 				res_gene_dict.update(gen_bit_dict(gene_res_data))
 				
-				print("expected genes in results")
-				compare_genes(gene_exp_data, res_gene_dict)
+				#print("expected genes in results")
+				exp_to_res = compare_genes(gene_exp_data, res_gene_dict)
 				
-				print("result genes in expected")
-				compare_genes(gene_res_data, exp_gene_dict)
+				#print("result genes in expected")
+				res_to_exp = compare_genes(gene_res_data, exp_gene_dict)
+				
+				for bit, mc in res_to_exp.missing.items():
+					values = set(sub_values([bit], mc.gene))
+					if values != set([(False, )]):
+						self.fail(f"Additional meaningful bit: {bit}")
+				
+				if len(exp_to_res.missing) > 0:
+					self.fail(f"{len(exp_to_res.missing)} bits missing in result: {bits_to_str(exp_to_res.missing.keys())}")
+				
+				for diff in exp_to_res.different_values.values():
+					gene = exp_gene_dict[diff.bits[0]]
+					# known cases
+					raw_bits = tuple((b.group, b.index) for b in diff.bits)
+					if (raw_bits, diff.missing, diff.additional) in [
+						# the previous implementation automatically cascaded the unused property
+						# still there may have been a bug that excludes glb2local_0 despite an global input net available
+						(((2, 14), (3, 14), (3, 15), (3, 16), (3, 17)), [], [(False, False, False, False, True)]), # glb2local_0 -> local_g0_4
+						(((2, 15), (2, 16), (2, 17), (2, 18), (3, 18)), [], [(False, False, True, False, False)]), # glb2local_1 -> local_g0_5
+						(((2, 25), (3, 22), (3, 23), (3, 24), (3, 25)), [], [(False, True, False, False, False)]), # glb2local_2 -> local_g0_6
+						(((2, 21), (2, 22), (2, 23), (2, 24), (3, 21)), [], [(False, True, False, False, False)]), # glb2local_3 -> local_g0_7
+					]:
+						continue
+					self.fail(f"{bits_to_str(diff.bits)} values differ:\n\t{len(diff.missing)} missing: {diff.missing}\n\t{len(diff.additional)} additional: {diff.additional}\n\t\t{gene.values}\n\t\t{req}")
 				
 				#self.assertEqual(len(mc.genes), len(gene_res_data))
 	
