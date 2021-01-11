@@ -1262,6 +1262,27 @@ class IcecraftRepGenTest(unittest.TestCase):
 		)
 		test_cases.append(ec)
 		
+		# glb2local_1 -> local_g0_5
+		(((2, 15), (2, 16), (2, 17), (2, 18), (3, 18)), [], [(False, False, True, False, False)]),
+		net_rels = NetRelation.from_net_data_iter([
+			NetData(((*tile, "glb2local_1"), ), False, (0, )),
+			NetData(((*tile, "local_g0_5"), ), False, (0, )),
+		], [tile])
+		bits = self.create_bits(*tile, [(2, 15), (2, 16), (2, 17), (2, 18), (3, 18)])
+		con_items = [ConnectionItem(bits, "connection", "local_g0_5", ((False, False, True, False, False), ), ("glb2local_1", )),]
+		net_map = NetRelation.create_net_map(net_rels)
+		src_grps = SourceGroup.populate_net_relations(net_map, con_items)
+		ec = GeneTestCase(
+			"glb2local_1 -> local_g0_5",
+			net_rels,
+			{tile: {"connection": tuple(con_items)}},
+			exp_genes = [
+				Gene(bits, AlleleList([Allele(v, "") for v in ((False, False, False, False, False), (False, False, True, False, False))]), "")
+			],
+			exp_sec = [1]
+		)
+		test_cases.append(ec)
+		
 		for tc in test_cases:
 			with self.subTest(desc=tc.desc):
 				net_map = NetRelation.create_net_map(tc.net_rels)
