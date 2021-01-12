@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""Script to generate chip_database.py
+
+The main function extracts the architecture information of iCE40 8k chips
+from icebox and converts them to Python data structures. At the moment
+only inner tiles are process, IO tiles are ignored.
+
+As there are many instances of the single FPGA elements (tiles, nets,
+LUTs, ...), the idea is to find common pattens ('kinds'), so only the
+pattern and a map from the concrete element to the corresponding kind
+have to be stored.
+"""
 
 import sys
 import re
@@ -9,11 +20,14 @@ sys.path.append("/usr/local/bin")
 import icebox
 
 try:
+	# execution as script
 	from chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType
 except ModuleNotFoundError:
+	# import as module in tests
 	from .chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType
 
 def get_inner_tiles(ic: icebox.iceconfig) -> Set[TileType]:
+	"""Get set of inner tiles for an iceconfig."""
 	inner_tiles = set()
 	for x in range(1, ic.max_x):
 		for y in range(1, ic.max_y):
@@ -23,6 +37,7 @@ def get_inner_tiles(ic: icebox.iceconfig) -> Set[TileType]:
 	return inner_tiles
 
 def get_segments(ic: icebox.iceconfig, tiles: Set[TileType]) -> List[SegType]:
+	"""Get sorted list of all segments for a set of tiles."""
 	all_segments_set = ic.group_segments(tiles, connect_gb=True)
 	
 	# list
@@ -31,6 +46,14 @@ def get_segments(ic: icebox.iceconfig, tiles: Set[TileType]) -> List[SegType]:
 	return all_segments
 
 def fix_known_issues(ic: icebox.iceconfig, seg_list: Iterable[SegType]) -> List[SegType]:
+	"""Fix known issues in a list of segments.
+	
+	Unfortunately icebox doesn't generate fully consistent segment lists.
+	Nets (represented by theirs segment) that span multiple tiles should
+	be included independent of the tile. Sometimes this is not the case.
+	
+	These inconsistency issues are fixed by this function.
+	"""
 	fixed_list = []
 	for seg in seg_list:
 		fixed = list(seg)
@@ -83,6 +106,11 @@ def fix_known_issues(ic: icebox.iceconfig, seg_list: Iterable[SegType]) -> List[
 
 @functools.lru_cache(None)
 def get_destination_names(ic: icebox.iceconfig, x: int, y: int) -> Set[str]:
+	"""Get the names of all nets that can be driven by a tile.
+	
+	A net can be driven as long as it at least once the destination of a
+	buffer or routing entry.
+	"""
 	dst_names = set()
 	
 	for db_entry in ic.tile_db(x, y):
@@ -97,6 +125,10 @@ def get_destination_names(ic: icebox.iceconfig, x: int, y: int) -> Set[str]:
 	return dst_names
 
 def get_driver_indices(ic: icebox.iceconfig, segment: SegType) -> DriverType:
+	"""Collect information regarding the potential drivers of a net.
+	
+	The net is represented by its segment.
+	"""
 	hard_drivers = []
 	config_drivers = []
 	for i, (x, y, net_name) in enumerate(segment):
@@ -124,6 +156,38 @@ def get_driver_indices(ic: icebox.iceconfig, segment: SegType) -> DriverType:
 	return len(hard_drivers)>0, tuple(hard_drivers + config_drivers)
 
 def get_seg_kinds_and_drivers(ic: icebox.iceconfig, all_segments: Iterable[SegType]) -> Tuple[Iterable[SegType], Mapping[TileType, Set[SegRefType]], Iterable[DriverType]]:
+	"""Generate segement kind, tile to segment kind map and driver kind for a group of segments.
+	
+	The map assigns every tile a set of tuples of segment kind index and
+	role.
+	
+	The 'role' of a tile is the index of its segment entry in the
+	segment kind (and therefore in the segment).
+	
+	The segment kind is extracted by sorting the segment and subtracting
+	the of coordinates of the first segment entry from the coordinates
+	of every segment entry.
+	
+	The index for the driver kind is the same as the index for the
+	segment kind.
+	
+	example: 
+	segment_a  = ((1, 2, "a"), (2, 2, "b"))
+	seg_kind_a = ((0, 0, "a"), (1, 0, "b"))
+	role_tile_1_2 = 0
+	role_tile_2_2 = 1
+	
+	segment_b  = ((2, 3, "a"), (3, 3, "b"))
+	seg_kind_b = ((0, 0, "a"), (1, 0, "b"))
+	role_tile_2_3 = 0
+	role_tile_3_3 = 1
+	
+	segment_kinds = [((0, 0, "a"), (1, 0, "b"))]
+	tile_to_segment_kind_map = {
+		(1, 2): {(0, 0)}, (2, 2): {(0, 1)},
+		(2, 3): {(0, 0)}, (3, 3): {(0, 1)},
+	}
+	"""
 	# kinds of segments
 	seg_kinds = []
 	# drv of segment kinds
@@ -169,6 +233,9 @@ def add_config_set(
 	tile_pos: TileType,
 	config_set: Set[ConfigEntryType]
 ) -> None:
+	"""Find the config kind of the config_set. Add the config kind if it
+	is not yet known. Update the config_tile_map.
+	"""
 	config_kind = tuple(sorted(config_set))
 	try:
 		config_kind_index = config_kind_map[config_kind]
@@ -180,6 +247,12 @@ def add_config_set(
 	config_tile_map.setdefault(config_kind_index, list()).append(tile_pos)
 
 def get_config_data(ic: icebox.iceconfig, tiles: Iterable[TileType]) -> Tuple[List[ConfigKindType], Mapping[int, List[TileType]]]:
+	"""Generate the config kinds and the mapping from config kind to
+	tile for a group of tiles.
+	
+	The map assigns every config kind index a list of tiles that comply
+	to that config kind.
+	"""
 	config_kind_list = []
 	config_kind_map = {}
 	config_tile_map = {}
@@ -206,9 +279,21 @@ def get_net_config_data(
 	config_kind_list: List[ConfigKindType],
 	config_tile_map: Mapping[int, List[TileType]]
 ) -> None:
+	"""
+	Update config_tile_map and if necessary config_kind_list with 
+	connection configurations for specific nets in specific tiles.
+	
+	The tiles and nets are specified by seg_tile_map.
+	
+	Purpose:
+	Currently only inner tiles are included, yet some nets connect
+	inner and IO tiles. The connection configuration of these nets in
+	the IO tiles needs to be extracted and added to complete the
+	configuration.
+	"""
 	config_kind_map = {c: i for i, c in enumerate(config_kind_list)}
 	for tile_pos in sorted(seg_tile_map):
-		# get rquested nets
+		# get requested nets
 		nets = set(seg_kinds[s][r][2] for s, r in seg_tile_map[tile_pos])
 		#print(f"{tile_pos} ({len(nets)}): {list(nets)[:5]}")
 		tile_db = ic.tile_db(*tile_pos)
@@ -231,6 +316,7 @@ def get_net_config_data(
 		add_config_set(config_kind_list, config_kind_map, config_tile_map, tile_pos, config_set)
 
 def sort_net_data(seg_kinds: List[SegType], seg_tile_map: Mapping[TileType, SegRefType], drv_kinds: List[DriverType]) -> Tuple[List[SegType], Mapping[TileType, SegRefType], List[DriverType]]:
+	"""Sort the segment kind list and generate a corresponding map from tile to segment kinds, and driver kinds list."""
 	# sort seg_kinds
 	sorted_indices = sorted(range(len(seg_kinds)), key=lambda i: seg_kinds[i])
 	srt_seg_kinds = [seg_kinds[i] for i in sorted_indices]
@@ -287,6 +373,10 @@ def split_bit_values(bit_comb: Tuple[str, ...]) -> Tuple[Tuple[Tuple[int, int], 
 	return (tuple(bit_list), tuple(bit_values))
 
 def write_iterable(chip_file: TextIO, iterable: Iterable[Any], per_line: int, level: int=1, indent: str="\t") -> None:
+	"""Write an iterable to a text IO stream.
+	
+	The iterable is split over multiple line according to per_line.
+	"""
 	if len(iterable) <= per_line:
 		chip_file.write(f"{tuple(iterable)}")
 	else:
@@ -302,6 +392,11 @@ def write_iterable(chip_file: TextIO, iterable: Iterable[Any], per_line: int, le
 		chip_file.write(f"{indent*level})")
 
 def write_iterable_iterable(chip_file: TextIO, iteriter: Iterable[Iterable[Any]], per_line: int, level: int=0, indent: str="\t", index: bool=True) -> None:
+	"""Write an iterable of iterables to a text IO stream.
+	
+	Every iterable is written to a new line and my be is split over
+	multiple line according to per_line.
+	"""
 	chip_file.write(f"(\n")
 	for i, iterable in enumerate(iteriter):
 		chip_file.write(f"{indent*(level+1)}")
@@ -316,6 +411,11 @@ def write_iterable_iterable(chip_file: TextIO, iteriter: Iterable[Iterable[Any]]
 	chip_file.write(f"{indent*level})")
 
 def write_dict_iterable(chip_file: TextIO, dict_iterable: Dict[Any, Iterable[Any]], per_line: int, level: int=1, indent: str="\t") -> None:
+	"""Write a dict of iterables to a text IO stream.
+	
+	Every iterable is written to a new line and my be is split over
+	multiple line according to per_line.
+	"""
 	chip_file.write("{\n")
 	for key in sorted(dict_iterable.keys()):
 		chip_file.write(f"{indent*(level+1)}{key}: ")
@@ -325,6 +425,7 @@ def write_dict_iterable(chip_file: TextIO, dict_iterable: Dict[Any, Iterable[Any
 	chip_file.write(f"{indent*level}}}")
 
 def write_chip_data(chip_file: TextIO) -> None:
+	"""Write chip data of iCE40 8k to a text IO stream."""
 	ic = icebox.iceconfig()
 	ic.setup_empty_8k()
 	
