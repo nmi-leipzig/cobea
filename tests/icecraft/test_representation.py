@@ -19,6 +19,8 @@ from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigIte
 
 from ..test_request_model import check_parameter_user
 
+from .common import TEST_DATA_DIR
+
 class Comparison(Enum):
 	DIFFERENT = auto()
 	DISORDERED = auto()
@@ -1120,7 +1122,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		import os
 		from pprint import pprint
 		
-		json_path = os.path.join(os.path.dirname(__file__), "mapping_creation.json")
+		json_path = os.path.join(TEST_DATA_DIR, "mapping_creation.json")
 		with open(json_path, "r") as json_file:
 			raw_data = json.load(json_file)
 			#print(raw_data)
