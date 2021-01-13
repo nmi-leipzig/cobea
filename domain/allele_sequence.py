@@ -65,6 +65,10 @@ class AlleleList(AlleleSequence):
 		assert len(self) == len(set(self))
 		
 		return True
+	
+	def __repr__(self):
+		return f"AlleleList(alleles={self._alleles})"
+		
 
 class AlleleAll(AlleleSequence):
 	"""all possible combinations of bit values"""
