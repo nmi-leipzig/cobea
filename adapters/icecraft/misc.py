@@ -50,7 +50,15 @@ class IcecraftNetPosition(IcecraftPosition):
 
 @dataclass(frozen=True, order=True)
 class IcecraftConnection(IcecraftPosition):
-	src: str
-	dst: str
+	src_name: str
+	dst_name: str
+	
+	@property
+	def src(self):
+		return IcecraftNetPosition(self.tile, self.src_name)
+	
+	@property
+	def dst(self):
+		return IcecraftNetPosition(self.tile, self.dst_name)
 
 

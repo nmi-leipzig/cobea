@@ -100,28 +100,30 @@ class IcecraftConnectionTest(unittest.TestCase):
 	def test_creation(self):
 		dut = icecraft.IcecraftConnection(icecraft.TilePosition(5, 1), "net_a", "net_b")
 	
-	def check_values(self, dut, x, y, src, dst):
+	def check_values(self, dut, x, y, src_name, dst_name):
 		self.assertEqual(x, dut.tile.x)
 		self.assertEqual(y, dut.tile.y)
 		self.assertEqual(x, dut.x)
 		self.assertEqual(y, dut.y)
-		self.assertEqual(src, dut.src)
-		self.assertEqual(dst, dut.dst)
+		self.assertEqual(src_name, dut.src_name)
+		self.assertEqual(dst_name, dut.dst_name)
+		self.assertEqual(icecraft.IcecraftNetPosition(dut.tile, src_name), dut.src)
+		self.assertEqual(icecraft.IcecraftNetPosition(dut.tile, dst_name), dut.dst)
 	
 	def test_values(self):
 		x = 9
 		y = 2
-		src = "source_name"
-		dst = "destination_name"
+		src_name = "source_name"
+		dst_name = "destination_name"
 		
-		dut = icecraft.IcecraftConnection(icecraft.TilePosition(x, y), src, dst)
-		self.check_values(dut, x, y, src, dst)
+		dut = icecraft.IcecraftConnection(icecraft.TilePosition(x, y), src_name, dst_name)
+		self.check_values(dut, x, y, src_name, dst_name)
 	
 	def test_from_coords(self):
 		x = 9
 		y = 2
-		src = "source_name"
-		dst = "destination_name"
+		src_name = "source_name"
+		dst_name = "destination_name"
 		
-		dut = icecraft.IcecraftConnection.from_coords(x, y, src, dst)
-		self.check_values(dut, x, y, src, dst)
+		dut = icecraft.IcecraftConnection.from_coords(x, y, src_name, dst_name)
+		self.check_values(dut, x, y, src_name, dst_name)
