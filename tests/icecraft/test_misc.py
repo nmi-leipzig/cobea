@@ -96,3 +96,32 @@ class IcecraftNetPositionTest(unittest.TestCase):
 		self.check_values(dut, x, y, net)
 		
 
+class IcecraftConnectionTest(unittest.TestCase):
+	def test_creation(self):
+		dut = icecraft.IcecraftConnection(icecraft.TilePosition(5, 1), "net_a", "net_b")
+	
+	def check_values(self, dut, x, y, src, dst):
+		self.assertEqual(x, dut.tile.x)
+		self.assertEqual(y, dut.tile.y)
+		self.assertEqual(x, dut.x)
+		self.assertEqual(y, dut.y)
+		self.assertEqual(src, dut.src)
+		self.assertEqual(dst, dut.dst)
+	
+	def test_values(self):
+		x = 9
+		y = 2
+		src = "source_name"
+		dst = "destination_name"
+		
+		dut = icecraft.IcecraftConnection(icecraft.TilePosition(x, y), src, dst)
+		self.check_values(dut, x, y, src, dst)
+	
+	def test_from_coords(self):
+		x = 9
+		y = 2
+		src = "source_name"
+		dst = "destination_name"
+		
+		dut = icecraft.IcecraftConnection.from_coords(x, y, src, dst)
+		self.check_values(dut, x, y, src, dst)
