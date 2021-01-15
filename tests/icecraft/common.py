@@ -1,7 +1,7 @@
 import os
 import json
 from dataclasses import dataclass
-from typing import List
+from typing import List, Iterable, Tuple
 
 import adapters.icecraft as icecraft
 
@@ -22,3 +22,6 @@ class SendBRAMMeta:
 
 with open(os.path.join(TEST_DATA_DIR, "send_all_bram.json"), "r") as json_file:
 	SEND_BRAM_META = tuple([SendBRAMMeta(*s) for s in json.load(json_file)])
+
+def create_bits(x:int , y: int, bit_coords: Iterable[Tuple[int, int]]) -> Tuple[icecraft.IcecraftBitPosition, ...]:
+	return tuple(icecraft.IcecraftBitPosition.from_coords(x, y, g, i) for g, i in bit_coords)

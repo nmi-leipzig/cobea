@@ -19,7 +19,7 @@ from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigIte
 
 from ..test_request_model import check_parameter_user
 
-from .common import TEST_DATA_DIR
+from .common import TEST_DATA_DIR, create_bits
 
 class Comparison(Enum):
 	DIFFERENT = auto()
@@ -893,9 +893,6 @@ class IcecraftRepGenTest(unittest.TestCase):
 			with self.assertRaises(ValueError):
 				self.generic_carry_in_net_test(exp_map, exp_nets, in_map, in_nets)
 	
-	def create_bits(self, x:int , y: int, bit_coords: Iterable[Tuple[int, int]]) -> Tuple[IcecraftBitPosition, ...]:
-		return tuple(IcecraftBitPosition.from_coords(x, y, g, i) for g, i in bit_coords)
-	
 	def transform_to_type(self, raw_data, type_hint):
 		from typing import get_type_hints
 		
@@ -1003,7 +1000,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			return GeneData(gene.bit_positions, values)
 		
 		def prev_to_data(prev_gene_data):
-			bits = self.create_bits(*prev_gene_data.tile, prev_gene_data.bits)
+			bits = create_bits(*prev_gene_data.tile, prev_gene_data.bits)
 			return GeneData(bits, prev_gene_data.values)
 		
 		def gen_bit_dict(gene_iter):
@@ -1243,8 +1240,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 			],
 			[tile]
 		)
-		ci_bits = self.create_bits(*tile, [(1, 49)])
-		one_bits = self.create_bits(*tile, [(1, 50)])
+		ci_bits = create_bits(*tile, [(1, 49)])
+		one_bits = create_bits(*tile, [(1, 50)])
 		con_items = [
 			ConnectionItem(ci_bits, "connection", "carry_in_mux", ((True, ), ), ("carry_in", )),
 			ConnectionItem(one_bits, "connection", "carry_in_mux", ((True, ), ), (icecraft.representation.CARRY_ONE_IN, )),
@@ -1268,7 +1265,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			NetData(((*tile, "glb2local_1"), ), False, (0, )),
 			NetData(((*tile, "local_g0_5"), ), False, (0, )),
 		], [tile])
-		bits = self.create_bits(*tile, [(2, 15), (2, 16), (2, 17), (2, 18), (3, 18)])
+		bits = create_bits(*tile, [(2, 15), (2, 16), (2, 17), (2, 18), (3, 18)])
 		con_items = [ConnectionItem(bits, "connection", "local_g0_5", ((False, False, True, False, False), ), ("glb2local_1", )),]
 		net_map = NetRelation.create_net_map(net_rels)
 		src_grps = SourceGroup.populate_net_relations(net_map, con_items)
@@ -1435,7 +1432,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 					(0+2*l, 37), (1+2*l, 37), (1+2*l, 36), (0+2*l, 36)
 				)
 			]
-			bits_list = [self.create_bits(2, 3, r) for r in raw_bits_list]
+			bits_list = [create_bits(2, 3, r) for r in raw_bits_list]
 			lut_conf.append(tuple(IndexedItem(b, k, l) for b, k in zip(bits_list, lut_kinds)))
 			# CarryEnable should not be put in a gene
 			# DffEnable, Set_NoReset, AsyncSetReset
@@ -1541,7 +1538,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		exp_const = []
 		exp_genes = []
 		for gd in gene_data:
-			all_bits = self.create_bits(*org_tile, gd.raw_bits)
+			all_bits = create_bits(*org_tile, gd.raw_bits)
 			if gd.create_gene:
 				alleles = [Allele((False, )*len(all_bits), "")]
 				alleles.extend([Allele(v, "") for i, (v, _) in enumerate(gd.src_list) if i not in gd.del_indices])
@@ -1628,14 +1625,14 @@ class IcecraftRepGenTest(unittest.TestCase):
 			NetData(((*org_tile, f"src_2"), ), True, (0, )),
 		]
 		org_con = ConnectionItem(
-			self.create_bits(*other_tile, [(9, 7), (9, 8)]),
+			create_bits(*other_tile, [(9, 7), (9, 8)]),
 			"connection",
 			"dst",
 			((True, True), ),
 			("src_1", )
 		)
 		other_con = ConnectionItem(
-			self.create_bits(*org_tile, [(4, 5), (4, 6)]),
+			create_bits(*org_tile, [(4, 5), (4, 6)]),
 			"connection",
 			"dst",
 			((True, True), ),
