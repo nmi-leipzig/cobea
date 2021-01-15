@@ -277,7 +277,7 @@ class IcecraftRepGen(RepresentationGenerator):
 	Ressources can be excluded in two ways:
 	- not available -> ressource doesn't belong to the genotype nor the phenotype and is not 
 	configured, i.e. bits will not be set; described by the request
-	 unused -> ressource will not be used have a fixed, neutral genotype and phneotype, e.g bits 
+	- unused -> ressource will not be used have a fixed, neutral genotype and phneotype, e.g bits 
 	will be constantly set to neutral (as a general rule to 0); described by (the negation of) 
 	a used function constructed from the request
 	"""
@@ -374,7 +374,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		# include lone input nets
 		for net_pos in request.lone_input_nets:
-			seg = (net_pos.x, net_pos.y, net_pos.net)
+			seg = (net_pos.x, net_pos.y, net_pos.name)
 			net_map[seg].available = True
 	
 	@staticmethod

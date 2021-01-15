@@ -46,7 +46,7 @@ class IcecraftColBufCtrl(IcecraftLUTPosition):
 
 @dataclass(frozen=True, order=True)
 class IcecraftNetPosition(IcecraftPosition):
-	net: str
+	name: str
 
 @dataclass(frozen=True, order=True)
 class IcecraftConnection(IcecraftPosition):
