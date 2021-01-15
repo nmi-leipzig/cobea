@@ -48,4 +48,9 @@ class IcecraftColBufCtrl(IcecraftLUTPosition):
 class IcecraftNetPosition(IcecraftPosition):
 	net: str
 
+@dataclass(frozen=True, order=True)
+class IcecraftConnection(IcecraftPosition):
+	src: str
+	dst: str
+
 
