@@ -40,7 +40,7 @@ def get_net_data(tiles: Iterable[TileType]) -> List[NetData]:
 	return sorted(nets)
 
 def get_seg_kind_examples() -> List[Tuple[SegType, TileType, DriverType]]:
-	"""get an example segment for every segemnt kind"""
+	"""get an example segment for every segment kind"""
 	seg_kind_to_tile = [[] for _ in range(len(seg_kinds))]
 	for tile in sorted(seg_tile_map):
 		for seg_ref in sorted(seg_tile_map[tile]):
