@@ -415,3 +415,33 @@ class ChipDataTest(unittest.TestCase):
 				exp_set = set(tile_cbc_map[t] for t in tiles)
 				
 				self.assertEqual(exp_set, set(res))
+	
+	def test_hard_driven(self):
+		exp_names = {
+			'io_0/D_IN_0', 'io_0/D_IN_1', 'io_1/D_IN_0', 'io_1/D_IN_1',
+			'lutff_0/cout', 'lutff_0/lout', 'lutff_0/out',
+			'lutff_1/cout', 'lutff_1/lout', 'lutff_1/out',
+			'lutff_2/cout', 'lutff_2/lout', 'lutff_2/out',
+			'lutff_3/cout', 'lutff_3/lout', 'lutff_3/out',
+			'lutff_4/cout', 'lutff_4/lout', 'lutff_4/out',
+			'lutff_5/cout', 'lutff_5/lout', 'lutff_5/out',
+			'lutff_6/cout', 'lutff_6/lout', 'lutff_6/out',
+			'lutff_7/cout', 'lutff_7/out',
+			'ram/RDATA_0', 'ram/RDATA_1', 'ram/RDATA_10', 'ram/RDATA_11',
+			'ram/RDATA_12', 'ram/RDATA_13', 'ram/RDATA_14', 'ram/RDATA_15',
+			'ram/RDATA_2', 'ram/RDATA_3', 'ram/RDATA_4', 'ram/RDATA_5',
+			'ram/RDATA_6', 'ram/RDATA_7', 'ram/RDATA_8', 'ram/RDATA_9'
+		}
+
+		
+		hard_driven_list = []
+		name_set = set()
+		for sk, dk in zip(chip_data.seg_kinds, chip_data.drv_kinds):
+			if dk[0]: # hard driven?
+				hard_driven_list.append(sk)
+				#print(sk[dk[1][0]])
+				name_set.add(sk[dk[1][0]][2])
+		
+		#print("#########")
+		#print(sorted(name_set))
+		self.assertEqual(exp_names, name_set)
