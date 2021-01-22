@@ -323,7 +323,7 @@ class IcecraftRepGen(RepresentationGenerator):
 	
 	@staticmethod
 	def carry_in_set_net(config_map: Mapping[TilePosition, ConfigAssemblage], raw_nets: List[NetData]) -> None:
-		"""Replace CarryInSet tile ConfigItem with a dummy net that  can be connected to carry_in_mux"""
+		"""Replace CarryInSet tile ConfigItem with a dummy net that can be connected to carry_in_mux"""
 		for tile, conf in config_map.items():
 			index_list = [i for i, c in enumerate(conf.tile) if c.kind == "CarryInSet"]
 			
