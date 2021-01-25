@@ -90,7 +90,7 @@ class NetRelationTest(unittest.TestCase):
 		), # 8
 		ConnectionItem(
 			(IcecraftBitPosition.from_coords(7, 0, 5, 3), ),
-			"connection", "long_span_4", ((True), ), ("out", )
+			"connection", "long_span_4", ((True, ), ), ("out", )
 		), # 9
 	]
 	
@@ -355,6 +355,8 @@ class SourceGroupTest(unittest.TestCase):
 				self.assertEqual(item, dut.config_item)
 				self.assertEqual(dst, dut.dst)
 				self.assertEqual(src_list, dut.src_list)
+				for val in dut.iter_values():
+					self.assertEqual(len(dut.bits), len(val))
 	
 	def check_uniqueness(self, iterable):
 		self.assertEqual(len(iterable), len(set(iterable)))
