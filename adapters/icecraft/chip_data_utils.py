@@ -18,6 +18,15 @@ class NetData:
 	hard_driven: bool
 	drivers: Tuple[int, ...]
 
+@dataclass(frozen=True, order=True)
+class ElementInterface:
+	"""Interface for FPGA element
+	
+	Interface means incoming and outgoing nets.
+	"""
+	in_nets: SegType
+	out_nets: SegType
+
 def seg_from_seg_kind(seg_kind: SegType, tile_pos: TileType, role: int) -> SegType:
 	"""reconstruct segment from segment kind, tile position and role"""
 	x_off = tile_pos[0] - seg_kind[role][0]
