@@ -11,6 +11,7 @@ ConfigEntryType = NewType("ConfigEntryType", tuple)
 ConfigKindType = NewType("ConfigKindType", Tuple[ConfigEntryType, ...])
 BitType = NewType("BitType", Tuple[int, int])
 DriverType = NewType("DriverType", Tuple[bool, Tuple[int, ...]])
+InterfaceType = NewType("InterfaceType", Tuple[Tuple[str, ...], Tuple[str, ...]])
 
 @dataclass(frozen=True, order=True)
 class NetData:

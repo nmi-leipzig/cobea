@@ -249,3 +249,32 @@ class ChipDataGenTest(unittest.TestCase):
 				for controlled_tiles in res.values():
 					mapped_tiles.update(controlled_tiles)
 				self.assertEqual(set(tiles), mapped_tiles)
+	
+	def test_get_lut_io(self):
+		seg_list = [
+			((2, 3, "lutff_global/cen"), ),
+			((2, 3, "lutff_0/in_0"), ),
+			((2, 3, "lutff_0/in_1"), ),
+			((2, 3, "lutff_0/out"), ),
+			((2, 4, "lutff_0/in_0"), ),
+			((2, 4, "lutff_0/in_1"), ),
+			((2, 4, "lutff_0/out"), ),
+			((2, 5, "lutff_0/in_0"), ),
+			((2, 5, "lutff_0/in_1"), ),
+			((2, 5, "lutff_0/in_2"), ),
+			((2, 5, "lutff_0/cout"), ),
+			((2, 5, "lutff_0/out"), ),
+			((2, 5, "lutff_0/lout"), ),
+		]
+		exp_kinds = [
+			((("lutff_0/in_0", "lutff_0/in_1"), ("lutff_0/out", )), ),
+			((("lutff_0/in_0", "lutff_0/in_1", "lutff_0/in_2"), ("lutff_0/cout", "lutff_0/lout", "lutff_0/out")), ),
+		]
+		exp_tiles = [
+			((2, 3), (2, 4)),
+			((2, 5), ),
+		]
+		
+		res_kinds, res_tiles = chip_data_gen.get_lut_io(seg_list)
+		self.assertEqual(exp_kinds, res_kinds)
+		self.assertEqual(exp_tiles, res_tiles)

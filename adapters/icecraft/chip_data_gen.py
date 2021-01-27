@@ -14,17 +14,18 @@ have to be stored.
 import sys
 import re
 import functools
-from typing import Iterable, Set, Tuple, List, Iterable, Mapping, Any, NewType, TextIO, Dict
+from typing import Iterable, Set, Tuple, List, Iterable, Mapping, Any, TextIO, Dict
+from dataclasses import dataclass, field
 
 sys.path.append("/usr/local/bin")
 import icebox
 
 try:
 	# execution as script
-	from chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType
+	from chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType, InterfaceType
 except ModuleNotFoundError:
 	# import as module in tests
-	from .chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType
+	from .chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType, InterfaceType
 
 def get_inner_tiles(ic: icebox.iceconfig) -> Set[TileType]:
 	"""Get set of inner tiles for an iceconfig."""
@@ -345,6 +346,46 @@ def get_colbufctrl_data(ic: icebox.iceconfig, tiles: Iterable[TileType]) -> Mapp
 		cbc_tile_map.setdefault((cbc_x, cbc_y), set()).add(tile)
 	
 	return {c: tuple(sorted(t)) for c, t in cbc_tile_map.items()}
+
+def get_lut_io(seg_iter: Iterable[SegType]) -> Tuple[List[InterfaceType], List[Tuple[TileType, ...]]]:
+	@dataclass
+	class LUTIO:
+		in_nets: List[str] = field(default_factory=list)
+		out_nets: List[str] = field(default_factory=list)
+	
+	# create lut io
+	tile_io_map = {}
+	for seg in seg_iter:
+		for x, y, name in seg:
+			if not name.startswith("lutff"):
+				continue
+			
+			if name.startswith("lutff_global"):
+				continue
+			
+			res = re.match(r"lutff_(?P<lut_index>\d)/(?P<kind>.+)", name)
+			assert res is not None, f"unknown lutff net: '{name}'"
+			
+			lut_index = int(res.group("lut_index"))
+			cur_io = tile_io_map.setdefault((x, y), {}).setdefault(lut_index, LUTIO())
+			kind = res.group("kind")
+			if kind.endswith("out"):
+				cur_io.out_nets.append(name)
+			else:
+				assert kind.startswith("in"), f"unknown lutff kind: '{kind}'"
+				cur_io.in_nets.append(name)
+	
+	# create lut io kinds
+	kind_tile_map = {}
+	for tile, index_io_map in tile_io_map.items():
+		tuple_map = {i: (tuple(sorted(o.in_nets)), tuple(sorted(o.out_nets))) for i, o in index_io_map.items()}
+		io_kind = tuple(tuple_map[i] if i in tuple_map else tuple(tuple(), tuple()) for i in range(max(tuple_map)+1))
+		kind_tile_map.setdefault(io_kind, []).append(tile)
+	
+	io_kind_list = sorted(kind_tile_map)
+	kind_tile_list = [tuple(sorted(kind_tile_map[k])) for k in io_kind_list]
+	
+	return io_kind_list, kind_tile_list
 
 def split_bit_values(bit_comb: Tuple[str, ...]) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[bool, ...]]:
 	"""
