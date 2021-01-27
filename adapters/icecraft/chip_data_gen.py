@@ -534,6 +534,8 @@ def write_chip_data(chip_file: TextIO) -> None:
 	
 	colbufctrl_map = get_colbufctrl_data(ic, inner_tiles)
 	
+	lut_io_kinds, lut_io_tiles = get_lut_io(inner_segs)
+	
 	indent = "\t"
 	level = 0
 	#chip_file.write("net_names = (\n")
@@ -586,6 +588,14 @@ def write_chip_data(chip_file: TextIO) -> None:
 	
 	chip_file.write("colbufctrl_tile_map = ")
 	write_dict_iterable(chip_file, colbufctrl_map, 12, level, indent)
+	chip_file.write("\n\n")
+	
+	chip_file.write("lut_io_kinds = ")
+	write_iterable_iterable(chip_file, lut_io_kinds, 1, level, indent)
+	chip_file.write("\n\n")
+	
+	chip_file.write("lut_io_tiles = ")
+	write_iterable_iterable(chip_file, lut_io_tiles, 12, level, indent)
 	chip_file.write("\n\n")
 
 if __name__ == "__main__":
