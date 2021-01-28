@@ -108,6 +108,18 @@ class TestDesignation(unittest.TestCase):
 		vert_desigs = [VertexDesig(p) for p in positions]
 		return vert_desigs
 	
+	def check_vertex_values(self, vertex, tile, net_name=None, lut_index=None):
+		if net_name is None and lut_index is None:
+			raise ValueError("Either net_name or lut_index has to be not None")
+		
+		self.assertEqual(tile, vertex.tile)
+		if net_name is None:
+			self.assertIsInstance(vertex.position, IcecraftLUTPosition)
+			self.assertEqual(lut_index, vertex.position.z)
+		else:
+			self.assertIsInstance(vertex.position, IcecraftNetPosition)
+			self.assertEqual(net_name, vertex.position.name)
+	
 	def create_edge_desigs(self):
 		vert_desigs = self.create_vertex_desigs()
 		edge_desigs = []
@@ -118,7 +130,24 @@ class TestDesignation(unittest.TestCase):
 		return edge_desigs
 	
 	def test_creation_vertex_desig(self):
-		self.create_vertex_desigs()
+		desigs = self.create_vertex_desigs()
+		tile = TilePosition(4, 1)
+		self.check_vertex_values(desigs[0], tile, net_name="net_a")
+		self.check_vertex_values(desigs[1], tile, lut_index=2)
+		self.check_vertex_values(desigs[2], tile, net_name="net_b")
+		self.check_vertex_values(desigs[3], tile, lut_index=5)
+	
+	def test_from_net_name(self):
+		tile = TilePosition(21, 14)
+		net_name = "test_wire"
+		dut = VertexDesig.from_net_name(tile, net_name)
+		self.check_vertex_values(dut, tile, net_name=net_name)
+	
+	def test_from_lut_index(self):
+		tile = TilePosition(21, 14)
+		lut_index = 4
+		dut = VertexDesig.from_lut_index(tile, lut_index)
+		self.check_vertex_values(dut, tile, lut_index=lut_index)
 	
 	def test_creation_edge_desig(self):
 		vert_desigs = self.create_vertex_desigs()
