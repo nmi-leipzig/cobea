@@ -252,7 +252,6 @@ class ChipDataTest(unittest.TestCase):
 	def ic_seg(tiles, ic):
 		return ic.group_segments(tiles, connect_gb=True)
 	
-	
 	def test_get_net_data(self):
 		ic = icebox.iceconfig()
 		ic.setup_empty_8k()
@@ -343,6 +342,30 @@ class ChipDataTest(unittest.TestCase):
 				exp_set = self.prep_reference_config(ic, tile)
 				
 				self.assertEqual(exp_set, res_set)
+	
+	def test_get_lut_io(self):
+		for tile in self.representative_tiles:
+			with self.subTest(tiles=tile):
+				res = chip_data.get_lut_io(tile)
+				
+				if tile[0] in list(range(1, 8))+list(range(9, 25))+list(range(26, 33)) and tile[1] in range(1, 33):
+					self.assertEqual(8, len(res))
+					for lut_index, lut_io in enumerate(res):
+						self.assertEqual(4, len(lut_io.in_nets))
+						for i, seg in enumerate(lut_io.in_nets):
+							self.assertEqual(tile, seg[:2])
+							self.assertEqual(f"lutff_{lut_index}/in_{i}", seg[2])
+						
+						if lut_index == 7:
+							suffixes = ("cout", "out")
+						else:
+							suffixes = ("cout", "lout", "out")
+						self.assertEqual(len(suffixes), len(lut_io.out_nets))
+						for suf, seg in zip(suffixes, lut_io.out_nets):
+							self.assertEqual(tile, seg[:2])
+							self.assertEqual(f"lutff_{lut_index}/{suf}", seg[2])
+				else:
+					self.assertEqual(0, len(res))
 	
 	def bit_positions_to_bits(self, bit_positions):
 		return [(b.group, b.index) for b in bit_positions]

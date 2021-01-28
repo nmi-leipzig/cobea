@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from typing import Iterable, List, Dict, Union, Tuple, NewType
 
-from .chip_data_utils import TileType, SegType, BitType, DriverType, NetData, get_net_data_for_tile, seg_from_seg_kind
-from .chip_database import seg_kinds, drv_kinds, seg_tile_map, config_kinds, config_tile_map, colbufctrl_tile_map
+from .chip_data_utils import TileType, SegType, BitType, DriverType, NetData, ElementInterface, get_net_data_for_tile, seg_from_seg_kind
+from .chip_database import seg_kinds, drv_kinds, seg_tile_map, config_kinds, config_tile_map, colbufctrl_tile_map, lut_io_kinds, lut_io_tiles
 from .misc import TilePosition, IcecraftBitPosition
 from .config_item import ConfigItem, IndexedItem, ConnectionItem, NamedItem
 
@@ -25,11 +25,14 @@ class ConfigAssemblage:
 	lut: Tuple[Tuple[IndexedItem, ...], ...] = tuple()
 	ram_config: Tuple[NamedItem, ...] = tuple()
 	ram_cascade: Tuple[NamedItem, ...] = tuple()
+	lut_io: Tuple[ElementInterface, ...] = tuple()
 
 # tile -> config_kind
 tile_to_config_kind_index = {t: k for k, tl in config_tile_map.items() for t in tl}
 # tile -> colbufctrl tile
 tile_to_colbufctrl = {t: c for c, tl in colbufctrl_tile_map.items() for t in tl}
+# tile -> LUT IO kind
+tile_to_lut_io_kind_index = {t: i for i, tl in enumerate(lut_io_tiles) for t in tl}
 
 def get_net_data(tiles: Iterable[TileType]) -> List[NetData]:
 	nets = set()
@@ -62,6 +65,19 @@ def get_seg_kind_examples() -> List[Tuple[SegType, TileType, DriverType]]:
 def get_raw_config_data(tile: TileType) -> Dict[str, Union[Tuple[NamedBitsType, ...], Tuple[MultiBitsType, ...], Tuple[RawLUTType, ...], ConDictType]]:
 	config_kind_index = tile_to_config_kind_index[tile]
 	return config_kinds[config_kind_index]
+
+def get_lut_io(tile: TileType) -> Tuple[ElementInterface, ...]:
+	try:
+		kind_index = tile_to_lut_io_kind_index[tile]
+	except KeyError:
+		# no LUT IO for this tile
+		return tuple()
+	
+	kind = lut_io_kinds[kind_index]
+	lut_io = tuple(
+		ElementInterface(tuple((*tile, name) for name in single_lut[0]), tuple((*tile, name) for name in single_lut[1])) for single_lut in kind
+	)
+	return lut_io
 
 def bits_to_bit_positions(tile_pos: TilePosition, bits: Iterable[BitType]) -> Tuple[IcecraftBitPosition, ...]:
 	return tuple(IcecraftBitPosition(tile_pos, *b) for b in bits)
