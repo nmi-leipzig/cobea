@@ -200,8 +200,14 @@ class InterRep:
 				desig = VertexDesig.from_lut_index(tile, lut_index)
 				vertex = self.get_vertex(desig)
 				vertex.connect(single_lut)
+			
+			# add connection configs
+			for config_item in config_assem.connection:
+				desig = VertexDesig.from_net_name(tile, config_item.dst_net)
+				vertex = self.get_vertex(desig)
+				vertex.add_src_grp(config_item)
 		# TODO: CARRY_ONE_IN, RAM and D_IN
-		# add configs
+		
 	
 	def _add_vertex(self, vertex: Vertex) -> None:
 		self._vertices.append(vertex)

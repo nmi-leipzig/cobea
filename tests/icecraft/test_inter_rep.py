@@ -215,9 +215,14 @@ class TestSourceGroup(unittest.TestCase):
 				dut = SourceGroup(other_bits, dst, edge_map)
 
 class TestInterRep(unittest.TestCase):
-	def create_config_map(self):
-		config_map = {}
+	def add_con_config(self, config_map = {}):
+		for con_item in CON_DATA:
+			config_assem = config_map.setdefault(con_item.bits[0].tile, ConfigAssemblage())
+			config_assem.connection += (con_item, )
 		
+		return config_map
+	
+	def add_lut_config(self, config_map = {}):
 		tile = LUT_DATA[0][0].bits[0].tile
 		config_map.setdefault(tile, ConfigAssemblage()).lut = LUT_DATA
 		config_map[tile].lut_io = LUT_CON
@@ -233,7 +238,9 @@ class TestInterRep(unittest.TestCase):
 		test_cases = (
 			InterRepCreation("no input", [], {}),
 			InterRepCreation("initial net data", NET_DATA, {}),
-			InterRepCreation("initial net data and LUT config", NET_DATA, self.create_config_map())
+			InterRepCreation("initial net data and LUT config", NET_DATA, self.add_lut_config()),
+			InterRepCreation("initial net data and con config", NET_DATA, self.add_con_config()),
+			InterRepCreation("initial net data, LUT config and con config", NET_DATA, self.add_con_config(self.add_lut_config())),
 		)
 		
 		for tc in test_cases:
@@ -249,7 +256,14 @@ class TestInterRep(unittest.TestCase):
 			vertex = rep.get_vertex(desig)
 			self.check_con_vertex(rep, raw_net, desig, vertex)
 		
+		all_edges = set(rep.iter_edges())
 		for tile, config_assem in config_map.items():
+			for con_item in config_assem.connection:
+				dst_desig = VertexDesig.from_net_name(tile, con_item.dst_net)
+				for src_net in con_item.src_nets:
+					src_desig = VertexDesig.from_net_name(tile, src_net)
+					self.assertIn(EdgeDesig(src_desig, dst_desig), all_edges)
+			
 			for lut_grp in config_assem.lut:
 				tt_list = [c for c in lut_grp if c.kind == "TruthTable"]
 				tt_item = tt_list[0]
