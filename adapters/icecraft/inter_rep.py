@@ -54,6 +54,16 @@ class VertexDesig:
 	@property
 	def tile(self):
 		return self.position.tile
+	
+	@classmethod
+	def from_net_name(cls, tile: TilePosition, net_name: str) -> "VertexDesig":
+		net_pos = IcecraftNetPosition(tile, net_name)
+		return cls(net_pos)
+	
+	@classmethod
+	def from_lut_index(cls, tile: TilePosition, lut_index: int) -> "VertexDesig":
+		lut_pos = IcecraftLUTPosition(tile, lut_index)
+		return cls(lut_pos)
 
 @dataclass(frozen=True, order=True)
 class EdgeDesig:
@@ -184,6 +194,7 @@ class InterRep:
 						continue
 					
 					self._add_lut_vertex(lut_config)
+			
 		# TODO: CARRY_ONE_IN, RAM and D_IN
 		# add configs
 	
