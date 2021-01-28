@@ -195,6 +195,11 @@ class InterRep:
 					
 					self._add_lut_vertex(lut_config)
 			
+			# connect LUTs
+			for lut_index, single_lut in enumerate(config_assem.lut_io):
+				desig = VertexDesig.from_lut_index(tile, lut_index)
+				vertex = self.get_vertex(desig)
+				vertex.connect(single_lut)
 		# TODO: CARRY_ONE_IN, RAM and D_IN
 		# add configs
 	

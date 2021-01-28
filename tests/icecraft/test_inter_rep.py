@@ -80,7 +80,7 @@ CON_DATA = (
 )
 
 LUT_DATA = tuple(
-	tuple(IndexedItem(create_bits(2, 3, b), k, 3) for b, k in r)
+	tuple(IndexedItem(create_bits(2, 3, b), k, 0) for b, k in r)
 	for r in ((
 		(((14, 44),), 'CarryEnable'), (((14, 45),), 'DffEnable'),
 		(((15, 44),), 'Set_NoReset'), (((15, 45),), 'AsyncSetReset'),
@@ -191,6 +191,7 @@ class TestInterRep(unittest.TestCase):
 		
 		tile = LUT_DATA[0][0].bits[0].tile
 		config_map.setdefault(tile, ConfigAssemblage()).lut = LUT_DATA
+		config_map[tile].lut_io = LUT_CON
 		
 		return config_map
 	
@@ -223,11 +224,21 @@ class TestInterRep(unittest.TestCase):
 			for lut_grp in config_assem.lut:
 				tt_list = [c for c in lut_grp if c.kind == "TruthTable"]
 				tt_item = tt_list[0]
-				desig =  VertexDesig(IcecraftLUTPosition(tile, tt_item.index))
+				desig = VertexDesig(IcecraftLUTPosition(tile, tt_item.index))
 				self.assertIn(desig, rep._vertex_map)
 				vertex = rep.get_vertex(desig)
 				
 				self.check_lut_vertex(rep, tt_item, vertex)
+			
+			for lut_index, single_lut in enumerate(config_assem.lut_io):
+				desig = VertexDesig.from_lut_index(tile, lut_index)
+				vertex = rep.get_vertex(desig)
+				
+				in_net_data = set((*e.src.tile, e.src.position.name) for e in vertex.iter_in_edges())
+				self.assertEqual(set(single_lut.in_nets), in_net_data)
+				
+				out_net_data = set((*e.dst.tile, e.dst.position.name) for e in vertex.iter_out_edges())
+				self.assertEqual(set(single_lut.out_nets), out_net_data)
 			#TODO: fixed connections
 	
 	def check_con_vertex(self, rep, raw_net, desig, vertex):
