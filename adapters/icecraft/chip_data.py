@@ -122,6 +122,8 @@ def get_config_items(tile: TileType) -> ConfigAssemblage:
 		else:
 			raise ValueError(f"Unkown group {grp_name}")
 	
+	item_dict.lut_io = get_lut_io(tile)
+	
 	return item_dict
 
 def get_colbufctrl(tiles: Iterable[TileType]) -> List[TileType]:
