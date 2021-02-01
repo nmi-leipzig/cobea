@@ -21,7 +21,7 @@ drive the same net.
 
 from dataclasses import dataclass, field
 from functools import total_ordering
-from typing import Iterable, Union, Any, Mapping, Tuple, List, Dict
+from typing import Iterable, Union, Any, Mapping, Tuple, List, Dict, Callable
 
 from .chip_data import ConfigAssemblage
 from .chip_data_utils import NetData, ElementInterface
@@ -76,6 +76,7 @@ class EdgeDesig:
 @dataclass
 class InterElement:
 	rep: "InterRep"
+	available: bool = field(default=True, init=False)
 
 @dataclass
 class SourceGroup:
@@ -91,30 +92,35 @@ class SourceGroup:
 			assert len(v) == len(self.bits)
 
 @dataclass
-class EdgeData:
-	available: bool = field(default=True, init=False)
+class Edge(InterElement):
+	desig: EdgeDesig
+	
+	@property
+	def src(self) -> "Vertex":
+		return self.rep.get_vertex(self.desig.src)
+	
+	@property
+	def dst(self) -> "Vertex":
+		return self.rep.get_vertex(self.desig.dst)
 
 @dataclass
 class Vertex(InterElement):
-	available: bool = field(default=True, init=False)
-	in_data: Dict[EdgeDesig, EdgeData] = field(default_factory=dict, init=False)
-	out_edges: List[EdgeDesig] = field(default_factory=list, init=False)
+	in_edges: List[Edge] = field(default_factory=list, init=False)
+	out_edges: List[Edge] = field(default_factory=list, init=False)
 	ext_src: bool = field(default=False, init=False)
 	
-	def add_edge(self, edge: EdgeDesig, incoming: bool) -> None:
+	def add_edge(self, edge: Edge, incoming: bool) -> None:
 		if incoming:
-			self.in_data[edge] = EdgeData()
+			self.in_edges.append(edge)
 		else:
 			self.out_edges.append(edge)
 	
-	def get_in_data(self, edge: EdgeDesig) -> EdgeData:
-		return self.in_data[edge]
+	def iter_in_edges(self) -> Iterable[Edge]:
+		yield from self.in_edges
 	
-	def iter_in_edges(self) -> Iterable[EdgeDesig]:
-		yield from self.in_data.keys()
-	
-	def iter_out_edges(self) -> Iterable[EdgeDesig]:
+	def iter_out_edges(self) -> Iterable[Edge]:
 		yield from self.out_edges
+	
 
 @dataclass
 class ConVertex(Vertex):
@@ -124,17 +130,17 @@ class ConVertex(Vertex):
 	src_grps: List[SourceGroup] = field(default_factory=list, init=False)
 	
 	def add_src_grp(self, con_item: ConnectionItem) -> None:
-		dst = VertexDesig(IcecraftNetPosition(con_item.bits[0].tile, con_item.dst_net))
-		assert dst in self.desigs, "Wrong dst for ConnectionItem "
+		dst_desig = VertexDesig(IcecraftNetPosition(con_item.bits[0].tile, con_item.dst_net))
+		assert dst_desig in self.desigs, "Wrong dst for ConnectionItem "
 		
 		srcs = {}
 		for value, src_net in zip(con_item.values, con_item.src_nets):
-			src = VertexDesig(IcecraftNetPosition(dst.tile, src_net))
-			edge = EdgeDesig(src, dst)
-			srcs[edge] = value
-			self.rep.add_edge(edge)
+			src_desig = VertexDesig(IcecraftNetPosition(dst_desig.tile, src_net))
+			edge_desig = EdgeDesig(src_desig, dst_desig)
+			srcs[edge_desig] = value
+			self.rep.add_edge(edge_desig)
 		
-		src_grp = SourceGroup(con_item.bits, dst, srcs)
+		src_grp = SourceGroup(con_item.bits, dst_desig, srcs)
 		self.src_grps.append(src_grp)
 	
 	@classmethod
@@ -146,7 +152,6 @@ class ConVertex(Vertex):
 class LUTVertex(Vertex):
 	desig: VertexDesig
 	truth_table_bits: Tuple[IcecraftBitPosition, ...]
-	inputs: List[EdgeDesig] = field(default_factory=list) # an ordered representation of the LUT inputs is required (in edges are unordered)
 	
 	def __post_init__(self):
 		tile = self.desig.tile
@@ -158,7 +163,6 @@ class LUTVertex(Vertex):
 			src = VertexDesig(IcecraftNetPosition.from_coords(*in_net))
 			in_edge = EdgeDesig(src, self.desig)
 			self.rep.add_edge(in_edge)
-			self.inputs.append(in_edge)
 		
 		for out_net in lut_con.out_nets:
 			dst = VertexDesig(IcecraftNetPosition.from_coords(*out_net))
@@ -181,7 +185,7 @@ class InterRep:
 	def __init__(self, net_data_iter: Iterable[NetData], config_map: Mapping[TilePosition, ConfigAssemblage]) -> None:
 		self._vertices = []
 		self._vertex_map = {}
-		self._edges = []
+		self._edge_map = {}
 		
 		for raw_net in net_data_iter:
 			self._add_con_vertex(raw_net)
@@ -214,28 +218,35 @@ class InterRep:
 		for des in vertex.desigs:
 			self._vertex_map[des] = vertex
 	
-	def _add_con_vertex(self, raw_net: NetData) -> None:
+	def _add_con_vertex(self, raw_net: NetData) -> ConVertex:
 		vertex = ConVertex.from_net_data(self, raw_net)
 		self._add_vertex(vertex)
+		return vertex
 	
-	def _add_lut_vertex(self, tt_config: IndexedItem) -> None:
+	def _add_lut_vertex(self, tt_config: IndexedItem) -> LUTVertex:
 		vertex = LUTVertex.from_truth_table(self, tt_config)
 		self._add_vertex(vertex)
+		return vertex
 	
-	def add_edge(self, edge: EdgeDesig) -> None:
-		src = self.get_vertex(edge.src)
-		src.add_edge(edge, False)
+	def add_edge(self, desig: EdgeDesig) -> Edge:
+		edge = Edge(self, desig)
 		
-		dst = self.get_vertex(edge.dst)
-		dst.add_edge(edge, True)
+		edge.src.add_edge(edge, False)
+		edge.dst.add_edge(edge, True)
 		
-		self._edges.append(edge)
+		self._edge_map[desig] = edge
+		
+		return edge
 	
 	def get_vertex(self, desig: VertexDesig) -> Vertex:
 		return self._vertex_map[desig]
 	
+	def get_edge(self, desig: EdgeDesig) -> Edge:
+		return self._edge_map[desig]
+	
 	def iter_vertices(self) -> Iterable[Vertex]:
 		yield from self._vertices
 	
-	def iter_edges(self) -> Iterable[EdgeDesig]:
-		yield from self._edges
+	def iter_edges(self) -> Iterable[Edge]:
+		yield from self._edge_map.values()
+	
