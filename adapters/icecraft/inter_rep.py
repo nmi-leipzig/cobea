@@ -110,6 +110,9 @@ class Vertex(InterElement):
 	in_edges: List[Edge] = field(default_factory=list, init=False)
 	out_edges: List[Edge] = field(default_factory=list, init=False)
 	ext_src: bool = field(default=False, init=False)
+	desigs: Tuple[VertexDesig, ...]
+	hard_driven: bool
+	drivers: Tuple[int, ...]
 	
 	def add_edge(self, edge: Edge, incoming: bool) -> None:
 		if incoming:
@@ -126,9 +129,6 @@ class Vertex(InterElement):
 
 @dataclass
 class ConVertex(Vertex):
-	desigs: Tuple[VertexDesig, ...]
-	hard_driven: bool
-	drivers: Tuple[int, ...]
 	src_grps: List[SourceGroup] = field(default_factory=list, init=False)
 	
 	def add_src_grp(self, con_item: ConnectionItem) -> None:
@@ -152,13 +152,17 @@ class ConVertex(Vertex):
 
 @dataclass
 class LUTVertex(Vertex):
-	desig: VertexDesig
 	truth_table_bits: Tuple[IcecraftBitPosition, ...]
+	# override fields that are the same for all LUTs
+	# set init=False to avoid TypeError: non-default argument follows default argument
+	hard_driven: bool = field(default=True, init=False)
+	drivers: Tuple[int, ...] = field(default=(0, ), init=False)
 	
 	def __post_init__(self):
 		tile = self.desig.tile
 		for b in self.truth_table_bits:
 			assert b.tile == tile
+		assert len(self.desigs) == 1
 	
 	def connect(self, lut_con: ElementInterface) -> None:
 		for in_net in lut_con.in_nets:
@@ -172,8 +176,8 @@ class LUTVertex(Vertex):
 			self.rep.add_edge(out_edge)
 	
 	@property
-	def desigs(self):
-		return (self.desig, )
+	def desig(self):
+		return self.desigs[0]
 	
 	@classmethod
 	def from_truth_table(cls, rep: "InterRep", tt_config: IndexedItem) -> "LUTVertex":
@@ -181,7 +185,7 @@ class LUTVertex(Vertex):
 			raise ValueError(f"Need config kind 'TruthTable', got {tt_config.kind}")
 		tile = tt_config.bits[0].tile
 		desig = VertexDesig.from_lut_index(tile, tt_config.index)
-		return cls(rep, desig, tt_config.bits)
+		return cls(rep, (desig, ), tt_config.bits)
 
 class InterRep:
 	def __init__(self, net_data_iter: Iterable[NetData], config_map: Mapping[TilePosition, ConfigAssemblage]) -> None:

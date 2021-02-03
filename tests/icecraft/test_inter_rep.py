@@ -520,16 +520,17 @@ class TestEdge(unittest.TestCase):
 		dut = Edge(rep, edge_desig)
 
 class TestVertex(unittest.TestCase):
-	def create_vertex(self):
+	def create_vertex_and_tile(self):
 		rep = InterRep([], {})
-		return Vertex(rep)
+		tile = TilePosition(6, 1)
+		desig = VertexDesig.from_net_name(tile, "my_net")
+		return Vertex(rep, (desig, ), False, (0, )), tile
 	
 	def test_creation(self):
-		dut = self.create_vertex()
+		dut, _ = self.create_vertex_and_tile()
 	
 	def test_in_edges(self):
-		dut = self.create_vertex()
-		tile = TilePosition(7, 2)
+		dut, tile = self.create_vertex_and_tile()
 		exp = []
 		
 		with self.subTest(desc="empty"):
@@ -548,8 +549,7 @@ class TestVertex(unittest.TestCase):
 			self.assertEqual(exp, res)
 	
 	def test_out_edges(self):
-		dut = self.create_vertex()
-		tile = TilePosition(7, 2)
+		dut, tile = self.create_vertex_and_tile()
 		exp = []
 		
 		with self.subTest(desc="empty"):
@@ -645,7 +645,7 @@ class TestLUTVertex(unittest.TestCase):
 		bits = (IcecraftBitPosition(tile, 4, 5), IcecraftBitPosition(tile, 6, 5))
 		desig = VertexDesig.from_lut_index(tile, index)
 		
-		dut = LUTVertex(rep, desig, bits)
+		dut = LUTVertex(rep, (desig, ), bits)
 		
 		self.assertEqual(bits, dut.truth_table_bits)
 		self.assertEqual(index, int(dut.desig.name[4:]))
@@ -686,13 +686,13 @@ class TestLUTVertex(unittest.TestCase):
 			other_desig = VertexDesig.from_lut_index(other_tile, 5)
 			
 			with self.assertRaises(AssertionError):
-				dut = LUTVertex(rep, other_desig, bits)
+				dut = LUTVertex(rep, (other_desig, ), bits)
 		
 		with self.subTest(desc="inconsistent bits"):
 			other_bits = (IcecraftBitPosition(tile, 4, 5), IcecraftBitPosition(other_tile, 6, 5))
 			
 			with self.assertRaises(AssertionError):
-				dut = LUTVertex(rep, desig, other_bits)
+				dut = LUTVertex(rep, (desig, ), other_bits)
 	
 	def test_connect(self):
 		for lut_items, lut_con in zip(LUT_DATA, LUT_CON):
