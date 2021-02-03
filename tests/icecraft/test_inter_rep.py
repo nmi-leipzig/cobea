@@ -2,7 +2,7 @@ import unittest
 import operator
 import copy
 
-from typing import NamedTuple, Iterable, Mapping
+from typing import NamedTuple, Iterable, Mapping, Union
 
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftLUTPosition
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Edge, SourceGroup, Vertex, ConVertex, LUTVertex
@@ -97,58 +97,107 @@ LUT_CON = (
 )
 
 class TestDesignation(unittest.TestCase):
+	class VDData(NamedTuple):
+		tile: TilePosition
+		net_name: Union[str, None]
+		lut_index: Union[int, None]
+		name: str
+		order: int
+	
+	VERTEX_DESIG_DATA = (
+		VDData(TilePosition(4, 1), "net_a", None, "NET#net_a", 2),
+		VDData(TilePosition(4, 1), None, 2, "LUT#2", 0),
+		VDData(TilePosition(4, 1), "net_b", None, "NET#net_b", 3),
+		VDData(TilePosition(4, 1), None, 5, "LUT#5", 1),
+	)
 	# test VertexDesig and EdgeDesig
 	def create_vertex_desigs(self):
-		tile = TilePosition(4, 1)
-		positions = [
-			IcecraftNetPosition(tile, "net_a"),
-			IcecraftLUTPosition(tile, 2),
-			IcecraftNetPosition(tile, "net_b"),
-			IcecraftLUTPosition(tile, 5),
-		]
-		vert_desigs = [VertexDesig(p) for p in positions]
+		vert_desigs = [VertexDesig(d.tile, d.name) for d in self.VERTEX_DESIG_DATA]
 		return vert_desigs
 	
-	def check_vertex_values(self, vertex, tile, net_name=None, lut_index=None):
-		if net_name is None and lut_index is None:
-			raise ValueError("Either net_name or lut_index has to be not None")
-		
-		self.assertEqual(tile, vertex.tile)
-		if net_name is None:
-			self.assertIsInstance(vertex.position, IcecraftLUTPosition)
-			self.assertEqual(lut_index, vertex.position.z)
-		else:
-			self.assertIsInstance(vertex.position, IcecraftNetPosition)
-			self.assertEqual(net_name, vertex.position.name)
+	def check_vertex_desig(self, vertex_desig, tile, name):
+		self.assertEqual(tile, vertex_desig.tile)
+		self.assertEqual(name, vertex_desig.name)
 	
-	def create_edge_desigs(self):
-		vert_desigs = self.create_vertex_desigs()
+	def create_edge_desigs_and_data(self):
 		edge_desigs = []
-		for vd_1 in vert_desigs[:2]:
-			for vd_2 in vert_desigs[2:]:
-				edge_desigs.append(EdgeDesig(vd_1, vd_2))
+		edge_desig_data = []
+		for vdd_1 in self.VERTEX_DESIG_DATA[:2]:
+			for vdd_2 in self.VERTEX_DESIG_DATA[2:]:
+				edge_desigs.append(EdgeDesig(
+					VertexDesig(vdd_1.tile, vdd_1.name),
+					VertexDesig(vdd_2.tile, vdd_2.name)
+				))
+				edge_desig_data.append((vdd_1, vdd_2))
 		
-		return edge_desigs
+		return edge_desigs, edge_desig_data
 	
 	def test_creation_vertex_desig(self):
 		desigs = self.create_vertex_desigs()
-		tile = TilePosition(4, 1)
-		self.check_vertex_values(desigs[0], tile, net_name="net_a")
-		self.check_vertex_values(desigs[1], tile, lut_index=2)
-		self.check_vertex_values(desigs[2], tile, net_name="net_b")
-		self.check_vertex_values(desigs[3], tile, lut_index=5)
+		for dut, vdd in zip(desigs, self.VERTEX_DESIG_DATA):
+			self.check_vertex_desig(dut, vdd.tile, vdd.name)
 	
 	def test_from_net_name(self):
-		tile = TilePosition(21, 14)
-		net_name = "test_wire"
-		dut = VertexDesig.from_net_name(tile, net_name)
-		self.check_vertex_values(dut, tile, net_name=net_name)
+		for vdd in self.VERTEX_DESIG_DATA:
+			if vdd.net_name is None:
+				continue
+			with self.subTest(test_data=vdd):
+				dut = VertexDesig.from_net_name(vdd.tile, vdd.net_name)
+				
+				self.check_vertex_desig(dut, vdd.tile, vdd.name)
 	
 	def test_from_lut_index(self):
-		tile = TilePosition(21, 14)
-		lut_index = 4
-		dut = VertexDesig.from_lut_index(tile, lut_index)
-		self.check_vertex_values(dut, tile, lut_index=lut_index)
+		for vdd in self.VERTEX_DESIG_DATA:
+			if vdd.lut_index is None:
+				continue
+			with self.subTest(test_data=vdd):
+				dut = VertexDesig.from_lut_index(vdd.tile, vdd.lut_index)
+				
+				self.check_vertex_desig(dut, vdd.tile, vdd.name)
+	
+	def test_from_net_position(self):
+		for vdd in self.VERTEX_DESIG_DATA:
+			if vdd.net_name is None:
+				continue
+			with self.subTest(test_data=vdd):
+				net_pos = IcecraftNetPosition(vdd.tile, vdd.net_name)
+				dut = VertexDesig.from_net_position(net_pos)
+				
+				self.check_vertex_desig(dut, vdd.tile, vdd.name)
+	
+	def test_from_lut_position(self):
+		for vdd in self.VERTEX_DESIG_DATA:
+			if vdd.lut_index is None:
+				continue
+			with self.subTest(test_data=vdd):
+				lut_pos = IcecraftLUTPosition(vdd.tile, vdd.lut_index)
+				dut = VertexDesig.from_lut_position(lut_pos)
+				
+				self.check_vertex_desig(dut, vdd.tile, vdd.name)
+	
+	def test_from_vertex_position(self):
+		for vdd in self.VERTEX_DESIG_DATA:
+			with self.subTest(test_data=vdd):
+				if vdd.net_name is not None:
+					pos = IcecraftNetPosition(vdd.tile, vdd.net_name)
+				elif vdd.lut_index is not None:
+					pos = IcecraftLUTPosition(vdd.tile, vdd.lut_index)
+				else:
+					raise ValueError("Invalid test data")
+				
+				dut = VertexDesig.from_vertex_position(pos)
+				
+				self.check_vertex_desig(dut, vdd.tile, vdd.name)
+	
+	def test_from_seg_entry(self):
+		for vdd in self.VERTEX_DESIG_DATA:
+			if vdd.net_name is None:
+				continue
+			seg = (*vdd.tile, vdd.net_name)
+			with self.subTest(seg=seg):
+				dut = VertexDesig.from_seg_entry(seg)
+				
+				self.check_vertex_desig(dut, vdd.tile, vdd.name)
 	
 	def test_creation_edge_desig(self):
 		vert_desigs = self.create_vertex_desigs()
@@ -156,20 +205,33 @@ class TestDesignation(unittest.TestCase):
 			for vd_2 in vert_desigs[2:]:
 				with self.subTest(vd_1=vd_1, vd_2=vd_2):
 					dut = EdgeDesig(vd_1, vd_2)
+					
+					self.assertEqual(vd_1, dut.src)
+					self.assertEqual(vd_2, dut.dst)
 	
-	def test_cmp(self):
-		edge_desigs = self.create_edge_desigs()
-		# (net_a, net_b), (net_a, lut_5), (lut_2, net_b), (lut_2, lut_5)
-		order = [3, 2, 1, 0]
+	def test_cmp_vertex(self):
 		for op in [operator.lt, operator.le, operator.eq, operator.ne, operator.ge, operator.gt]:
-			for i_1, ed_1 in enumerate(edge_desigs):
-				for i_2, ed_2 in enumerate(edge_desigs):
-					with self.subTest(op=op, ed_1=ed_1, ed_2=ed_2):
-						self.assertEqual(op(order[i_1], order[i_2]), op(ed_1, ed_2))
+			for vdd_1 in self.VERTEX_DESIG_DATA:
+				for vdd_2 in self.VERTEX_DESIG_DATA:
+					vd_1 = VertexDesig(vdd_1.tile, vdd_1.name)
+					vd_2 = VertexDesig(vdd_2.tile, vdd_2.name)
+					with self.subTest(vd_1=vd_1, op=op, vd_2=vd_2):
+						exp = op(vdd_1.order, vdd_2.order)
+						self.assertEqual(exp, op(vd_1, vd_2))
+	
+	def test_cmp_edge(self):
+		edge_desigs, edge_data = self.create_edge_desigs_and_data()
+		# (net_a, net_b), (net_a, lut_5), (lut_2, net_b), (lut_2, lut_5)
+		for op in [operator.lt, operator.le, operator.eq, operator.ne, operator.ge, operator.gt]:
+			for ed_1, edd_1 in zip(edge_desigs, edge_data):
+				for ed_2, edd_2 in zip(edge_desigs, edge_data):
+					with self.subTest(ed_1=ed_1, op=op, ed_2=ed_2):
+						exp = op((edd_1[0].order, edd_1[1].order), (edd_2[0].order, edd_2[1].order))
+						self.assertEqual(exp, op(ed_1, ed_2))
 	
 	def test_edge_post_init_check(self):
-		src = VertexDesig(IcecraftNetPosition.from_coords(4, 1, "net_a"))
-		dst = VertexDesig(IcecraftNetPosition.from_coords(5, 1, "net_b"))
+		src = VertexDesig.from_seg_entry((4, 1, "net_a"))
+		dst = VertexDesig.from_seg_entry((5, 1, "net_b"))
 		
 		with self.assertRaises(AssertionError):
 			EdgeDesig(src, dst)
@@ -252,7 +314,7 @@ class TestInterRep(unittest.TestCase):
 	
 	def check_initial_data(self, net_data_iter, config_map, rep):
 		for raw_net in net_data_iter:
-			desig = VertexDesig(IcecraftNetPosition.from_coords(*raw_net.segment[0]))
+			desig = VertexDesig.from_seg_entry(raw_net.segment[0])
 			self.assertIn(desig, rep._vertex_map)
 			vertex = rep.get_vertex(desig)
 			self.check_con_vertex(rep, raw_net, desig, vertex)
@@ -278,16 +340,16 @@ class TestInterRep(unittest.TestCase):
 				desig = VertexDesig.from_lut_index(tile, lut_index)
 				vertex = rep.get_vertex(desig)
 				
-				in_net_data = set((*e.desig.src.tile, e.desig.src.position.name) for e in vertex.iter_in_edges())
+				in_net_data = set((*e.desig.src.tile, e.desig.src.name[4:]) for e in vertex.iter_in_edges())
 				self.assertEqual(set(single_lut.in_nets), in_net_data)
 				
-				out_net_data = set((*e.desig.dst.tile, e.desig.dst.position.name) for e in vertex.iter_out_edges())
+				out_net_data = set((*e.desig.dst.tile, e.desig.dst.name[4:]) for e in vertex.iter_out_edges())
 				self.assertEqual(set(single_lut.out_nets), out_net_data)
 			#TODO: fixed connections
 	
 	def check_con_vertex(self, rep, raw_net, desig, vertex):
 		self.assertIn(desig, vertex.desigs)
-		self.assertEqual(set(raw_net.segment), set((*d.tile, d.position.name) for d in vertex.desigs))
+		self.assertEqual(set(raw_net.segment), set((*d.tile, d.name[4:]) for d in vertex.desigs))
 		self.assertEqual(raw_net.hard_driven, vertex.hard_driven)
 		self.assertEqual(raw_net.drivers, vertex.drivers)
 		self.assertEqual(rep, vertex.rep)
@@ -298,7 +360,7 @@ class TestInterRep(unittest.TestCase):
 		for raw_net in NET_DATA:
 			with self.subTest(raw_net=raw_net):
 				for seg in raw_net.segment:
-					desig = VertexDesig(IcecraftNetPosition.from_coords(*seg))
+					desig = VertexDesig.from_seg_entry(seg)
 					res = dut.get_vertex(desig)
 					
 					self.check_con_vertex(dut, raw_net, desig, res)
@@ -337,14 +399,14 @@ class TestInterRep(unittest.TestCase):
 				lut_desig = VertexDesig.from_lut_index(tile, lut_index)
 				
 				for raw_net in single_lut.in_nets:
-					src_desig = VertexDesig(IcecraftNetPosition.from_coords(*raw_net))
+					src_desig = VertexDesig.from_seg_entry(raw_net)
 					in_desig = EdgeDesig(src_desig, lut_desig)
 					res = dut.get_edge(in_desig)
 					
 					self.check_edge(dut, in_desig, res)
 				
 				for raw_net in single_lut.out_nets:
-					dst_desig = VertexDesig(IcecraftNetPosition.from_coords(*raw_net))
+					dst_desig = VertexDesig.from_seg_entry(raw_net)
 					out_desig = EdgeDesig(lut_desig, dst_desig)
 					res = dut.get_edge(out_desig)
 					
@@ -359,7 +421,7 @@ class TestInterRep(unittest.TestCase):
 			with self.subTest(raw_net=raw_net):
 				dut._add_con_vertex(raw_net)
 				
-				desig = VertexDesig(IcecraftNetPosition.from_coords(*raw_net.segment[0]))
+				desig = VertexDesig.from_seg_entry(raw_net.segment[0])
 				res = dut.get_vertex(desig)
 				
 				self.check_con_vertex(dut, raw_net, desig, res)
@@ -375,7 +437,7 @@ class TestInterRep(unittest.TestCase):
 	
 	def check_lut_vertex(self, rep, tt_item, vertex):
 		self.assertEqual(tt_item.bits, vertex.truth_table_bits)
-		self.assertEqual(tt_item.index, vertex.desig.position.z)
+		self.assertEqual(tt_item.index, int(vertex.desig.name[4:]))
 		self.assertEqual(tt_item.bits[0].tile, vertex.desig.tile)
 		self.assertEqual(rep, vertex.rep)
 	
@@ -388,7 +450,7 @@ class TestInterRep(unittest.TestCase):
 			with self.subTest(tt_item=tt_item):
 				dut._add_lut_vertex(tt_item)
 				
-				desig = VertexDesig(IcecraftLUTPosition(tt_item.bits[0].tile, tt_item.index))
+				desig = VertexDesig.from_lut_index(tt_item.bits[0].tile, tt_item.index)
 				res = dut.get_vertex(desig)
 				
 				self.check_lut_vertex(dut, tt_item, res)
@@ -508,8 +570,8 @@ class TestVertex(unittest.TestCase):
 
 class TestConVertex(unittest.TestCase):
 	def test_creation(self):
-		desig_1 = VertexDesig(IcecraftNetPosition.from_coords(5, 1, "net_a"))
-		desig_2 = VertexDesig(IcecraftNetPosition.from_coords(6, 25, "net_b"))
+		desig_1 = VertexDesig.from_seg_entry((5, 1, "net_a"))
+		desig_2 = VertexDesig.from_seg_entry((6, 25, "net_b"))
 		rep = InterRep([], {})
 		
 		with self.subTest(desc="hard driven"):
@@ -527,7 +589,7 @@ class TestConVertex(unittest.TestCase):
 				self.assertEqual(rep, dut.rep)
 				self.assertEqual(raw_net.hard_driven, dut.hard_driven)
 				self.assertEqual(raw_net.drivers, dut.drivers)
-				self.assertEqual(set(raw_net.segment), set((*d.tile, d.position.name) for d in dut.desigs))
+				self.assertEqual(set(raw_net.segment), set((*d.tile, d.name[4:]) for d in dut.desigs))
 	
 	def test_add_src_grp(self):
 		rep = InterRep(NET_DATA, {})
@@ -562,7 +624,7 @@ class TestConVertex(unittest.TestCase):
 				self.assertIn(src_grp.dst, dut.desigs)
 				value_map = {n: v for n, v in zip(con_item.src_nets, con_item.values)}
 				for edge_desig, values in src_grp.srcs.items():
-					exp_vals = value_map[edge_desig.src.position.name]
+					exp_vals = value_map[edge_desig.src.name[4:]]
 					self.assertEqual(exp_vals, values)
 					self.assertIn(edge_desig.dst, dut.desigs)
 				
@@ -586,7 +648,7 @@ class TestLUTVertex(unittest.TestCase):
 		dut = LUTVertex(rep, desig, bits)
 		
 		self.assertEqual(bits, dut.truth_table_bits)
-		self.assertEqual(index, dut.desig.position.z)
+		self.assertEqual(index, int(dut.desig.name[4:]))
 		self.assertEqual(desig, dut.desig)
 		self.assertEqual(rep, dut.rep)
 	
@@ -598,7 +660,7 @@ class TestLUTVertex(unittest.TestCase):
 				dut = LUTVertex.from_truth_table(rep, tt_item)
 				
 				self.assertEqual(tt_item.bits, dut.truth_table_bits)
-				self.assertEqual(tt_item.index, dut.desig.position.z)
+				self.assertEqual(tt_item.index, int(dut.desig.name[4:]))
 				self.assertEqual(tt_item.bits[0].tile, dut.desig.tile)
 				self.assertEqual(rep, dut.rep)
 	
@@ -652,7 +714,7 @@ class TestLUTVertex(unittest.TestCase):
 				for in_edge, in_net in zip(dut.in_edges, lut_con.in_nets):
 					self.assertEqual(in_net[0], in_edge.desig.src.tile.x)
 					self.assertEqual(in_net[1], in_edge.desig.src.tile.y)
-					self.assertEqual(in_net[2], in_edge.desig.src.position.name)
+					self.assertEqual(in_net[2], in_edge.desig.src.name[4:])
 					self.assertEqual(dut.desig, in_edge.desig.dst)
 					self.assertEqual(dut, in_edge.dst)
 				
@@ -663,7 +725,7 @@ class TestLUTVertex(unittest.TestCase):
 					self.assertEqual(dut.desig, out_edge.desig.src)
 					self.assertEqual(dut, out_edge.src)
 					dst_desig = out_edge.desig.dst
-					self.assertIn((*dst_desig.tile, dst_desig.position.name), out_net_set)
+					self.assertIn((*dst_desig.tile, dst_desig.name[4:]), out_net_set)
 				
 				TestInterRep.check_consistency(self, rep)
 		

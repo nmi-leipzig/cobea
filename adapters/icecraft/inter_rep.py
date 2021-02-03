@@ -21,49 +21,51 @@ drive the same net.
 
 from dataclasses import dataclass, field
 from functools import total_ordering
-from typing import Iterable, Union, Any, Mapping, Tuple, List, Dict, Callable
+from typing import Iterable, Union, Any, Mapping, Tuple, List, Dict, Callable, NewType
 
 from .chip_data import ConfigAssemblage
-from .chip_data_utils import NetData, ElementInterface
+from .chip_data_utils import NetData, ElementInterface, SegEntryType
 from .config_item import ConnectionItem, IndexedItem
 from .misc import IcecraftNetPosition, IcecraftLUTPosition, TilePosition, IcecraftBitPosition
 
-@total_ordering
-@dataclass(frozen=True, order=False)
+VertexPosition = NewType("VertexPosition", Union[IcecraftNetPosition, IcecraftLUTPosition])
+
+SEPARATOR = "#"
+
+@dataclass(frozen=True, order=True)
 class VertexDesig:
 	"""Wrapper to make IcecraftNetPosition and IcecraftLUTPosition comparable"""
-	position: Union[IcecraftNetPosition, IcecraftLUTPosition]
-	
-	def __lt__(self, other: Any) -> bool:
-		try:
-			return self.position < other.position
-		except TypeError:
-			# compare IcecraftNetPosition and IcecraftLUTPosition
-			if isinstance(self.position, IcecraftLUTPosition):
-				# IcecraftLUTPosition is smallest
-				return True
-			elif isinstance(other.position, IcecraftLUTPosition):
-				return False
-			else:
-				# chould not occur: position is not the same type, both are not IcecraftLUTPosition
-				# and there are only 2 possible types
-				return NotImplemented
-		except AttributeError:
-			return NotImplemented
-	
-	@property
-	def tile(self):
-		return self.position.tile
+	tile: TilePosition
+	name: str
 	
 	@classmethod
 	def from_net_name(cls, tile: TilePosition, net_name: str) -> "VertexDesig":
-		net_pos = IcecraftNetPosition(tile, net_name)
-		return cls(net_pos)
+		return cls(tile, f"NET{SEPARATOR}{net_name}")
 	
 	@classmethod
 	def from_lut_index(cls, tile: TilePosition, lut_index: int) -> "VertexDesig":
-		lut_pos = IcecraftLUTPosition(tile, lut_index)
-		return cls(lut_pos)
+		return cls(tile, f"LUT{SEPARATOR}{lut_index}")
+	
+	@classmethod
+	def from_net_position(cls, net_pos: IcecraftNetPosition) -> "VertexDesig":
+		return cls.from_net_name(net_pos.tile, net_pos.name)
+	
+	@classmethod
+	def from_lut_position(cls, lut_pos: IcecraftLUTPosition) -> "VertexDesig":
+		return cls.from_lut_index(lut_pos.tile, lut_pos.z)
+	
+	@classmethod
+	def from_vertex_position(cls, vtx_pos: VertexPosition) -> "VertexDesig":
+		if isinstance(vtx_pos, IcecraftNetPosition):
+			return cls.from_net_position(vtx_pos)
+		elif isinstance(vtx_pos, IcecraftLUTPosition):
+			return cls.from_lut_position(vtx_pos)
+		
+		raise NotImplementedError()
+	
+	@classmethod
+	def from_seg_entry(cls, seg: SegEntryType) -> "VertexDesig":
+		return cls.from_net_name(TilePosition(*seg[:2]), seg[2])
 
 @dataclass(frozen=True, order=True)
 class EdgeDesig:
@@ -130,12 +132,12 @@ class ConVertex(Vertex):
 	src_grps: List[SourceGroup] = field(default_factory=list, init=False)
 	
 	def add_src_grp(self, con_item: ConnectionItem) -> None:
-		dst_desig = VertexDesig(IcecraftNetPosition(con_item.bits[0].tile, con_item.dst_net))
+		dst_desig = VertexDesig.from_net_name(con_item.bits[0].tile, con_item.dst_net)
 		assert dst_desig in self.desigs, "Wrong dst for ConnectionItem "
 		
 		srcs = {}
 		for value, src_net in zip(con_item.values, con_item.src_nets):
-			src_desig = VertexDesig(IcecraftNetPosition(dst_desig.tile, src_net))
+			src_desig = VertexDesig.from_net_name(dst_desig.tile, src_net)
 			edge_desig = EdgeDesig(src_desig, dst_desig)
 			srcs[edge_desig] = value
 			self.rep.add_edge(edge_desig)
@@ -145,7 +147,7 @@ class ConVertex(Vertex):
 	
 	@classmethod
 	def from_net_data(cls, rep: "InterRep", raw: NetData) -> "ConVertex":
-		desigs = tuple(VertexDesig(IcecraftNetPosition.from_coords(*s)) for s in raw.segment)
+		desigs = tuple(VertexDesig.from_seg_entry(s) for s in raw.segment)
 		return cls(rep, desigs, raw.hard_driven, raw.drivers)
 
 @dataclass
@@ -160,12 +162,12 @@ class LUTVertex(Vertex):
 	
 	def connect(self, lut_con: ElementInterface) -> None:
 		for in_net in lut_con.in_nets:
-			src = VertexDesig(IcecraftNetPosition.from_coords(*in_net))
+			src = VertexDesig.from_seg_entry(in_net)
 			in_edge = EdgeDesig(src, self.desig)
 			self.rep.add_edge(in_edge)
 		
 		for out_net in lut_con.out_nets:
-			dst = VertexDesig(IcecraftNetPosition.from_coords(*out_net))
+			dst = VertexDesig.from_seg_entry(out_net)
 			out_edge = EdgeDesig(self.desig, dst)
 			self.rep.add_edge(out_edge)
 	
@@ -178,7 +180,7 @@ class LUTVertex(Vertex):
 		if tt_config.kind != "TruthTable":
 			raise ValueError(f"Need config kind 'TruthTable', got {tt_config.kind}")
 		tile = tt_config.bits[0].tile
-		desig = VertexDesig(IcecraftLUTPosition(tile, tt_config.index))
+		desig = VertexDesig.from_lut_index(tile, tt_config.index)
 		return cls(rep, desig, tt_config.bits)
 
 class InterRep:
