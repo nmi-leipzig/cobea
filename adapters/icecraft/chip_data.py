@@ -30,7 +30,7 @@ class ConfigAssemblage:
 # tile -> config_kind
 tile_to_config_kind_index = {t: k for k, tl in config_tile_map.items() for t in tl}
 # tile -> colbufctrl tile
-tile_to_colbufctrl = {t: c for c, tl in colbufctrl_tile_map.items() for t in tl}
+tile_to_colbufctrl = {t: TilePosition(*c) for c, tl in colbufctrl_tile_map.items() for t in tl}
 # tile -> LUT IO kind
 tile_to_lut_io_kind_index = {t: i for i, tl in enumerate(lut_io_tiles) for t in tl}
 
@@ -126,7 +126,7 @@ def get_config_items(tile: TileType) -> ConfigAssemblage:
 	
 	return item_dict
 
-def get_colbufctrl(tiles: Iterable[TileType]) -> List[TileType]:
+def get_colbufctrl(tiles: Iterable[TileType]) -> List[TilePosition]:
 	colbufctrl_set = set()
 	for tile in tiles:
 		cbc = tile_to_colbufctrl[tile]

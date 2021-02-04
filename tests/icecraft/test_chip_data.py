@@ -438,6 +438,8 @@ class ChipDataTest(unittest.TestCase):
 				exp_set = set(tile_cbc_map[t] for t in tiles)
 				
 				self.assertEqual(exp_set, set(res))
+				for r in res:
+					self.assertIsInstance(r, chip_data.TilePosition)
 	
 	def test_hard_driven(self):
 		exp_names = {
