@@ -20,8 +20,8 @@ NET_DATA = (
 	NetData(((7, 0, "out"), ), True, (0, )), # 13
 )
 
-# left, wire_out -> internal
-# wire_out -> internal_2
+# left, wire_out -> internal -> LUT -> lut_out
+# wire_out -> internal_2 -> LUT -> lut_out
 # out -> wire_in_2
 # short_span_1 <-> short_span_2
 # out -> short_span_2
