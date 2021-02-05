@@ -498,6 +498,13 @@ class TestConVertex(unittest.TestCase):
 		with self.subTest(desc="multi desig"):
 			dut = ConVertex(rep, (desig_1, desig_2), False, (1, ))
 	
+	def test_post_init_checks(self):
+		rep = InterRep([], {})
+		
+		with self.assertRaises(AssertionError):
+			# no desig
+			dut = ConVertex(rep, tuple(), True, tuple())
+	
 	def test_from_net_data(self):
 		for raw_net in NET_DATA:
 			with self.subTest(raw_net=raw_net):
@@ -599,6 +606,10 @@ class TestLUTVertex(unittest.TestCase):
 		rep = InterRep([], {})
 		bits = (IcecraftBitPosition(tile, 4, 5), IcecraftBitPosition(tile, 6, 5))
 		desig = VertexDesig.from_lut_index(tile, 5)
+		
+		with self.subTest(desc="no desig"):
+			with self.assertRaises(AssertionError):
+				dut = LUTVertex(rep, tuple(), bits)
 		
 		with self.subTest(desc="desig and bits inconsistent"):
 			other_desig = VertexDesig.from_lut_index(other_tile, 5)

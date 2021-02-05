@@ -145,6 +145,9 @@ class ConVertex(Vertex):
 		src_grp = SourceGroup(con_item.bits, dst_desig, srcs)
 		self.src_grps.append(src_grp)
 	
+	def __post_init__(self):
+		assert len(self.desigs) > 0
+	
 	@classmethod
 	def from_net_data(cls, rep: "InterRep", raw: NetData) -> "ConVertex":
 		desigs = tuple(VertexDesig.from_seg_entry(s) for s in raw.segment)
@@ -159,10 +162,10 @@ class LUTVertex(Vertex):
 	drivers: Tuple[int, ...] = field(default=(0, ), init=False)
 	
 	def __post_init__(self):
+		assert len(self.desigs) == 1
 		tile = self.desig.tile
 		for b in self.truth_table_bits:
 			assert b.tile == tile
-		assert len(self.desigs) == 1
 	
 	def connect(self, lut_con: ElementInterface) -> None:
 		for in_net in lut_con.in_nets:
