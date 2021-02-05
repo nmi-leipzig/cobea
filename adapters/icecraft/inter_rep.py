@@ -74,6 +74,24 @@ class EdgeDesig:
 	
 	def __post_init__(self):
 		assert self.src.tile == self.dst.tile, "src and dst are not in the same tile"
+	
+	@classmethod
+	def net_to_net(cls, tile: TilePosition, src_name: str, dst_name: str) -> "EdgeDesig":
+		src = VertexDesig.from_net_name(tile, src_name)
+		dst = VertexDesig.from_net_name(tile, dst_name)
+		return cls(src, dst)
+	
+	@classmethod
+	def net_to_lut(cls, tile: TilePosition, src_name: str, dst_index: int) -> "EdgeDesig":
+		src = VertexDesig.from_net_name(tile, src_name)
+		dst = VertexDesig.from_lut_index(tile, dst_index)
+		return cls(src, dst)
+	
+	@classmethod
+	def lut_to_net(cls, tile: TilePosition, src_index: int, dst_name: str) -> "EdgeDesig":
+		src = VertexDesig.from_lut_index(tile, src_index)
+		dst = VertexDesig.from_net_name(tile, dst_name)
+		return cls(src, dst)
 
 @dataclass
 class InterElement:

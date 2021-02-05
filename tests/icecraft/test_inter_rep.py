@@ -28,6 +28,9 @@ class TestDesignation(unittest.TestCase):
 		VDData(TilePosition(4, 1), "net_b", None, "NET#net_b", 3),
 		VDData(TilePosition(4, 1), None, 5, "LUT#5", 1),
 	)
+	NET_DESIG_DATA = (VERTEX_DESIG_DATA[0], VERTEX_DESIG_DATA[2])
+	LUT_DESIG_DATA = (VERTEX_DESIG_DATA[1], VERTEX_DESIG_DATA[3])
+	
 	# test VertexDesig and EdgeDesig
 	def create_vertex_desigs(self):
 		vert_desigs = [VertexDesig(d.tile, d.name) for d in self.VERTEX_DESIG_DATA]
@@ -36,6 +39,10 @@ class TestDesignation(unittest.TestCase):
 	def check_vertex_desig(self, vertex_desig, tile, name):
 		self.assertEqual(tile, vertex_desig.tile)
 		self.assertEqual(name, vertex_desig.name)
+	
+	def check_edge_desig(self, edge_desig, tile, src_name, dst_name):
+		self.check_vertex_desig(edge_desig.src, tile, src_name)
+		self.check_vertex_desig(edge_desig.dst, tile, dst_name)
 	
 	def create_edge_desigs_and_data(self):
 		edge_desigs = []
@@ -153,6 +160,27 @@ class TestDesignation(unittest.TestCase):
 		
 		with self.assertRaises(AssertionError):
 			EdgeDesig(src, dst)
+	
+	def test_net_to_net(self):
+		src_vdd = self.NET_DESIG_DATA[0]
+		dst_vdd = self.NET_DESIG_DATA[1]
+		
+		dut = EdgeDesig.net_to_net(src_vdd.tile, src_vdd.net_name, dst_vdd.net_name)
+		self.check_edge_desig(dut, src_vdd.tile, src_vdd.name, dst_vdd.name)
+	
+	def test_net_to_lut(self):
+		src_vdd = self.NET_DESIG_DATA[0]
+		dst_vdd = self.LUT_DESIG_DATA[1]
+		
+		dut = EdgeDesig.net_to_lut(src_vdd.tile, src_vdd.net_name, dst_vdd.lut_index)
+		self.check_edge_desig(dut, src_vdd.tile, src_vdd.name, dst_vdd.name)
+	
+	def test_lut_to_net(self):
+		src_vdd = self.LUT_DESIG_DATA[0]
+		dst_vdd = self.NET_DESIG_DATA[1]
+		
+		dut = EdgeDesig.lut_to_net(src_vdd.tile, src_vdd.lut_index, dst_vdd.net_name)
+		self.check_edge_desig(dut, src_vdd.tile, src_vdd.name, dst_vdd.name)
 
 class TestSourceGroup(unittest.TestCase):
 	def test_creation(self):
