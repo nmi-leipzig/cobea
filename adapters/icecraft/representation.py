@@ -13,6 +13,7 @@ from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, Icecraf
 from .chip_data import get_config_items, get_net_data, get_colbufctrl, ConfigAssemblage
 from .chip_data_utils import NetData, SegEntryType, SegType
 from .config_item import ConfigItem, ConnectionItem, IndexedItem
+from .inter_rep import InterRep, Vertex, Edge, VertexDesig, EdgeDesig
 
 NetId = SegEntryType
 
@@ -308,15 +309,16 @@ class IcecraftRepGen(RepresentationGenerator):
 		raw_nets = get_net_data(tiles)
 		self.carry_in_set_net(config_map, raw_nets)
 		
-		net_relations = NetRelation.from_net_data_iter(raw_nets, tiles)
-		net_map = NetRelation.create_net_map(net_relations)
+		rep = InterRep(raw_nets, config_map)
 		
-		self._choose_nets(net_relations, net_map, request)
+		self.set_external_source(rep, tiles)
+		
+		self._choose_nets(rep, request)
 		
 		
 		
 		
-		cbc_coords = self.get_colbufctrl_coordinates(net_map, tiles)
+		cbc_coords = self.get_colbufctrl_coordinates(rep)
 		cbc_conf = self.get_colbufctrl_config(cbc_coords)
 		
 		return IcecraftRep([], [], cbc_conf, tuple(sorted(request.output_lutffs)))
@@ -354,65 +356,93 @@ class IcecraftRepGen(RepresentationGenerator):
 			conf.connection += (con_item, )
 		
 	
+	@staticmethod
+	def set_external_source(rep: InterRep, tiles: List[TilePosition]) -> None:
+		for vtx in rep.iter_vertices():
+			drv_tiles = [vtx.desigs[i].tile for i in vtx.drivers]
+			vtx.ext_src = any(t not in tiles for t in drv_tiles)
+	
 	@classmethod
-	def _choose_nets(cls, net_relations: Iterable[NetRelation], net_map: Mapping[NetId, NetRelation], request: RequestObject) -> None:
+	def _choose_nets(cls, rep: InterRep, request: RequestObject) -> None:
 		# exclude exclude nets
 		for regex_str in request.exclude_nets:
-			cond_func = cls.create_regex_condition(regex_str)
-			cls.set_available(net_relations, False, cond_func)
-		# exclude all nets with driver outside of tiles
-		cls.set_available(net_relations, False, lambda n: n.has_external_driver)
+			cond_func = cls.create_regex_condition_vertex(regex_str)
+			cls.set_available_vertex(rep, cond_func, False)
+		# exclude all nets with external drivers
+		cls.set_available_vertex(rep, lambda v: v.ext_src, False)
 		
 		# include include nets
 		for regex_str in request.include_nets:
-			cond_func = cls.create_regex_condition(regex_str)
-			cls.set_available(net_relations, True, cond_func)
+			cond_func = cls.create_regex_condition_vertex(regex_str)
+			cls.set_available_vertex(rep, cond_func, True)
 		
 		# include joint input nets
 		for name in request.joint_input_nets:
-			cls.set_available(net_relations, True, lambda n: any([name==e for _, _, e in n.segment]))
+			cls.set_available_vertex(rep, lambda v: any([name==d.name for d in v.desigs]), True)
 		
 		# include lone input nets
 		for net_pos in request.lone_input_nets:
-			seg = (net_pos.x, net_pos.y, net_pos.name)
-			net_map[seg].available = True
+			desig = VertexDesig.from_net_position(net_pos)
+			try:
+				vtx = rep.get_vertex(desig)
+			except KeyError:
+				raise ValueError(f"Requested input net {net_pos} not found")
+			vtx.available = True
 	
 	@staticmethod
 	def tiles_from_rectangle(x_min: int, y_min: int, x_max: int, y_max: int) -> List[TilePosition]:
 		return [TilePosition(x, y) for x in range(x_min, x_max+1) for y in range(y_min, y_max+1)]
 	
 	@staticmethod
-	def set_available(net_relations: Iterable[NetRelation], value: bool, cond: Callable[[NetRelation], bool]) -> None:
-		for net_rel in net_relations:
-			if net_rel.available == value:
+	def set_available_vertex(rep: InterRep, cond: Callable[[Vertex], bool], value: bool = False) -> None:
+		for vertex in rep.iter_vertices():
+			if vertex.available == value:
 				continue
 			
-			if cond(net_rel):
-				net_rel.available = value
+			if cond(vertex):
+				vertex.available = value
 	
 	@staticmethod
-	def create_regex_condition(regex_str: str) -> Callable[[NetRelation], bool]:
+	def set_available_edge(rep: InterRep, cond: Callable[[Edge], bool], value: bool = False) -> None:
+		for edge in rep.iter_edges():
+			if edge.available == value:
+				continue
+			
+			if cond(edge):
+				edge.available = value
+	
+	@staticmethod
+	def create_regex_condition_vertex(regex_str: str) -> Callable[[Vertex], bool]:
 		pat = re.compile(regex_str)
 		
-		def func(net_rel: NetRelation) -> bool:
-			for seg in net_rel.segment:
-				if pat.match(seg[2]):
+		def func(vtx: Vertex) -> bool:
+			for desig in vtx.desigs:
+				if pat.match(desig.name):
 					return True
 			return False
 		
 		return func
 	
 	@staticmethod
-	def get_colbufctrl_coordinates(net_map: Mapping[NetId, NetRelation], tiles: Iterable[TilePosition]) -> List[IcecraftColBufCtrl]:
+	def get_colbufctrl_coordinates(rep: InterRep) -> List[IcecraftColBufCtrl]:
 		coords = set()
 		for index in range(8):
-			net_tiles = []
-			for tile_pos in tiles:
-				net_rel = net_map[(*tile_pos, f"glb_netwk_{index}")]
-				if net_rel.available:
-					net_tiles.append(tile_pos)
+			# global network is the same for every tile -> doesn't matter which one
+			desig = VertexDesig.from_seg_entry((1, 1, f"glb_netwk_{index}"))
+			try:
+				glb_vtx = rep.get_vertex(desig)
+			except KeyError:
+				# global net not found -> no need for ColBufCtrl
+				continue
 			
-			cbc_tiles = get_colbufctrl(net_tiles)
+			if not glb_vtx.available:
+				continue
+			
+			# tiles from out edges
+			# in edges are not relevant as far as seen in valid bitstreams
+			glb_tiles = set(e.desig.src.tile for e in glb_vtx.iter_out_edges() if e.available and e.dst.available)
+			
+			cbc_tiles = get_colbufctrl(glb_tiles)
 			coords.update([IcecraftColBufCtrl(t, index) for t in cbc_tiles])
 		
 		return sorted(coords)

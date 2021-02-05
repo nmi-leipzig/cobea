@@ -16,6 +16,7 @@ from domain.allele_sequence import AlleleList, AlleleAll, AllelePow, Allele
 from adapters.icecraft.chip_data import ConfigAssemblage, get_config_items, get_net_data
 from adapters.icecraft.chip_data_utils import NetData
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
+from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig
 
 from ..test_request_model import check_parameter_user
 
@@ -507,79 +508,103 @@ class IcecraftRepGenTest(unittest.TestCase):
 			# correct tiles
 			self.assertEqual(set(exp), res_set)
 	
-	def check_available(self, exp, net_relations):
-		for exp_value, net_rel in zip(exp, net_relations):
-			self.assertEqual(exp_value, net_rel.available, f"{net_rel}")
+	def check_available(self, rep, raw_nets, exp):
+		for exp_value, raw in zip(exp, raw_nets):
+			desig = VertexDesig.from_seg_entry(raw.segment[0])
+			vtx = rep.get_vertex(desig)
+			self.assertEqual(exp_value, vtx.available, f"{desig}")
 	
-	def cond_func(self, net_rel):
-		for seg in net_rel.segment:
-			if re.match(r".*out$", seg[2]):
+	def cond_func(self, vertex):
+		for desig in vertex.desigs:
+			if re.match(r".*out$", desig.name):
 				return True
 		return False
 	
-	def test_set_available(self):
+	def test_set_available_vertex(self):
 		tiles = set(TilePosition(*n.segment[i][:2]) for n in self.raw_nets for i in n.drivers)
 		part_tiles = set(tiles)
 		for net_index in (2, 12):
 			net = self.raw_nets[net_index]
 			seg_index = net.drivers[0]
 			part_tiles.remove((*net.segment[seg_index][:2], ))
-		net_relations = [NetRelation(d, part_tiles) for d in self.raw_nets]
+		rep = InterRep(self.raw_nets, {})
 		
 		with self.subTest(desc="all to False"):
-			icecraft.IcecraftRepGen.set_available(net_relations, False, lambda x: True)
-			self.check_available([False]*len(net_relations), net_relations)
+			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: True, False)
+			self.check_available(rep, self.raw_nets, [False]*len(self.raw_nets))
 		
 		with self.subTest(desc="all to True"):
-			icecraft.IcecraftRepGen.set_available(net_relations, True, lambda x: True)
-			exp = [True]*len(net_relations)
-			self.check_available([True]*len(net_relations), net_relations)
+			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: True, True)
+			exp = [True]*len(self.raw_nets)
+			self.check_available(rep, self.raw_nets, exp)
 		
 		with self.subTest(desc="no change"):
-			icecraft.IcecraftRepGen.set_available(net_relations, False, lambda x: False)
-			self.check_available(exp, net_relations)
+			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: False, False)
+			self.check_available(rep, self.raw_nets, exp)
 		
 		with self.subTest(desc="regex"):
 			# reset
-			icecraft.IcecraftRepGen.set_available(net_relations, True, lambda x: True)
+			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: True, True)
 			
-			exp = [True]*len(net_relations)
+			exp = [True]*len(self.raw_nets)
 			exp[2] = exp[3] = exp[4] = exp[7] = exp[12] = False
-			icecraft.IcecraftRepGen.set_available(net_relations, False, lambda x: any(re.match(r".*out$", n) for _, _, n in x.segment))
-			self.check_available(exp, net_relations)
+			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: any(re.match(r".*out$", d.name) for d in x.desigs), False)
+			self.check_available(rep, self.raw_nets, exp)
 		
 		with self.subTest(desc="regex function"):
 			# reset
-			icecraft.IcecraftRepGen.set_available(net_relations, True, lambda x: True)
-			icecraft.IcecraftRepGen.set_available(net_relations, False, self.cond_func)
-			self.check_available(exp, net_relations)
+			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: True, True)
+			
+			icecraft.IcecraftRepGen.set_available_vertex(rep, self.cond_func, False)
+			self.check_available(rep, self.raw_nets, exp)
 		
 		with self.subTest(desc="external driver"):
 			# reset
-			icecraft.IcecraftRepGen.set_available(net_relations, True, lambda x: True)
+			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: True, True)
+			# set ext_src
+			for vtx in rep.iter_vertices():
+				vtx.ext_src = any(vtx.desigs[i].tile not in part_tiles for i in vtx.drivers)
 			
-			exp = [True]*len(net_relations)
+			exp = [True]*len(self.raw_nets)
 			exp[2] = exp[3] = exp[11] = exp[12] = False
-			icecraft.IcecraftRepGen.set_available(net_relations, False, lambda x: x.has_external_driver)
-			self.check_available(exp, net_relations)
+			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: x.ext_src, False)
+			self.check_available(rep, self.raw_nets, exp)
 			
 	
-	def test_create_regex_condition(self):
+	def test_set_external_source(self):
+		test_data = (
+			([], [True, True, True, True, False, True, True, True, True, True, True, True], "no tiles"),
+			(list(set(TilePosition(*s[:2]) for n in self.raw_nets for s in n.segment)), [False]*len(self.raw_nets), "all tiles"),
+			([TilePosition(2, 3)], [False, False, True, True, False, True, True, True, True, True, True, True], "single driver in"),
+			([TilePosition(1, 3)], [True, True, False, True, False, True, True, True, True, True, True, True], "multiple driver one in, one out"),
+		)
+		for tiles, exp_list, desc in test_data:
+			rep = InterRep(self.raw_nets, {})
+			with self.subTest(desc=desc):
+				icecraft.IcecraftRepGen.set_external_source(rep, tiles)
+				for exp, raw_net in zip(exp_list, self.raw_nets):
+					desig = VertexDesig.from_seg_entry(raw_net.segment[0])
+					vtx = rep.get_vertex(desig)
+					self.assertEqual(exp, vtx.ext_src, f"Wrong for {desig}")
+	
+	def test_create_regex_condition_vertex(self):
 		test_data = (
 			(r"", (True, )*13),
 			(r"never_seen", (False, )*13),
-			(r"internal", (True, True, False, False, False, False, False, False, False, False, False, False, False)),
+			(r"NET#internal", (True, True, False, False, False, False, False, False, False, False, False, False, False)),
 			(r".*span_\d", (False, False, False, False, False, True, True, False, True, True, True, True, False))
 		)
 		
-		net_relations = NetRelation.from_net_data_iter(self.raw_nets, [])
+		rep = InterRep(self.raw_nets, {})
 		
 		for regex_str, exp in test_data:
 			with self.subTest(regex=regex_str):
-				func = icecraft.IcecraftRepGen.create_regex_condition(regex_str)
-				for net_rel, exp_val in zip(net_relations, exp):
-					val = func(net_rel)
-					self.assertEqual(exp_val, val, f"{net_rel}")
+				func = icecraft.IcecraftRepGen.create_regex_condition_vertex(regex_str)
+				for raw, exp_val in zip(self.raw_nets, exp):
+					desig = VertexDesig.from_seg_entry(raw.segment[0])
+					vtx = rep.get_vertex(desig)
+					val = func(vtx)
+					self.assertEqual(exp_val, val, f"{desig}")
 	
 	def test_choose_nets(self):
 		tiles = set(TilePosition(*n.segment[i][:2]) for n in self.raw_nets for i in n.drivers)
@@ -587,8 +612,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 			net = self.raw_nets[net_index]
 			seg_index = net.drivers[0]
 			tiles.remove((*net.segment[seg_index][:2], ))
-		no_ext_drv = [True] * len(self.raw_nets)
-		no_ext_drv[2] = no_ext_drv[3] = no_ext_drv[11] = no_ext_drv[12] = False
+		ext_drv = [False] * len(self.raw_nets)
+		ext_drv[2] = ext_drv[3] = ext_drv[11] = ext_drv[12] = True
 		
 		test_data = (
 			("empty parameters, only external driven unavailable", (
@@ -598,73 +623,113 @@ class IcecraftRepGenTest(unittest.TestCase):
 				[r".*span"], [], [], []
 			), [True, True, False, False, True, False, False, True, False, False, False, False, False]),
 			("include nets", (
-				[], ["left$"], [], []
+				[], ["NET#left$"], [], []
 			), [True, True, True, False, True, True, True, True, True, True, True, False, False]),
 			("joint_input_nets", (
-				[], [], ["left"], []
+				[], [], ["NET#left"], []
 			), [True, True, True, False, True, True, True, True, True, True, True, False, False]),
 			("lone_input_nets", (
 				[], [], [], [IcecraftNetPosition.from_coords(2, 3, "left")]
 			), [True, True, True, False, True, True, True, True, True, True, True, False, False]),
 			("complete example", (
-				[r".*span"], ["^long_span_\d$"], ["out"], [IcecraftNetPosition.from_coords(2, 3, "left")]
+				[r".*span"], ["^NET#long_span_\d$"], ["NET#out"], [IcecraftNetPosition.from_coords(2, 3, "left")]
 			), [True, True, True, False, True, False, False, True, True, True, True, True, True]),
 		)
 		
 		
 		with self.subTest(desc="default values of available"):
-			net_relations = NetRelation.from_net_data_iter(self.raw_nets, tiles)
-			self.check_available([True] * len(net_relations), net_relations)
+			rep = InterRep(self.raw_nets, {})
+			self.check_available(rep, self.raw_nets, [True] * len(self.raw_nets))
 		
 		for desc, in_data, exp in test_data:
 			with self.subTest(desc=desc):
-				net_relations = NetRelation.from_net_data_iter(self.raw_nets, tiles)
-				net_map = NetRelation.create_net_map(net_relations)
+				rep = InterRep(self.raw_nets, {})
+				# set exteranlly driven flag
+				for ext_val, raw in zip(ext_drv, self.raw_nets):
+					desig = VertexDesig.from_seg_entry(raw.segment[0])
+					vtx = rep.get_vertex(desig)
+					vtx.ext_src = ext_val
 				
 				req = RequestObject()
 				req["exclude_nets"], req["include_nets"], req["joint_input_nets"], req["lone_input_nets"] = in_data
 				
-				icecraft.IcecraftRepGen._choose_nets(net_relations, net_map, req)
+				icecraft.IcecraftRepGen._choose_nets(rep, req)
 				
-				self.check_available(exp, net_relations)
+				self.check_available(rep, self.raw_nets, exp)
 	
 	def test_get_colbufctrl_coordinates(self):
-		net_data_list = [NetData(tuple(
+		net_data_glb = [NetData(tuple(
 			[(0, i, "padin_1")]+[(x, y, f"glb_netwk_{i}") for x in range(1, 33) for y in range(1, 33)]
 		), False, (0,)) for i in range(8)]
-		net_relations = NetRelation.from_net_data_iter(net_data_list, [])
-		net_map = NetRelation.create_net_map(net_relations)
+		available_glb = [True, False, False, False, False, True, False, True]
 		
-		for net_rel, avail in zip(net_relations, (True, False, False, False, False, True, False, False)):
-			net_rel.available = avail
+		class DstData(NamedTuple):
+			x: int
+			y: int
+			name: str
+			avail: bool
+			con: Dict[int, bool]
+		
+		class CBCData(NamedTuple):
+			desc: str
+			dsts: List[DstData]
+			exp: List[IcecraftColBufCtrl]
 		
 		test_data = (
-			("no tile", [], []),
-			("single tile", [TilePosition(16, 17)], [
-				IcecraftColBufCtrl.from_coords(16, 24, 0), IcecraftColBufCtrl.from_coords(16, 24, 5)
-			]),
-			("multiple tiles", [TilePosition(*t) for t in ((3, 24), (3, 25), (4, 24), (4, 25))], [
-				IcecraftColBufCtrl.from_coords(3, 24, 0), IcecraftColBufCtrl.from_coords(3, 24, 5),
-				IcecraftColBufCtrl.from_coords(3, 25, 0), IcecraftColBufCtrl.from_coords(3, 25, 5),
-				IcecraftColBufCtrl.from_coords(4, 24, 0), IcecraftColBufCtrl.from_coords(4, 24, 5),
-				IcecraftColBufCtrl.from_coords(4, 25, 0), IcecraftColBufCtrl.from_coords(4, 25, 5),
-			]),
-			("RAM tiles", [TilePosition(*t) for t in ((8, 3), (8, 29), (25, 16), (25, 17))], [
-				IcecraftColBufCtrl.from_coords(8, 8, 0), IcecraftColBufCtrl.from_coords(8, 8, 5),
-				IcecraftColBufCtrl.from_coords(8, 25, 0), IcecraftColBufCtrl.from_coords(8, 25, 5),
-				IcecraftColBufCtrl.from_coords(25, 9, 0), IcecraftColBufCtrl.from_coords(25, 9, 5),
-				IcecraftColBufCtrl.from_coords(25, 24, 0), IcecraftColBufCtrl.from_coords(25, 24, 5),
-			]),
-			("column", [TilePosition(6, y) for y in range(10, 17)], [
-				IcecraftColBufCtrl.from_coords(6, 9, 0), IcecraftColBufCtrl.from_coords(6, 9, 5),
-			]),
+			# (description, [(x, y, net_name, is_available), ...], expected_results)
+			CBCData("no tile", [], []),
+			CBCData(
+				"single edge",
+				[
+					DstData(16, 17, "net_a", True, {0: False, 2: True, 3: False, 5: True}),
+					DstData(18, 17, "net_a", False, {0: False, 2: True, 3: False, 5: True}),
+				],
+				[IcecraftColBufCtrl.from_coords(16, 24, 5)]
+			),
+			CBCData(
+				"RAM tiles",
+				[DstData(*t, "net_a", True, {0: False, 2: True, 3: False, 5: True}) for t in ((8, 3), (8, 29), (25, 16), (25, 17))],
+				[
+					IcecraftColBufCtrl.from_coords(8, 8, 5), IcecraftColBufCtrl.from_coords(8, 25, 5),
+					IcecraftColBufCtrl.from_coords(25, 9, 5), IcecraftColBufCtrl.from_coords(25, 24, 5),
+				]
+			),
+			CBCData(
+				"RAM tiles unavailable",
+				[DstData(*t, "net_a", False, {0: False, 2: True, 3: False, 5: True}) for t in ((8, 3), (8, 29), (25, 16), (25, 17))],
+				[]
+			),
+			CBCData(
+				"column",
+				[DstData(6, y, "net_a", True, {0: False, 2: True, 3: False, 5: True}) for y in range(10, 17)]
+				+[DstData(8, y, "net_a", False, {0: False, 2: True, 3: False, 5: True}) for y in range(10, 17)],
+				[IcecraftColBufCtrl.from_coords(6, 9, 5)]
+			),
 		)
 		
-		for desc, tiles, exp in test_data:
-			with self.subTest(desc=desc):
-				res = icecraft.IcecraftRepGen.get_colbufctrl_coordinates(net_map, tiles)
+		for tc in test_data:
+			with self.subTest(desc=tc.desc):
+				net_data_dst = [NetData((d[:3],), False, (0, )) for d in tc.dsts]
+				available_dst = [d.avail for d in tc.dsts]
 				
-				self.assertEqual(exp, res)
+				rep = InterRep(net_data_glb+net_data_dst, {})
+				
+				for raw_net, avail in zip(net_data_glb+net_data_dst, available_glb+available_dst):
+					desig = VertexDesig.from_seg_entry(raw_net.segment[0])
+					vtx = rep.get_vertex(desig)
+					vtx.available = avail
+				
+				for dst_data in tc.dsts:
+					for glb_index, edge_avail in dst_data.con.items():
+						tile = TilePosition(dst_data.x, dst_data.y)
+						src_desig = VertexDesig.from_net_name(tile, f"glb_netwk_{glb_index}")
+						dst_desig = VertexDesig.from_net_name(tile, dst_data.name)
+						edge = rep.add_edge(EdgeDesig(src_desig, dst_desig))
+						edge.available = edge_avail
+				
+				res = icecraft.IcecraftRepGen.get_colbufctrl_coordinates(rep)
+				
+				self.assertEqual(tc.exp, res)
 		
 	
 	def test_get_colbufctrl_config(self):
