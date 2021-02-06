@@ -495,8 +495,76 @@ class IcecraftRepGenTest(unittest.TestCase):
 			self.check_available(rep, exp_dict)
 			
 	
-	#def test_set_available_edge(self):
-	#	pass
+	def check_available_edge(self, rep, exp_dict):
+		for desig, exp_value in exp_dict.items():
+			edge = rep.get_edge(desig)
+			self.assertEqual(exp_value, edge.available, f"{desig}")
+	
+	def test_set_available_edge(self):
+		config_map = {}
+		for con_item in CON_DATA:
+			config_assem = config_map.setdefault(con_item.bits[0].tile, ConfigAssemblage())
+			config_assem.connection += (con_item, )
+		
+		tile = LUT_DATA[0][0].bits[0].tile
+		config_map.setdefault(tile, ConfigAssemblage()).lut = LUT_DATA
+		config_map[tile].lut_io = LUT_CON
+		
+		rep = InterRep(NET_DATA, config_map)
+		
+		with self.subTest(desc="all to False"):
+			icecraft.IcecraftRepGen.set_available_edge(rep, lambda e: True, False)
+			
+			exp_dict = {e.desig: False for e in rep.iter_edges()}
+			self.check_available_edge(rep, exp_dict)
+		
+		with self.subTest(desc="all to True"):
+			icecraft.IcecraftRepGen.set_available_edge(rep, lambda e: True, True)
+			
+			exp_dict = {e.desig: True for e in rep.iter_edges()}
+			self.check_available_edge(rep, exp_dict)
+		
+		with self.subTest(desc="no change"):
+			icecraft.IcecraftRepGen.set_available_edge(rep, lambda e: False, False)
+			
+			self.check_available_edge(rep, exp_dict)
+		
+		with self.subTest(desc="regex"):
+			# reset
+			icecraft.IcecraftRepGen.set_available_edge(rep, lambda e: True, True)
+			
+			icecraft.IcecraftRepGen.set_available_edge(rep, lambda e: any(re.match(r".*span", d.name) for d in e.src.desigs), False)
+			
+			excluded = [
+				EdgeDesig.net_to_net(TilePosition(4, 2), "short_span_2", "short_span_1"),
+				EdgeDesig.net_to_net(TilePosition(4, 2), "short_span_1", "short_span_2"),
+				EdgeDesig.net_to_net(TilePosition(5, 3), "long_span_2", "long_span_1"),
+				EdgeDesig.net_to_net(TilePosition(8, 3), "long_span_3", "long_span_2"),
+				EdgeDesig.net_to_net(TilePosition(8, 0), "long_span_4", "long_span_3"),
+				EdgeDesig.net_to_net(TilePosition(5, 0), "long_span_1", "long_span_4"),
+			]
+			exp_dict = {e.desig: True if e.desig not in excluded else False for e in rep.iter_edges()}
+			self.check_available_edge(rep, exp_dict)
+		
+		with self.subTest(desc="external driver of dst"):
+			# reset
+			icecraft.IcecraftRepGen.set_available_edge(rep, lambda e: True, True)
+			
+			for seg in [(2, 3, "internal"), (5, 0, "long_span_1")]:
+				desig = VertexDesig.from_seg_entry(seg)
+				vtx = rep.get_vertex(desig)
+				vtx.ext_src = True
+			
+			icecraft.IcecraftRepGen.set_available_edge(rep, lambda e: e.dst.ext_src, False)
+			
+			excluded = [
+				EdgeDesig.net_to_net(TilePosition(2, 3), "left",  "internal"),
+				EdgeDesig.net_to_net(TilePosition(2, 3), "wire_out",  "internal"),
+				EdgeDesig.net_to_net(TilePosition(5, 3), "long_span_2", "long_span_1"),
+			]
+			exp_dict = {e.desig: True if e.desig not in excluded else False for e in rep.iter_edges()}
+			self.check_available_edge(rep, exp_dict)
+		
 	
 	def test_set_external_source(self):
 		all_segs = [n.segment[0] for n in NET_DATA]
