@@ -479,6 +479,34 @@ class TestVertex(unittest.TestCase):
 	def test_creation(self):
 		dut, _ = self.create_vertex_and_tile()
 	
+	def check_edges(self, dut, exp_in, exp_out):
+		self.assertEqual(set(exp_in), set(e.desig for e in dut.iter_in_edges()))
+		self.assertEqual(set(exp_out), set(e.desig for e in dut.iter_out_edges()))
+	
+	def test_add_edge(self):
+		dut, tile = self.create_vertex_and_tile()
+		vtx_desig = dut.desigs[0]
+		
+		exp_in = []
+		exp_out = []
+		
+		self.check_edges(dut, exp_in, exp_out)
+		
+		src_desig = VertexDesig.from_net_name(tile, "src_net")
+		edge_desig = EdgeDesig(src_desig, vtx_desig)
+		edge = Edge(dut.rep, edge_desig)
+		exp_in.append(edge_desig)
+		dut.add_edge(edge, True)
+		self.check_edges(dut, exp_in, exp_out)
+		
+		dst_desig = VertexDesig.from_net_name(tile, "dst_net")
+		edge_desig = EdgeDesig(vtx_desig, dst_desig)
+		edge = Edge(dut.rep, edge_desig)
+		exp_out.append(edge_desig)
+		dut.add_edge(edge, False)
+		self.check_edges(dut, exp_in, exp_out)
+		
+	
 	def test_in_edges(self):
 		dut, tile = self.create_vertex_and_tile()
 		exp = []
@@ -516,7 +544,37 @@ class TestVertex(unittest.TestCase):
 			dut.add_edge(edge, False)
 			res = list(dut.iter_out_edges())
 			self.assertEqual(exp, res)
+	
+	def test_driver_tiles(self):
+		tiles = [ TilePosition(*d) for d in [
+			(1, 6), (1, 7), (2, 1), (14, 0)
+		]]
+		desigs = tuple(VertexDesig.from_net_name(t, f"net_{j}") for j, t in enumerate(tiles))
+		test_data = [
+			((desigs, False, (2, )), (tiles[2], ), "single driver"),
+			((desigs, True, (2, )), (tiles[2], ), "hard driven"),
+			((desigs, False, (0, 2)), (tiles[0], tiles[2]), "multiple drivers"),
+			((desigs[:3]+(VertexDesig.from_net_name(tiles[2], f"net_2_1"), )+desigs[3:], False, (2, 3)), (tiles[2], ), "multiple drivers, same tile"),
+		]
 		
+		rep = InterRep([], {})
+		for args, exp, desc in test_data:
+			with self.subTest(desc=desc):
+				dut = Vertex(rep, *args)
+				res = dut.driver_tiles
+				
+				for i in range(len(res)-1):
+					self.assertTrue(res[i]<res[i+1])
+				
+				self.assertEqual(exp, res)
+	
+	def test_neutral_alleles(self):
+		for bit_count in range(1, 17):
+			with self.subTest(bit_count=bit_count):
+				res = Vertex.neutral_alleles(bit_count)
+				
+				self.assertEqual(1, len(res))
+				self.assertFalse(any(res[0].values))
 
 class TestConVertex(unittest.TestCase):
 	def test_creation(self):
