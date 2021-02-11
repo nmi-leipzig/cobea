@@ -21,12 +21,15 @@ drive the same net.
 
 from dataclasses import dataclass, field
 from functools import total_ordering
-from typing import Iterable, Union, Any, Mapping, Tuple, List, Dict, Callable, NewType
+from typing import Iterable, Union, Any, Mapping, Tuple, List, Dict, Callable, NewType, ClassVar
+
+from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
+from domain.model import Gene
 
 from .chip_data import ConfigAssemblage
 from .chip_data_utils import NetData, ElementInterface, SegEntryType
 from .config_item import ConnectionItem, IndexedItem
-from .misc import IcecraftNetPosition, IcecraftLUTPosition, TilePosition, IcecraftBitPosition
+from .misc import IcecraftNetPosition, IcecraftLUTPosition, TilePosition, IcecraftBitPosition, LUTFunction
 
 VertexPosition = NewType("VertexPosition", Union[IcecraftNetPosition, IcecraftLUTPosition])
 
@@ -97,6 +100,7 @@ class EdgeDesig:
 class InterElement:
 	rep: "InterRep"
 	available: bool = field(default=True, init=False)
+	used: bool = field(default=True, init=False)
 
 @dataclass
 class SourceGroup:
@@ -129,7 +133,9 @@ class Vertex(InterElement):
 	out_edges: List[Edge] = field(default_factory=list, init=False)
 	ext_src: bool = field(default=False, init=False)
 	desigs: Tuple[VertexDesig, ...]
-	hard_driven: bool
+	# not configurable -> bit_count == 0, but not the other way around
+	# e.g. for ConVertex with external source
+	configurable: bool
 	drivers: Tuple[int, ...]
 	
 	def add_edge(self, edge: Edge, incoming: bool) -> None:
@@ -144,6 +150,20 @@ class Vertex(InterElement):
 	def iter_out_edges(self) -> Iterable[Edge]:
 		yield from self.out_edges
 	
+	@property
+	def driver_tiles(self) -> Tuple[TilePosition, ...]:
+		return tuple(sorted(set(self.desigs[i].tile for i in self.drivers)))
+	
+	@property
+	def bit_count(self) -> int:
+		raise NotImplementedError()
+	
+	def get_genes(self, desc: Union[str, None]=None) -> List[Gene]:
+		raise NotImplementedError()
+	
+	@staticmethod
+	def neutral_alleles(bit_count: int) -> AlleleList:
+		return AlleleList([Allele((False, )*bit_count, "neutral")])
 
 @dataclass
 class ConVertex(Vertex):
@@ -166,23 +186,113 @@ class ConVertex(Vertex):
 	def __post_init__(self):
 		assert len(self.desigs) > 0
 	
+	@property
+	def bit_count(self):
+		return sum(len(s.bits) for s in self.src_grps)
+	
+	def get_genes(self, desc: str="") -> List[Gene]:
+		if not self.available:
+			return []
+		
+		if desc != "":
+			desc = " " + desc
+		
+		desig = self.desigs[0]
+		base_desc = f"({desig.tile.x}, {desig.tile.y}) {desig.name}"
+		
+		all_bits = tuple(b for sg in self.src_grps for b in sg.bits)
+		bit_count = len(all_bits)
+		if bit_count == 0:
+			return []
+		
+		if self.ext_src or not self.used:
+			if self.ext_src:
+				base_desc += " external source"
+			else:
+				base_desc += " unused"
+			
+			allele_seq = self.neutral_alleles(bit_count)
+		else:
+			alleles = [Allele((False, )*bit_count, "not driven")]
+			edge_map = {e.desig: e for e in self.in_edges}
+			# add available and used sources for each SourceGroup
+			# while bits from other SourceGroups remain False
+			suffix_len = 0
+			for src_grp in reversed(self.src_grps): # reverse to get values closer to sorted order
+				for edge_desig, vals in sorted(src_grp.srcs.items(), key=lambda i: i[1]):
+					edge = edge_map[edge_desig]
+					if not all((edge.available, edge.used, edge.src.available, edge.src.used)):
+						continue
+					allele = Allele(
+						(False, )*(bit_count-len(vals)-suffix_len) + vals + (False, )*suffix_len,
+						edge.desig.src.name
+					)
+					alleles.append(allele)
+				
+				suffix_len += len(src_grp.bits)
+			
+			assert suffix_len==bit_count
+			
+			allele_seq = AlleleList(alleles)
+		
+		return [Gene(all_bits, allele_seq, base_desc+desc)]
+	
 	@classmethod
 	def from_net_data(cls, rep: "InterRep", raw: NetData) -> "ConVertex":
 		desigs = tuple(VertexDesig.from_seg_entry(s) for s in raw.segment)
 		return cls(rep, desigs, raw.hard_driven, raw.drivers)
 
 @dataclass
+class LUTBits:
+	dff_enable: Tuple[IcecraftBitPosition, ...]
+	set_no_reset: Tuple[IcecraftBitPosition, ...]
+	async_set_reset: Tuple[IcecraftBitPosition, ...]
+	truth_table: Tuple[IcecraftBitPosition, ...]
+	names: ClassVar[Tuple[str, ...]] = ("DffEnable", "Set_NoReset", "AsyncSetReset", "TruthTable")
+	
+	def __post_init__(self):
+		tile = self.dff_enable[0].tile
+		assert all(tile==b.tile for b in self.dff_enable)
+		assert all(tile==b.tile for b in self.set_no_reset)
+		assert all(tile==b.tile for b in self.async_set_reset)
+		assert all(tile==b.tile for b in self.truth_table)
+	
+	def as_tuple(self) -> Tuple[Tuple[IcecraftBitPosition, ...], ...]:
+		"""return fileds as tuple
+		
+		difference to dataclasses.astuple: not recursive,
+		i.e. IcecraftBitPosition is not converted to tuple
+		"""
+		return (self.dff_enable, self.set_no_reset, self.async_set_reset, self.truth_table)
+	
+	@classmethod
+	def from_config_items(cls, config_items: Iterable[IndexedItem]) -> "LUTBits":
+		order = {n: i for i, n in enumerate(cls.names)}
+		args = [None]*len(order)
+		for item in config_items:
+			try:
+				index = order[item.kind]
+			except KeyError:
+				continue
+			args[index] = item.bits
+		
+		assert all(a is not None for a in args)
+		
+		return cls(*args)
+
+@dataclass
 class LUTVertex(Vertex):
-	truth_table_bits: Tuple[IcecraftBitPosition, ...]
+	lut_bits: LUTBits
+	functions: List[LUTFunction] = field(default_factory=list, init=False)
 	# override fields that are the same for all LUTs
 	# set init=False to avoid TypeError: non-default argument follows default argument
-	hard_driven: bool = field(default=True, init=False)
+	configurable: bool = field(default=False, init=False)
 	drivers: Tuple[int, ...] = field(default=(0, ), init=False)
 	
 	def __post_init__(self):
 		assert len(self.desigs) == 1
 		tile = self.desig.tile
-		for b in self.truth_table_bits:
+		for b in self.lut_bits.truth_table:
 			assert b.tile == tile
 	
 	def connect(self, lut_con: ElementInterface) -> None:
@@ -200,13 +310,93 @@ class LUTVertex(Vertex):
 	def desig(self):
 		return self.desigs[0]
 	
+	@property
+	def bit_count(self):
+		return sum(len(b) for b in self.lut_bits.as_tuple())
+	
+	def get_genes(self, desc: str="") -> List[Gene]:
+		if not self.available:
+			return []
+		
+		if desc != "":
+			desc = " " + desc
+		
+		base_desc = f"({self.desig.tile.x}, {self.desig.tile.y}) {self.desig.name}"
+		
+		if self.ext_src or not self.used:
+			if self.ext_src:
+				base_desc += " external source"
+			else:
+				base_desc += " unused"
+			
+			allele_seqs = [self.neutral_alleles(len(b)) for b in self.lut_bits.as_tuple()]
+		else:
+			allele_seqs = [AlleleAll(len(b)) for b in self.lut_bits.as_tuple()[:3]]
+			
+			# truth table
+			if len(self.functions) == 0:
+				unused_inputs = [i for i, e in enumerate(self.in_edges) if not (e.available and e.used and e.src.available and e.src.used)]
+				allele_seqs.append(AllelePow(len(self.in_edges), unused_inputs))
+			else:
+				used_inputs = [i for i, e in enumerate(self.in_edges) if (e.available and e.used and e.src.available and e.src.used)]
+				values_list = []
+				desc_list = []
+				for func_enum in self.functions:
+					values = self.lut_function_to_truth_table(func_enum, len(self.in_edges), used_inputs)
+					try:
+						index = values_list.index(values)
+						desc_list[index] += f", {func_enum.name}"
+					except ValueError:
+						values_list.append(values)
+						desc_list.append(func_enum.name)
+					
+				ordered = sorted(zip(values_list, desc_list), key=lambda e: e[0])
+				alleles = AlleleList([Allele(v, d) for v, d in ordered])
+				allele_seqs.append(alleles)
+		
+		genes = [Gene(b, a, f"{base_desc} {n}{desc}") for b, a, n in zip(self.lut_bits.as_tuple(), allele_seqs, LUTBits.names)]
+		return genes
+	
+	@staticmethod
+	def lut_function_to_truth_table(lut_function: LUTFunction, input_count: int, used_inputs: Iterable[int]) -> Tuple[bool, ...]:
+		assert all(u<input_count for u in used_inputs)
+		assert all(used_inputs[i]<used_inputs[i+1] for i in range(len(used_inputs)-1))
+		
+		combinations = pow(2, input_count)
+		
+		if lut_function == LUTFunction.CONST_0:
+			return (False, )*combinations
+		elif lut_function == LUTFunction.CONST_1:
+			return (True, )*combinations
+		
+		if lut_function == LUTFunction.AND:
+			func = lambda x: all(x)
+		elif lut_function == LUTFunction.NAND:
+			func = lambda x: not all(x)
+		elif lut_function == LUTFunction.OR:
+			func = lambda x: any(x)
+		elif lut_function == LUTFunction.NOR:
+			func = lambda x: not any(x)
+		elif lut_function == LUTFunction.PARITY:
+			func = lambda x: x.count(1) % 2 == 1
+		else:
+			raise ValueError("Unsupported LUT function '{}'".format(lut_function))
+		
+		values = []
+		for i in range(combinations):
+			in_values = [(i>>j)&1 for j in used_inputs]
+			value = func(in_values)
+			values.append(value)
+		return tuple(values)
+	
 	@classmethod
-	def from_truth_table(cls, rep: "InterRep", tt_config: IndexedItem) -> "LUTVertex":
-		if tt_config.kind != "TruthTable":
-			raise ValueError(f"Need config kind 'TruthTable', got {tt_config.kind}")
-		tile = tt_config.bits[0].tile
-		desig = VertexDesig.from_lut_index(tile, tt_config.index)
-		return cls(rep, (desig, ), tt_config.bits)
+	def from_config_items(cls, rep: "InterRep", config_items: Iterable[IndexedItem]) -> "LUTVertex":
+		lut_index = config_items[0].index
+		assert all(c.index==lut_index for c in config_items)
+		lut_bits = LUTBits.from_config_items(config_items)
+		tile = lut_bits.truth_table[0].tile
+		desig = VertexDesig.from_lut_index(tile, lut_index)
+		return cls(rep, (desig, ), lut_bits)
 
 class InterRep:
 	def __init__(self, net_data_iter: Iterable[NetData], config_map: Mapping[TilePosition, ConfigAssemblage]) -> None:
@@ -220,11 +410,7 @@ class InterRep:
 		for tile, config_assem in config_map.items():
 			# add LUT vertices
 			for lut_grp in config_assem.lut:
-				for lut_config in lut_grp:
-					if lut_config.kind != "TruthTable":
-						continue
-					
-					self._add_lut_vertex(lut_config)
+				self._add_lut_vertex(lut_grp)
 			
 			# connect LUTs
 			for lut_index, single_lut in enumerate(config_assem.lut_io):
@@ -250,8 +436,8 @@ class InterRep:
 		self._add_vertex(vertex)
 		return vertex
 	
-	def _add_lut_vertex(self, tt_config: IndexedItem) -> LUTVertex:
-		vertex = LUTVertex.from_truth_table(self, tt_config)
+	def _add_lut_vertex(self, config_items: Iterable[IndexedItem]) -> LUTVertex:
+		vertex = LUTVertex.from_config_items(self, config_items)
 		self._add_vertex(vertex)
 		return vertex
 	
@@ -277,3 +463,7 @@ class InterRep:
 	def iter_edges(self) -> Iterable[Edge]:
 		yield from self._edge_map.values()
 	
+	def iter_lut_vertices(self) -> Iterable[LUTVertex]:
+		for v in self.iter_vertices():
+			if isinstance(v, LUTVertex):
+				yield v

@@ -1,18 +1,22 @@
 import unittest
 import operator
 import copy
+import itertools
 
 from typing import NamedTuple, Iterable, Mapping, Union
 
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftLUTPosition
-from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Edge, SourceGroup, Vertex, ConVertex, LUTVertex
+from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Edge, SourceGroup, Vertex, ConVertex, LUTVertex, LUTBits
 from adapters.icecraft.chip_data import ConfigAssemblage
 from adapters.icecraft.chip_data_utils import NetData, ElementInterface
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem
 from adapters.icecraft.representation import CARRY_ONE_IN
+from adapters.icecraft.misc import LUTFunction
+from domain.allele_sequence import AlleleList, AlleleAll, Allele
 
 from .common import create_bits
 from .data.chip_resources import NET_DATA, CON_DATA, LUT_DATA, LUT_CON
+from .data.lut_data import TRUTH_TABLE
 
 class TestDesignation(unittest.TestCase):
 	class VDData(NamedTuple):
@@ -274,13 +278,11 @@ class TestInterRep(unittest.TestCase):
 					self.assertIn(EdgeDesig(src_desig, dst_desig), all_edge_desigs)
 			
 			for lut_grp in config_assem.lut:
-				tt_list = [c for c in lut_grp if c.kind == "TruthTable"]
-				tt_item = tt_list[0]
-				desig = VertexDesig.from_lut_index(tile, tt_item.index)
+				desig = VertexDesig.from_lut_index(tile, lut_grp[0].index)
 				self.assertIn(desig, rep._vertex_map)
 				vertex = rep.get_vertex(desig)
 				
-				self.check_lut_vertex(rep, tt_item, vertex)
+				self.check_lut_vertex(rep, lut_grp, vertex)
 			
 			for lut_index, single_lut in enumerate(config_assem.lut_io):
 				desig = VertexDesig.from_lut_index(tile, lut_index)
@@ -296,7 +298,7 @@ class TestInterRep(unittest.TestCase):
 	def check_con_vertex(self, rep, raw_net, desig, vertex):
 		self.assertIn(desig, vertex.desigs)
 		self.assertEqual(set(raw_net.segment), set((*d.tile, d.name[4:]) for d in vertex.desigs))
-		self.assertEqual(raw_net.hard_driven, vertex.hard_driven)
+		self.assertEqual(raw_net.hard_driven, vertex.configurable)
 		self.assertEqual(raw_net.drivers, vertex.drivers)
 		self.assertEqual(rep, vertex.rep)
 	
@@ -314,12 +316,10 @@ class TestInterRep(unittest.TestCase):
 		
 		for lut_index, single_lut in enumerate(LUT_DATA):
 			with self.subTest(lut_index=lut_index):
-				tt_list = [t for t in single_lut if t.kind=="TruthTable"]
-				tt_item = tt_list[0]
-				desig = VertexDesig.from_lut_index(tt_item.bits[0].tile, lut_index)
+				desig = VertexDesig.from_lut_index(single_lut[0].bits[0].tile, lut_index)
 				res = dut.get_vertex(desig)
 				
-				self.check_lut_vertex(dut, tt_item, res)
+				self.check_lut_vertex(dut, single_lut, res)
 				self.check_consistency(self, dut)
 	
 	def check_edge(self, rep, desig, edge):
@@ -381,8 +381,12 @@ class TestInterRep(unittest.TestCase):
 		
 		# add Connectionconfig, update ConVertex
 	
-	def check_lut_vertex(self, rep, tt_item, vertex):
-		self.assertEqual(tt_item.bits, vertex.truth_table_bits)
+	def check_lut_vertex(self, rep, lut_items, vertex):
+		item_dict = {i.kind: i for i in lut_items}
+		for kind, res in zip(LUTBits.names, vertex.lut_bits.as_tuple()):
+			self.assertEqual(item_dict[kind].bits, res)
+		
+		tt_item = item_dict["TruthTable"]
 		self.assertEqual(tt_item.index, int(vertex.desig.name[4:]))
 		self.assertEqual(tt_item.bits[0].tile, vertex.desig.tile)
 		self.assertEqual(rep, vertex.rep)
@@ -392,14 +396,13 @@ class TestInterRep(unittest.TestCase):
 		existing_vertices = []
 		
 		for lut_items in LUT_DATA:
-			tt_item = lut_items[-1]
-			with self.subTest(tt_item=tt_item):
-				dut._add_lut_vertex(tt_item)
+			with self.subTest(lut_items=lut_items):
+				dut._add_lut_vertex(lut_items)
 				
-				desig = VertexDesig.from_lut_index(tt_item.bits[0].tile, tt_item.index)
+				desig = VertexDesig.from_lut_index(lut_items[0].bits[0].tile, lut_items[0].index)
 				res = dut.get_vertex(desig)
 				
-				self.check_lut_vertex(dut, tt_item, res)
+				self.check_lut_vertex(dut, lut_items, res)
 				self.check_consistency(self, dut)
 	
 	def test_carry_in(self):
@@ -540,14 +543,14 @@ class TestConVertex(unittest.TestCase):
 				dut = ConVertex.from_net_data(rep, raw_net)
 				
 				self.assertEqual(rep, dut.rep)
-				self.assertEqual(raw_net.hard_driven, dut.hard_driven)
+				self.assertEqual(raw_net.hard_driven, dut.configurable)
 				self.assertEqual(raw_net.drivers, dut.drivers)
 				self.assertEqual(set(raw_net.segment), set((*d.tile, d.name[4:]) for d in dut.desigs))
 	
 	def test_add_src_grp(self):
 		rep = InterRep(NET_DATA, {})
 		TestInterRep.check_consistency(self, rep)
-		const_attrs = ("available", "ext_src", "out_edges", "desigs", "hard_driven", "drivers")
+		const_attrs = ("available", "ext_src", "out_edges", "desigs", "configurable", "drivers")
 		
 		for con_item in CON_DATA:
 			with self.subTest(con_item=con_item):
@@ -586,6 +589,238 @@ class TestConVertex(unittest.TestCase):
 				
 				TestInterRep.check_consistency(self, rep)
 	
+	def check_con_genes(self, rep, bits_to_vals, unavailable):
+		bit_to_bits = {b[0]: b for b in bits_to_vals}
+		seen_bits = set()
+		for dut in rep.iter_vertices():
+			if not isinstance(dut, ConVertex):
+				continue
+			
+			res = dut.get_genes()
+			
+			if dut.desigs[0] in unavailable:
+				self.assertEqual([], res)
+				continue
+			
+			for gene in res:
+				bit_index = 0
+				bit_count = len(gene.bit_positions)
+				values = [a.values for a in gene.alleles]
+				
+				# neutral allele
+				self.assertIn((False, )*bit_count, values)
+				
+				while bit_index < bit_count:
+					part_bits = bit_to_bits[gene.bit_positions[bit_index]]
+					end_index = bit_index + len(part_bits)
+					self.assertEqual(part_bits, gene.bit_positions[bit_index:end_index])
+					# check all values alone, i.e. any bits set for this con_item -> no bits set for other con_items
+					for val in values:
+						# any(this_con_bits) -> not any(other_bits)
+						# not(any(this_con_bits) and any(other_bits))
+						self.assertFalse(any(val[bit_index:end_index]) and any(val[:bit_index]+val[end_index:]))
+					
+					# check all values of con item found
+					con_values = set([v[bit_index:end_index] for v in values])
+					neutral = (False, )*len(part_bits)
+					self.assertIn(neutral, con_values)
+					con_values.remove(neutral)
+					self.assertEqual(set(bits_to_vals[part_bits]), con_values)
+					
+					seen_bits.add(part_bits)
+					bit_index = end_index
+				
+				self.assertEqual(bit_count, bit_index)
+		self.assertEqual(set(bits_to_vals), seen_bits)
+	
+	def test_get_genes(self):
+		config_map = {}
+		bit_conf_map = {}
+		for con_item in CON_DATA:
+			config_assem = config_map.setdefault(con_item.bits[0].tile, ConfigAssemblage())
+			config_assem.connection += (con_item, )
+			
+			assert con_item.bits[0] not in bit_conf_map
+			bit_conf_map[con_item.bits[0]] = con_item
+		
+		rep = InterRep(NET_DATA, config_map)
+		bits_to_vals = {}
+		ed_to_bit_vals = {}
+		for vtx in rep.iter_vertices():
+			try:
+				src_grps = vtx.src_grps
+			except AttributeError:
+				continue
+			
+			for grp in src_grps:
+				new_dict = {e: (grp.bits, v) for e, v in grp.srcs.items()}
+				ed_to_bit_vals.update(new_dict)
+				bits_to_vals[grp.bits] = list(grp.srcs.values())
+		
+		# no vertex available
+		unavailable = set()
+		for vtx in rep.iter_vertices():
+			vtx.available = False
+			unavailable.add(vtx.desigs[0])
+		
+		with self.subTest(desc="not available"):
+			self.check_con_genes(rep, {}, unavailable)
+		
+		for vtx in rep.iter_vertices():
+			vtx.available = True
+		
+		# all vertices available
+		with self.subTest(desc="all available"):
+			self.check_con_genes(rep, bits_to_vals, [])
+		
+		# unused vertices
+		btv_vtx = copy.deepcopy(bits_to_vals)
+		unused_data = [
+			(2, 3, "internal"),
+			(2, 3, "lut_out"),
+			(2, 3, "empty_out"),
+			(4, 2, "short_span_1"),
+			(4, 1, "short_span_2"),
+			(5, 0, "long_span_1"),
+			(5, 3, "long_span_2"),
+		]
+		vtx_list = []
+		for vtx_desig in [VertexDesig.from_seg_entry(s) for s in unused_data]:
+			vtx = rep.get_vertex(vtx_desig)
+			for edge in itertools.chain(vtx.iter_out_edges(), vtx.iter_in_edges()):
+				bits, vals = ed_to_bit_vals[edge.desig]
+				try:
+					btv_vtx[bits].remove(vals)
+				except ValueError:
+					# the other vertex is also unused -> values were already removed
+					pass
+			
+			vtx.used = False
+			vtx_list.append(vtx)
+		
+		with self.subTest(desc="unused vertex"):
+			self.check_con_genes(rep, btv_vtx, [])
+			
+		for vtx in vtx_list:
+			vtx.used = True
+		
+		# ext src
+		btv_vtx = copy.deepcopy(bits_to_vals)
+		es_data = [
+			(2, 3, "internal_2"),
+			(0, 3, "right"),
+			(0, 3, "wire_in_1"),
+			(4, 2, "out"),
+			(8, 0, "long_span_3"),
+			(5, 0, "long_span_4"),
+			(7, 0, "out"),
+		]
+		vtx_list = []
+		for vtx_desig in [VertexDesig.from_seg_entry(s) for s in es_data]:
+			vtx = rep.get_vertex(vtx_desig)
+			for edge in vtx.iter_in_edges():
+				bits, vals = ed_to_bit_vals[edge.desig]
+				btv_vtx[bits].remove(vals)
+			
+			vtx.ext_src = True
+			vtx_list.append(vtx)
+		
+		with self.subTest(desc="ext_src"):
+			self.check_con_genes(rep, btv_vtx, [])
+		
+		for vtx in vtx_list:
+			vtx.ext_src = False
+		
+		# edges unavailable
+		btv_edge = copy.deepcopy(bits_to_vals)
+		unavail_data = [
+			(2, 3, "left", "internal"),
+			(2, 3, "wire_out", "internal"),
+			(1, 3, "out", "wire_in_2"),
+			(4, 2, "short_span_1", "short_span_2"),
+			(5, 3, "long_span_2", "long_span_1"),
+			(5, 0, "long_span_1", "long_span_4"),
+		]
+		edge_list = []
+		for edge_desig in [EdgeDesig.net_to_net(TilePosition(*d[:2]), *d[2:]) for d in unavail_data]:
+			bits, vals = ed_to_bit_vals[edge_desig]
+			btv_edge[bits].remove(vals)
+			
+			edge = rep.get_edge(edge_desig)
+			edge.available = False
+			edge_list.append(edge)
+		
+		with self.subTest(desc="unavailable edge"):
+			self.check_con_genes(rep, btv_edge, [])
+		
+		for edge in edge_list:
+			edge.available = True
+		
+		# edges unused
+		btv_edge = copy.deepcopy(bits_to_vals)
+		unused_data = [
+			(2, 3, "wire_out", "internal_2"),
+			(4, 2, "short_span_2", "short_span_1"),
+			(4, 2, "out", "short_span_2"),
+			(8, 3, "long_span_3", "long_span_2"),
+			(8, 0, "long_span_4", "long_span_3"),
+			(7, 0, "out", "long_span_4"),
+		]
+		edge_list = []
+		for edge_desig in [EdgeDesig.net_to_net(TilePosition(*d[:2]), *d[2:]) for d in unused_data]:
+			bits, vals = ed_to_bit_vals[edge_desig]
+			btv_edge[bits].remove(vals)
+			
+			edge = rep.get_edge(edge_desig)
+			edge.used = False
+			edge_list.append(edge)
+		
+		with self.subTest(desc="unused edge"):
+			self.check_con_genes(rep, btv_edge, [])
+		
+		for edge in edge_list:
+			edge.used = True
+		"""
+		seen_items = set()
+		for raw_net in NET_DATA:
+			with self.subTest(raw_net=raw_net):
+				desig = VertexDesig.from_seg_entry(raw_net.segment[0])
+				dut = rep.get_vertex(desig)
+				res = dut.get_genes()
+				
+				for gene in res:
+					bit_index = 0
+					bit_count = len(gene.bit_positions)
+					values = [a.values for a in gene.alleles]
+					
+					# neutral allele
+					self.assertIn((False, )*bit_count, values)
+					
+					while bit_index < bit_count:
+						con_item = bit_conf_map[gene.bit_positions[bit_index]]
+						end_index = bit_index + len(con_item.bits)
+						self.assertEqual(con_item.bits, gene.bit_positions[bit_index:end_index])
+						
+						# check all values alone, i.e. any bits set for this con_item -> no bits set for other con_items
+						for val in values:
+							# any(this_con_bits) -> not any(other_bits)
+							# not(any(this_con_bits) and any(other_bits))
+							self.assertFalse(any(val[bit_index:end_index]) and any(val[:bit_index]+val[end_index:]))
+						
+						# check all values of con item found
+						con_values = set([v[bit_index:end_index] for v in values])
+						neutral = (False, )*len(con_item.bits)
+						self.assertIn(neutral, con_values)
+						con_values.remove(neutral)
+						self.assertEqual(set(con_item.values), con_values)
+						
+						seen_items.add(con_item)
+						bit_index = end_index
+					
+					self.assertEqual(bit_count, bit_index)
+		
+		self.assertEqual(set(CON_DATA), seen_items)
+		"""
 	# handle externally driven
 	# multiple driver tiles
 	# get bits and list of possibilities
@@ -595,34 +830,37 @@ class TestLUTVertex(unittest.TestCase):
 		tile = TilePosition(4, 21)
 		index = 4
 		rep = InterRep([], {})
-		bits = (IcecraftBitPosition(tile, 4, 5), IcecraftBitPosition(tile, 6, 5))
+		bits = LUTBits(
+			(IcecraftBitPosition(tile, 4, 5), ),
+			(IcecraftBitPosition(tile, 6, 5), ),
+			(IcecraftBitPosition(tile, 6, 6), ),
+			(IcecraftBitPosition(tile, 7, 8), IcecraftBitPosition(tile, 7, 9))
+		)
 		desig = VertexDesig.from_lut_index(tile, index)
 		
 		dut = LUTVertex(rep, (desig, ), bits)
 		
-		self.assertEqual(bits, dut.truth_table_bits)
+		self.assertEqual(bits, dut.lut_bits)
 		self.assertEqual(index, int(dut.desig.name[4:]))
 		self.assertEqual(desig, dut.desig)
 		self.assertEqual(rep, dut.rep)
 	
-	def test_from_truth_table(self):
+	def test_from_config_items(self):
 		for lut_items in LUT_DATA:
-			tt_item = lut_items[-1]
 			rep = InterRep([], {})
-			with self.subTest(tt_item=tt_item):
-				dut = LUTVertex.from_truth_table(rep, tt_item)
+			with self.subTest(lut_items=lut_items):
+				dut = LUTVertex.from_config_items(rep, lut_items)
 				
-				self.assertEqual(tt_item.bits, dut.truth_table_bits)
-				self.assertEqual(tt_item.index, int(dut.desig.name[4:]))
-				self.assertEqual(tt_item.bits[0].tile, dut.desig.tile)
+				self.assertEqual(LUTBits.from_config_items(lut_items), dut.lut_bits)
+				self.assertEqual(lut_items[0].index, int(dut.desig.name[4:]))
+				self.assertEqual(lut_items[0].bits[0].tile, dut.desig.tile)
 				self.assertEqual(rep, dut.rep)
 	
 	def test_desigs(self):
 		for lut_items in LUT_DATA:
-			tt_item = lut_items[-1]
 			rep = InterRep([], {})
-			with self.subTest(tt_item=tt_item):
-				dut = LUTVertex.from_truth_table(rep, tt_item)
+			with self.subTest(lut_items=lut_items):
+				dut = LUTVertex.from_config_items(rep, lut_items)
 				
 				res = dut.desigs
 				self.assertIn(dut.desig, res)
@@ -632,7 +870,12 @@ class TestLUTVertex(unittest.TestCase):
 		tile = TilePosition(4, 21)
 		other_tile = TilePosition(5, 21)
 		rep = InterRep([], {})
-		bits = (IcecraftBitPosition(tile, 4, 5), IcecraftBitPosition(tile, 6, 5))
+		bits = LUTBits(
+			(IcecraftBitPosition(tile, 4, 5), ),
+			(IcecraftBitPosition(tile, 6, 5), ),
+			(IcecraftBitPosition(tile, 6, 6), ),
+			(IcecraftBitPosition(tile, 7, 8), IcecraftBitPosition(tile, 7, 9))
+		)
 		desig = VertexDesig.from_lut_index(tile, 5)
 		
 		with self.subTest(desc="no desig"):
@@ -645,18 +888,17 @@ class TestLUTVertex(unittest.TestCase):
 			with self.assertRaises(AssertionError):
 				dut = LUTVertex(rep, (other_desig, ), bits)
 		
-		with self.subTest(desc="inconsistent bits"):
-			other_bits = (IcecraftBitPosition(tile, 4, 5), IcecraftBitPosition(other_tile, 6, 5))
-			
-			with self.assertRaises(AssertionError):
-				dut = LUTVertex(rep, (desig, ), other_bits)
+		#with self.subTest(desc="inconsistent bits"):
+		#	other_bits = (IcecraftBitPosition(tile, 4, 5), IcecraftBitPosition(other_tile, 6, 5))
+		#	
+		#	with self.assertRaises(AssertionError):
+		#		dut = LUTVertex(rep, (desig, ), other_bits)
 	
 	def test_connect(self):
 		for lut_items, lut_con in zip(LUT_DATA, LUT_CON):
-			tt_item = lut_items[-1]
 			rep = InterRep(NET_DATA, {})
-			with self.subTest(tt_item=tt_item):
-				dut = LUTVertex.from_truth_table(rep, tt_item)
+			with self.subTest(lut_items=lut_items):
+				dut = LUTVertex.from_config_items(rep, lut_items)
 				rep._add_vertex(dut)
 				
 				# unconnected before call
@@ -685,4 +927,139 @@ class TestLUTVertex(unittest.TestCase):
 					self.assertIn((*dst_desig.tile, dst_desig.name[4:]), out_net_set)
 				
 				TestInterRep.check_consistency(self, rep)
+	
+	def check_genes(self, bits_list, allele_seq_list, genes):
+		assert len(bits_list) == len(allele_seq_list)
+		self.assertEqual(len(bits_list), len(genes))
 		
+		for exp_bits, exp_seq, res in zip(bits_list, allele_seq_list, genes):
+			self.assertEqual(exp_bits, res.bit_positions)
+			self.assertEqual(exp_seq, res.alleles)
+	
+	def test_get_genes(self):
+		# test with made up names to check for hard coded name references
+		tile = TilePosition(5, 20)
+		for i, test_data in enumerate(TRUTH_TABLE):
+			with self.subTest(test_data=test_data):
+				net_names = [f"lut_in_{l}" for l in range(test_data.input_count)]
+				net_data = [NetData(((*tile, n), ), False, (0,)) for n in net_names]
+				rep = InterRep(net_data, {})
+				tt_width = pow(2, test_data.input_count)
+				bits = LUTBits(
+					(IcecraftBitPosition(tile, 4, 5), ),
+					(IcecraftBitPosition(tile, 6, 5), ),
+					(IcecraftBitPosition(tile, 6, 6), ),
+					tuple(IcecraftBitPosition(tile, 7, j) for j in range(tt_width))
+				)
+				lut_desig = VertexDesig.from_lut_index(tile, 5)
+				
+				dut = LUTVertex(rep, (lut_desig, ), bits)
+				rep._add_vertex(dut)
+				dut.connect(ElementInterface(tuple((*tile, n) for n in net_names), tuple()))
+				
+				dut.functions = test_data.lut_functions
+				
+				# input unused
+				for index in test_data.unused_inputs:
+					desig = VertexDesig.from_net_name(tile, net_names[index])
+					vtx = rep.get_vertex(desig)
+					vtx.used = False
+				
+				res = dut.get_genes()
+				exp_bits = bits.as_tuple()
+				exp_alleles = [AlleleAll(1), AlleleAll(1), AlleleAll(1), test_data.allele_seq]
+				self.check_genes(exp_bits, exp_alleles, res)
+				
+				# input unavailable
+				for index in test_data.unused_inputs:
+					desig = VertexDesig.from_net_name(tile, net_names[index])
+					vtx = rep.get_vertex(desig)
+					vtx.used = True
+					vtx.available = False
+				
+				res = dut.get_genes()
+				self.check_genes(exp_bits, exp_alleles, res)
+				
+				# edge unused
+				for index in test_data.unused_inputs:
+					desig = VertexDesig.from_net_name(tile, net_names[index])
+					vtx = rep.get_vertex(desig)
+					vtx.available = True
+					edge_desig = EdgeDesig(desig, lut_desig)
+					edge = rep.get_edge(edge_desig)
+					edge.used = False
+				
+				res = dut.get_genes()
+				self.check_genes(exp_bits, exp_alleles, res)
+				
+				# edge unavailable
+				for index in test_data.unused_inputs:
+					desig = VertexDesig.from_net_name(tile, net_names[index])
+					edge_desig = EdgeDesig(desig, lut_desig)
+					edge = rep.get_edge(edge_desig)
+					edge.used = True
+					edge.available = False
+				
+				res = dut.get_genes()
+				self.check_genes(exp_bits, exp_alleles, res)
+				
+				# lut unused
+				for index in test_data.unused_inputs:
+					desig = VertexDesig.from_net_name(tile, net_names[index])
+					edge_desig = EdgeDesig(desig, lut_desig)
+					edge = rep.get_edge(edge_desig)
+					edge.available = True
+				dut.used = False
+				
+				res = dut.get_genes()
+				exp_alleles = [AlleleList([Allele((False, ), "")]) for _ in range(3)]
+				exp_alleles.append(AlleleList([Allele((False, )*tt_width, "")]))
+				self.check_genes(exp_bits, exp_alleles, res)
+				
+				# lut unavailable
+				dut.used = True
+				dut.available = False
+				res = dut.get_genes()
+				
+				self.assertEqual([], res)
+			
+	
+	def test_lut_function_to_truth_table(self):
+		for func_enum in LUTFunction:
+			for in_count in range(9):
+				for used_count in range(in_count):
+					for used_inputs in itertools.combinations(range(in_count), used_count):
+						with self.subTest(func_enum=func_enum, used_inputs=used_inputs):
+							truth_table = LUTVertex.lut_function_to_truth_table(func_enum, in_count, used_inputs)
+							for in_values in itertools.product((0, 1), repeat=used_count):
+								
+								if func_enum == LUTFunction.AND:
+									expected = all(in_values)
+								elif func_enum == LUTFunction.OR:
+									expected = any(in_values)
+								elif func_enum == LUTFunction.NAND:
+									expected = not all(in_values)
+								elif func_enum == LUTFunction.NOR:
+									expected = not any(in_values)
+								elif func_enum == LUTFunction.PARITY:
+									expected = (in_values.count(1) % 2) == 1
+								elif func_enum == LUTFunction.CONST_0:
+									expected = False
+								elif func_enum == LUTFunction.CONST_1:
+									expected = True
+								else:
+									self.error("No test for {}".format(func_enum))
+								
+								used_index = 0
+								for i, shift in zip(in_values, used_inputs):
+									used_index |= i << shift
+								
+								# output should be invariant to value of unused inputs
+								unused_inputs = sorted(set(range(in_count))-set(used_inputs))
+								for invariant_values in itertools.product((0, 1), repeat=len(unused_inputs)):
+									index = used_index
+									for i, shift in zip(invariant_values, unused_inputs):
+										index |= i << shift
+									
+									self.assertEqual(expected, truth_table[index], f"Wrong truth table value {func_enum.name} {used_inputs} for input 0b{index:04b}")
+			
