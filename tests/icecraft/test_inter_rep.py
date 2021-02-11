@@ -4,6 +4,7 @@ import copy
 import itertools
 
 from typing import NamedTuple, Iterable, Mapping, Union
+from dataclasses import fields
 
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftLUTPosition
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Edge, SourceGroup, Vertex, ConVertex, LUTVertex, LUTBits
@@ -811,6 +812,67 @@ class TestConVertex(unittest.TestCase):
 	# handle externally driven
 	# multiple driver tiles
 	# get bits and list of possibilities
+
+class TestLUTBits(unittest.TestCase):
+	def test_creation(self):
+		tile = TilePosition(9, 1)
+		dff_bits = (IcecraftBitPosition(tile, 3, 45), )
+		snr_bits = (IcecraftBitPosition(tile, 7, 32), )
+		asr_bits = (IcecraftBitPosition(tile, 9, 54), )
+		tt_bits = tuple(IcecraftBitPosition(tile, 0, 2+i) for i in range(16))
+		
+		dut = LUTBits(dff_bits, snr_bits, asr_bits, tt_bits)
+		
+		self.assertEqual(dff_bits, dut.dff_enable)
+		self.assertEqual(snr_bits, dut.set_no_reset)
+		self.assertEqual(asr_bits, dut.async_set_reset)
+		self.assertEqual(tt_bits, dut.truth_table)
+	
+	def test_from_config_items(self):
+		for lut_items in LUT_DATA:
+			with self.subTest(lut_items=lut_items):
+				bits_dict = {l.kind: l.bits for l in lut_items}
+				
+				dut = LUTBits.from_config_items(lut_items)
+				
+				self.assertEqual(bits_dict["DffEnable"], dut.dff_enable)
+				self.assertEqual(bits_dict["Set_NoReset"], dut.set_no_reset)
+				self.assertEqual(bits_dict["AsyncSetReset"], dut.async_set_reset)
+				self.assertEqual(bits_dict["TruthTable"], dut.truth_table)
+	
+	def test_post_init_checks(self):
+		arg_sets = []
+		for k in range(2):
+			tile = TilePosition(9, 1+k)
+			arg_sets.append((
+				(IcecraftBitPosition(tile, 3, 45), ),
+				(IcecraftBitPosition(tile, 7, 32), ),
+				(IcecraftBitPosition(tile, 9, 54), ),
+				tuple(IcecraftBitPosition(tile, 0, 2+i) for i in range(16))
+			))
+		
+		for l in range(len(arg_sets[0])):
+			with self.assertRaises(AssertionError):
+				cur_args = arg_sets[0][:l] + arg_sets[1][l:l+1] + arg_sets[0][l+1:]
+				dut = LUTBits(*cur_args)
+	
+	def test_names(self):
+		self.assertEqual(len(fields(LUTBits)), len(LUTBits.names))
+	
+	def test_as_tuple(self):
+		for lut_items in LUT_DATA:
+			with self.subTest(lut_items=lut_items):
+				bits_dict = {l.kind: l.bits for l in lut_items}
+				
+				dut = LUTBits.from_config_items(lut_items)
+				
+				res = dut.as_tuple()
+				
+				self.assertEqual(len(LUTBits.names), len(res))
+				
+				for name, res_val in zip(LUTBits.names, res):
+					self.assertEqual(bits_dict[name], res_val)
+		
 
 class TestLUTVertex(unittest.TestCase):
 	def test_creation(self):
