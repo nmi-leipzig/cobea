@@ -61,4 +61,6 @@ class IcecraftConnection(IcecraftPosition):
 	def dst(self):
 		return IcecraftNetPosition(self.tile, self.dst_name)
 
-
+class IcecraftError(Exception):
+	"""Base class for exceptions in icecraft"""
+	pass
