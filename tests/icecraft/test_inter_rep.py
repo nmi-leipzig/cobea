@@ -589,6 +589,34 @@ class TestConVertex(unittest.TestCase):
 				
 				TestInterRep.check_consistency(self, rep)
 	
+	def check_bit_count(self, rep, exp_map):
+		for desig, exp in exp_map.items():
+			vtx = rep.get_vertex(desig)
+			
+			self.assertEqual(exp, vtx.bit_count)
+	
+	def test_bit_count(self):
+		rep = InterRep(NET_DATA, {})
+		exp_map = {VertexDesig.from_seg_entry(n.segment[0]): 0 for n in NET_DATA}
+		
+		desig_to_desig = {}
+		for raw_net in NET_DATA:
+			pivot = VertexDesig.from_seg_entry(raw_net.segment[0])
+			for seg in raw_net.segment:
+				desig_to_desig[VertexDesig.from_seg_entry(seg)] = pivot
+		
+		self.check_bit_count(rep, exp_map)
+		
+		for con_item in CON_DATA:
+			desig = VertexDesig.from_net_name(con_item.bits[0].tile, con_item.dst_net)
+			pivot = desig_to_desig[desig]
+			
+			dut = rep.get_vertex(desig)
+			dut.add_src_grp(con_item)
+			
+			exp_map[pivot] += len(con_item.bits)
+			self.check_bit_count(rep, exp_map)
+	
 	def check_con_genes(self, rep, bits_to_vals, unavailable):
 		bit_to_bits = {b[0]: b for b in bits_to_vals}
 		seen_bits = set()
