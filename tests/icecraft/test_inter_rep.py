@@ -780,47 +780,6 @@ class TestConVertex(unittest.TestCase):
 		
 		for edge in edge_list:
 			edge.used = True
-		"""
-		seen_items = set()
-		for raw_net in NET_DATA:
-			with self.subTest(raw_net=raw_net):
-				desig = VertexDesig.from_seg_entry(raw_net.segment[0])
-				dut = rep.get_vertex(desig)
-				res = dut.get_genes()
-				
-				for gene in res:
-					bit_index = 0
-					bit_count = len(gene.bit_positions)
-					values = [a.values for a in gene.alleles]
-					
-					# neutral allele
-					self.assertIn((False, )*bit_count, values)
-					
-					while bit_index < bit_count:
-						con_item = bit_conf_map[gene.bit_positions[bit_index]]
-						end_index = bit_index + len(con_item.bits)
-						self.assertEqual(con_item.bits, gene.bit_positions[bit_index:end_index])
-						
-						# check all values alone, i.e. any bits set for this con_item -> no bits set for other con_items
-						for val in values:
-							# any(this_con_bits) -> not any(other_bits)
-							# not(any(this_con_bits) and any(other_bits))
-							self.assertFalse(any(val[bit_index:end_index]) and any(val[:bit_index]+val[end_index:]))
-						
-						# check all values of con item found
-						con_values = set([v[bit_index:end_index] for v in values])
-						neutral = (False, )*len(con_item.bits)
-						self.assertIn(neutral, con_values)
-						con_values.remove(neutral)
-						self.assertEqual(set(con_item.values), con_values)
-						
-						seen_items.add(con_item)
-						bit_index = end_index
-					
-					self.assertEqual(bit_count, bit_index)
-		
-		self.assertEqual(set(CON_DATA), seen_items)
-		"""
 	# handle externally driven
 	# multiple driver tiles
 	# get bits and list of possibilities
