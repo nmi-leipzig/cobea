@@ -853,6 +853,16 @@ class TestLUTVertex(unittest.TestCase):
 				self.assertIn(dut.desig, res)
 				self.assertEqual(1, len(res))
 	
+	def test_bit_count(self):
+		for lut_items in LUT_DATA:
+			rep = InterRep([], {})
+			with self.subTest(lut_items=lut_items):
+				exp = sum(len(l.bits) for l in lut_items if l.kind != "CarryEnable")
+				dut = LUTVertex.from_config_items(rep, lut_items)
+				
+				self.assertEqual(exp, dut.bit_count)
+		
+	
 	def test_post_init_checks(self):
 		tile = TilePosition(4, 21)
 		other_tile = TilePosition(5, 21)
