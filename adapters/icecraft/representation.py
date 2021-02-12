@@ -608,11 +608,3 @@ class IcecraftRepGen(RepresentationGenerator):
 			desc
 		)
 	
-	@staticmethod
-	def bits_of_src_grps(src_grps: Iterable[SourceGroup]) -> Tuple[IcecraftBitPosition, ...]:
-		all_bits = tuple()
-		for sg in src_grps:
-			all_bits += sg.bits
-		
-		return all_bits
-	
