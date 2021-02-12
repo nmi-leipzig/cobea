@@ -538,19 +538,6 @@ class IcecraftRepGen(RepresentationGenerator):
 		return const_genes, genes, sec_len
 	
 	@classmethod
-	def create_unused_gene(cls, src_grps: Sequence[SourceGroup], desc: Union[str, None]=None) -> Gene:
-		if desc is None:
-			desc = "not driven"
-		bits = cls.bits_of_src_grps(src_grps)
-		if len(bits) == 0:
-			raise ValueError("No bits in unused gene")
-		return Gene(
-			bits,
-			AlleleList([Allele((False, )*len(bits), "not driven")]),
-			desc
-		)
-	
-	@classmethod
 	def create_tile_genes(
 		cls,
 		single_tile_vertices: Iterable[Vertex],
