@@ -871,28 +871,6 @@ class IcecraftRepGenTest(unittest.TestCase):
 					self.assertRaises(tc.exp_excep, icecraft.IcecraftRepGen.create_unused_gene, src_grps)
 			
 	
-	def test_create_unused_gene_from_net(self):
-		x = 5
-		y = 4
-		
-		net_data_list, test_cases = self.generate_src_grps_test_cases(x, y)
-		
-		for tc in test_cases:
-				net_relations = NetRelation.from_net_data_iter(net_data_list, [(x, y)])
-				net_map = NetRelation.create_net_map(net_relations)
-				src_grps = SourceGroup.populate_net_relations(net_map, tc.con_items)
-				
-				dst_net = [n for n in net_relations if n.segment[0][2]=="dst"][0]
-				
-				if tc.exp_excep is None:
-					res = icecraft.IcecraftRepGen.create_unused_gene_from_net(dst_net)
-					
-					self.assertEqual(tc.exp_bits, res.bit_positions)
-					self.assertEqual(1, len(res.alleles))
-					self.assertFalse(any(res.alleles[0].values), "All allele values have to be False")
-				else:
-					self.assertRaises(tc.exp_excep, icecraft.IcecraftRepGen.create_unused_gene_from_net, dst_net)
-	
 	def generic_carry_in_net_test(self, exp_map, exp_nets, config_map, raw_nets):
 		in_map = copy.deepcopy(config_map)
 		in_nets = list(raw_nets)

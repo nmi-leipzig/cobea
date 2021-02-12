@@ -551,11 +551,6 @@ class IcecraftRepGen(RepresentationGenerator):
 		)
 	
 	@classmethod
-	def create_unused_gene_from_net(cls, net_rel: NetRelation, desc: Union[str, None]=None) -> Gene:
-		src_grps = list(net_rel.iter_src_grps())
-		return cls.create_unused_gene(src_grps, desc)
-	
-	@classmethod
 	def create_tile_genes(
 		cls,
 		single_tile_vertices: Iterable[Vertex],
