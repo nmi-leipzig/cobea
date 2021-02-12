@@ -3,7 +3,7 @@ import operator
 import copy
 import itertools
 
-from typing import NamedTuple, Iterable, Mapping, Union
+from typing import NamedTuple, Iterable, Mapping, Union, Callable, List, Tuple
 from dataclasses import fields
 
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftLUTPosition
@@ -867,6 +867,138 @@ class TestConVertex(unittest.TestCase):
 		
 		for edge in edge_list:
 			edge.used = True
+	
+	def generate_src_grps_test_cases(self, x, y):
+		class SrcGrpsTestData(NamedTuple):
+			desc: str # description
+			con_items: Iterable[ConnectionItem] = [] # connection config items
+			used_func: Callable[[Vertex], bool] = lambda x: True # used function
+			unavails: List[int] = [] # indices of unavailable nets
+			exp_bits: Tuple[IcecraftBitPosition, ...] = tuple() # expected bits
+			exp_allele_values: Tuple[Tuple[bool, ...], ...] = tuple() # expected allele values
+			exp_excep: Union[Exception, None] = None # expected exception
+		
+		bit_pos = IcecraftBitPosition.from_coords
+		
+		net_data_list = [NetData(((x, y, f"src_{i}"), ), True, (0,)) for i in range(4)]
+		net_data_list.extend([NetData(((x+1, y, f"src_{i+4}"), ), True, (0,)) for i in range(4)])
+		net_data_list.append(NetData(((x, y, "dst"), (x+1, y, "dst")), False, (0, 1)))
+		tile_items = [
+			ConnectionItem(
+				(bit_pos(x, y, 7, 0), bit_pos(x, y, 7, 1)),
+				"connection", "dst", ((True, False), (True, True)), ("src_0", "src_1")
+			),
+			ConnectionItem(
+				(bit_pos(x, y, 3, 0), bit_pos(x, y, 3, 1)),
+				"connection", "dst", ((False, True), (True, False)), ("src_2", "src_3")
+			),
+		]
+		other_items = [
+			ConnectionItem(
+				(bit_pos(x+1, y, 7, 0), bit_pos(x+1, y, 7, 1)),
+				"connection", "dst", ((True, False), (True, True)), ("src_4", "src_5")
+			),
+			ConnectionItem(
+				(bit_pos(x+1, y, 3, 0), bit_pos(x+1, y, 3, 1)),
+				"connection", "dst", ((False, True), (True, False)), ("src_6", "src_7")
+			),
+		]
+		test_cases = (
+			SrcGrpsTestData(
+				"single source group",
+				tile_items[:1],
+				exp_bits = tile_items[0].bits,
+				exp_allele_values = ((False, False), (True, False), (True, True)),
+			),
+			SrcGrpsTestData(
+				"multiple source groups, single tile",
+				tile_items[:2],
+				exp_bits = tile_items[0].bits+tile_items[1].bits,
+				exp_allele_values = (
+					(False, False, False, False), (False, False, False, True),
+					(False, False, True, False), (True, False, False, False),
+					(True, True, False, False)
+				),
+			),
+			SrcGrpsTestData(
+				"multiple source groups, multiple tiles",
+				tile_items[:1]+other_items[1:2],
+				exp_bits = tile_items[0].bits+other_items[1].bits,
+				exp_allele_values = (
+					(False, False, False, False), (False, False, False, True),
+					(False, False, True, False), (True, False, False, False),
+					(True, True, False, False)
+				),
+			),
+			SrcGrpsTestData(
+				"no source group",
+				exp_excep = ValueError
+			),
+			SrcGrpsTestData(
+				"used function",
+				tile_items[:2],
+				lambda v: "NET#src_0" not in [d.name for d in v.desigs],
+				exp_bits = tile_items[0].bits+tile_items[1].bits,
+				exp_allele_values = (
+					(False, False, False, False), (False, False, False, True),
+					(False, False, True, False), (True, True, False, False)
+				),
+			),
+			SrcGrpsTestData(
+				"not available",
+				tile_items[:2],
+				unavails = [1],
+				exp_bits = tile_items[0].bits+tile_items[1].bits,
+				exp_allele_values = (
+					(False, False, False, False), (False, False, False, True),
+					(False, False, True, False), (True, False, False, False)
+				),
+			),
+			SrcGrpsTestData(
+				"none available",
+				tile_items[:2],
+				lambda v: v.desigs[0].name[-1] in ("1", "3"),
+				[1, 3],
+				tile_items[0].bits+tile_items[1].bits,
+				((False, False, False, False), ),
+			),
+		)
+		
+		return net_data_list, test_cases
+	
+	def test_get_genes_with_src_gps(self):
+		net_data, test_list = self.generate_src_grps_test_cases(6, 5)
+		for tc in test_list:
+			with self.subTest(desc=tc.desc):
+				config_map = {}
+				for con_item in tc.con_items:
+					config_assem = config_map.setdefault(con_item.bits[0].tile, ConfigAssemblage())
+					config_assem.connection += (con_item, )
+				
+				rep = InterRep(net_data, config_map)
+				for vtx in rep.iter_vertices():
+					vtx.used = tc.used_func(vtx)
+				for index in tc.unavails:
+					desig = VertexDesig.from_seg_entry(net_data[index].segment[0])
+					vtx = rep.get_vertex(desig)
+					vtx.available = False
+				
+				dst_desig = VertexDesig.from_seg_entry(net_data[-1].segment[0])
+				dut = rep.get_vertex(dst_desig)
+				if tc.exp_excep is None:
+					res = dut.get_genes()
+					self.assertEqual(1, len(res))
+					gene = res[0]
+					self.assertEqual(tc.exp_bits, gene.bit_positions)
+					allele_values = tuple(a.values for a in gene.alleles)
+					self.assertEqual(set(tc.exp_allele_values), set(allele_values))
+					self.assertEqual(tc.exp_allele_values, allele_values)
+				else:
+					# no error but empty result if no genes can be generated
+					res = dut.get_genes()
+					self.assertEqual([], res)
+	
+	
 	# handle externally driven
 	# multiple driver tiles
 	# get bits and list of possibilities

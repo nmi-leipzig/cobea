@@ -247,7 +247,6 @@ class SourceGroup:
 		
 		return src_grp_list
 
-
 @dataclass
 class IcecraftRep(Representation):
 	genes: Sequence[Gene]
