@@ -634,31 +634,3 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		return all_bits
 	
-	@classmethod
-	def alleles_from_src_grps(cls, src_grps: Sequence[SourceGroup], used_function: Callable[[NetRelation], bool]) -> Tuple[Tuple[IcecraftBitPosition, ...], AlleleList]:
-		if len(src_grps) < 1:
-			raise ValueError("Can't create  alleles without at least one SourceGroup")
-		
-		all_bits = cls.bits_of_src_grps(src_grps)
-		width = len(all_bits)
-		
-		alleles = []
-		alleles.append(Allele((False, )*width, "not driven"))
-		
-		# add available and used sources for each SourceGroup
-		# while bits from other SourceGroups remain False
-		suffix_len = 0
-		for src_grp in reversed(src_grps): # reverse to get values closer to sorted order
-			for src, vals in zip(src_grp.iter_srcs(), src_grp.iter_values()):
-				if not src.available or not used_function(src):
-					continue
-				allele = Allele(
-					(False, )*(width-len(vals)-suffix_len) + vals + (False, )*suffix_len,
-					""
-				)
-				alleles.append(allele)
-			
-			suffix_len += len(src_grp.bits)
-		
-		return all_bits, AlleleList(alleles)
-	

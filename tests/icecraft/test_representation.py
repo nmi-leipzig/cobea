@@ -851,30 +851,6 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		return net_data_list, test_cases
 	
-	def test_alleles_from_src_grps(self):
-		x = 2
-		y = 3
-		net_data_list, test_cases = self.generate_src_grps_test_cases(x, y)
-		
-		for tc in test_cases:
-			with self.subTest(desc=tc.desc):
-				net_relations = NetRelation.from_net_data_iter(net_data_list, [(x, y)])
-				net_map = NetRelation.create_net_map(net_relations)
-				src_grps = SourceGroup.populate_net_relations(net_map, tc.con_items)
-				
-				for i in tc.unavails:
-					net_relations[i].available = False
-				
-				if tc.exp_excep is None:
-					bits, alleles = icecraft.IcecraftRepGen.alleles_from_src_grps(src_grps, tc.used_func)
-					allele_values = tuple(a.values for a in alleles)
-					
-					self.assertEqual(tc.exp_bits, bits)
-					self.assertEqual(set(tc.exp_allele_values), set(allele_values), "Wrong alleles")
-					self.assertEqual(tc.exp_allele_values, allele_values, "Wrong allele order")
-				else:
-					self.assertRaises(tc.exp_excep, icecraft.IcecraftRepGen.alleles_from_src_grps, src_grps, tc.used_func)
-	
 	def test_create_unused_gene(self):
 		x = 2
 		y = 3
