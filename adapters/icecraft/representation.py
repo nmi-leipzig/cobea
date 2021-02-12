@@ -315,7 +315,9 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		self._choose_nets(rep, request)
 		
+		self.set_lut_functions(rep, request.lut_functions)
 		
+		#TODO: set used flag
 		
 		
 		cbc_coords = self.get_colbufctrl_coordinates(rep)
@@ -390,6 +392,11 @@ class IcecraftRepGen(RepresentationGenerator):
 			vtx.available = True
 	
 	@staticmethod
+	def set_lut_functions(rep: InterRep, lut_functions: Iterable[LUTFunction]) -> None:
+		for vtx in rep.iter_lut_vertices():
+			vtx.functions = list(lut_functions)
+	
+	@staticmethod
 	def tiles_from_rectangle(x_min: int, y_min: int, x_max: int, y_max: int) -> List[TilePosition]:
 		return [TilePosition(x, y) for x in range(x_min, x_max+1) for y in range(y_min, y_max+1)]
 	
@@ -458,86 +465,71 @@ class IcecraftRepGen(RepresentationGenerator):
 	@classmethod
 	def create_genes(
 		cls,
-		net_relations: Iterable[NetRelation],
-		config_map: Mapping[TilePosition, ConfigAssemblage],
-		used_function: Callable[[NetRelation], bool],
-		lut_functions: Iterable[LUTFunction],
-		net_map: Mapping[NetId, NetRelation] = None
+		rep: InterRep,
+		config_map: Mapping[TilePosition, ConfigAssemblage]
 	) -> Tuple[List[Gene], List[Gene], List[int]]:
 		"""returns const_genes, genes and gene_section_lengths"""
-		if net_map is None:
-			net_map = NetRelation.create_net_map(net_relations)
 		
 		const_genes = []
 		genes = []
 		sec_len=[]
 		
-		def add_gene(gene):
-			if len(gene.alleles) > 1:
-				genes.append(gene)
-			elif len(gene.alleles) == 1:
-				const_genes.append(gene)
-			else:
-				raise Exception("Gene without alleles")
+		def add_genes(gene_iter):
+			for gene in gene_iter:
+				if len(gene.alleles) > 1:
+					genes.append(gene)
+				elif len(gene.alleles) == 1:
+					const_genes.append(gene)
+				else:
+					raise Exception("Gene without alleles")
 		
-		# sort nets
-		unused_nets = []
-		ext_drv_nets = []
-		multi_drv_nets = []
-		single_tile_nets = []
-		for net_rel in net_relations:
-			if not net_rel.available:
+		# sort vertices
+		unused_vertices = []
+		ext_drv_vertices = []
+		multi_drv_vertices = []
+		single_tile_vertices = []
+		for vtx in rep.iter_vertices():
+			if not vtx.available:
 				continue
 			
-			if net_rel.hard_driven:
+			# no explicit check for configurable as configurable == False -> bit_count == 0
+			if vtx.bit_count == 0:
 				continue
 			
-			if len(list(net_rel.iter_src_grps())) == 0:
+			if len(vtx.driver_tiles) == 0:
 				continue
 			
-			drv_tiles = list(net_rel.iter_drv_tiles())
-			
-			if len(drv_tiles) == 0:
+			if not vtx.used:
+				unused_vertices.append(vtx)
 				continue
 			
-			if not used_function(net_rel):
-				unused_nets.append(net_rel)
+			if vtx.ext_src:
+				ext_drv_vertices.append(vtx)
 				continue
 			
-			if net_rel.has_external_driver:
-				ext_drv_nets.append(net_rel)
+			if len(vtx.driver_tiles) > 1:
+				multi_drv_vertices.append(vtx)
 				continue
 			
-			if len(drv_tiles) > 1:
-				multi_drv_nets.append(net_rel)
-				continue
-			
-			single_tile_nets.append(net_rel)
+			single_tile_vertices.append(vtx)
 		
-		const_genes = [cls.create_unused_gene_from_net(n, f"unused {n.segment[0]}") for n in unused_nets]
+		const_genes = []
+		for vtx in unused_vertices+ext_drv_vertices:
+			tmp_genes = vtx.get_genes()
+			assert all(len(g.alleles) == 1 for g in tmp_genes)
+			const_genes.extend(tmp_genes)
 		
-		const_genes.extend(cls.create_unused_gene_from_net(e, f"externally driven {e.segment[0]}") for e in ext_drv_nets)
+		for vtx in multi_drv_vertices:
+			tmp_genes = vtx.get_genes()
+			add_genes(tmp_genes)
 		
-		for net_rel in multi_drv_nets:
-			src_grps = list(net_rel.iter_src_grps())
-			bits, alleles = cls.alleles_from_src_grps(src_grps, used_function)
-			tmp_gene = Gene(
-				bits,
-				alleles,
-				f"multitile driver {net_rel.segment[0]}"
-			)
-			
-			add_gene(tmp_gene)
 		# first gene section: nets having potential drivers in multiple nets
 		if len(genes) > 0:
 			sec_len.append(len(genes))
 		
 		single_const_genes, single_genes, single_sec_len = cls.create_tile_genes(
-			single_tile_nets,
+			single_tile_vertices,
 			config_map,
-			used_function,
-			lut_functions,
-			net_map
 		)
 		const_genes.extend(single_const_genes)
 		genes.extend(single_genes)
@@ -566,11 +558,8 @@ class IcecraftRepGen(RepresentationGenerator):
 	@classmethod
 	def create_tile_genes(
 		cls,
-		single_tile_nets: Iterable[NetRelation],
-		config_map: Mapping[TilePosition, ConfigAssemblage],
-		used_function: Callable[[NetRelation], bool],
-		lut_functions: Iterable[LUTFunction],
-		net_map: Mapping[NetId, NetRelation]
+		single_tile_vertices: Iterable[Vertex],
+		config_map: Mapping[TilePosition, ConfigAssemblage]
 	) -> Tuple[List[Gene], List[Gene], List[int]]:
 		"""returns const_genes, genes and gene_section_lengths"""
 		const_genes = []
@@ -590,15 +579,14 @@ class IcecraftRepGen(RepresentationGenerator):
 				const_genes.append(gene)
 			else:
 				raise Exception("Gene without alleles")
-			
 		
-		# sort nets by tile
+		# sort vertices by tile
 		single_tile_map = {}
-		for net in single_tile_nets:
-			if net.multiple_drv_tiles:
-				raise ValueError("net with multiple driver tiles can't be handled as tile genes")
-			tile = next(net.iter_drv_tiles())
-			single_tile_map.setdefault(tile, []).append(net)
+		for vtx in single_tile_vertices:
+			if len(vtx.driver_tiles) > 1:
+				raise ValueError("vertex with multiple driver tiles can't be handled as tile genes")
+			tile = vtx.driver_tiles[0]
+			single_tile_map.setdefault(tile, []).append(vtx)
 		
 		# find all tiles
 		tiles = set(single_tile_map)
@@ -615,86 +603,15 @@ class IcecraftRepGen(RepresentationGenerator):
 				
 				add_gene(tmp_gene)
 			
-			# LUTs
-			for lut_conf_iter in config_map[tile].lut:
-				for lut_conf in lut_conf_iter:
-					if lut_conf.kind in ("DffEnable", "Set_NoReset", "AsyncSetReset"):
-						tmp_gene = cls.create_all_allele_gene(
-							lut_conf,
-							f"tile ({tile.x}, {tile.y}) LUT {lut_conf.index} {lut_conf.kind}"
-						)
-					elif lut_conf.kind == "TruthTable":
-						used_inputs = []
-						for in_index in range(4):
-							try:
-								in_net = net_map[(tile.x, tile.y, f"lutff_{lut_conf.index}/in_{in_index}")]
-							except KeyError:
-								#TODO: warning
-								continue
-							
-							if in_net.available and used_function(in_net):
-								used_inputs.append(in_index)
-						
-						unused_inputs = [i for i in range(4) if i not in used_inputs]
-						if len(lut_functions) == 0:
-							# no restrictions regarding functions
-							alleles = AllelePow(4, unused_inputs)
-						else:
-							values_list = []
-							desc_list = []
-							for func_enum in lut_functions:
-								values = cls.lut_function_to_truth_table(func_enum, used_inputs)
-								try:
-									index = values_list.index(values)
-									desc_list[index] += f", {func_enum.name}"
-								except ValueError:
-									values_list.append(values)
-									desc_list.append(func_enum.name)
-								
-							ordered = sorted(zip(values_list, desc_list), key=lambda e: e[0])
-							alleles = AlleleList([Allele(v, d) for v, d in ordered])
-							
-						tmp_gene = Gene(
-							lut_conf.bits,
-							alleles,
-							f"tile ({tile.x}, {tile.y}) LUT {lut_conf.index} {lut_conf.kind}"
-						)
-						
-					elif lut_conf.kind in ("CarryEnable"):
-						continue
-					else:
-						raise ValueError(f"Unsupported lut config '{lut_conf.kind}'")
-					
-					add_gene(tmp_gene)
-			
-			# connections that only belong to this tile
-			for net in empty_if_missing(single_tile_map, tile):
-				if net.hard_driven:
-					continue
-				
-				if not net.available:
-					continue
-				
-				src_grps = list(net.iter_src_grps())
-				if len(src_grps) == 0:
-					continue
-				
-				if used_function(net) and not net.has_external_driver:
-					bits, alleles = cls.alleles_from_src_grps(src_grps, used_function)
-					tmp_gene = Gene(
-						bits,
-						alleles,
-						f"tile ({tile.x}, {tile.y}) driver {net.segment[0][2]}"
-					)
-				else:
-					tmp_gene = cls.create_unused_gene(src_grps, f"tile ({tile.x}, {tile.y}) {net.segment[0][2]} not driven")
-				
-				add_gene(tmp_gene)
+			# vertices that only belong to this tile
+			for vtx in empty_if_missing(single_tile_map, tile):
+				tmp_genes = vtx.get_genes()
+				for gene in tmp_genes:
+					add_gene(gene)
 			
 			new_count = len(genes) - prev_len
 			if new_count > 0:
 				sec_len.append(new_count)
-		
 		
 		return const_genes, genes, sec_len
 	
@@ -744,32 +661,4 @@ class IcecraftRepGen(RepresentationGenerator):
 			suffix_len += len(src_grp.bits)
 		
 		return all_bits, AlleleList(alleles)
-	
-	@staticmethod
-	def lut_function_to_truth_table(lut_function: LUTFunction, used_inputs: Iterable[int]) -> Tuple[bool, ...]:
-		if lut_function == LUTFunction.CONST_0:
-			return (False, )*16
-		elif lut_function == LUTFunction.CONST_1:
-			return (True, )*16
-		
-		if lut_function == LUTFunction.AND:
-			func = lambda x: all(x)
-		elif lut_function == LUTFunction.NAND:
-			func = lambda x: not all(x)
-		elif lut_function == LUTFunction.OR:
-			func = lambda x: any(x)
-		elif lut_function == LUTFunction.NOR:
-			func = lambda x: not any(x)
-		elif lut_function == LUTFunction.PARITY:
-			func = lambda x: x.count(1) % 2 == 1
-		else:
-			raise ValueError("Unsupported LUT function '{}'".format(lut_function))
-		
-		values = []
-		for i in range(16):
-			in_values = [(i>>j)&1 for j in used_inputs]
-			value = func(in_values)
-			values.append(value)
-		return tuple(values)
-		
 	

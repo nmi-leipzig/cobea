@@ -14,9 +14,9 @@ from domain.request_model import RequestObject
 from domain.model import Gene
 from domain.allele_sequence import AlleleList, AlleleAll, AllelePow, Allele
 from adapters.icecraft.chip_data import ConfigAssemblage, get_config_items, get_net_data
-from adapters.icecraft.chip_data_utils import NetData
+from adapters.icecraft.chip_data_utils import NetData, ElementInterface
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
-from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig
+from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex
 
 from ..test_request_model import check_parameter_user
 
@@ -1284,10 +1284,11 @@ class IcecraftRepGenTest(unittest.TestCase):
 	def test_create_genes(self):
 		class GeneTestCase(NamedTuple):
 			desc: str
-			net_rels: Iterable[NetRelation] = []
+			rep: InterRep
+			#net_rels: Iterable[NetRelation] = []
 			config_map: Mapping[TilePosition, ConfigAssemblage] = {}
-			used_function: Callable[[NetRelation], bool] = lambda x: True
-			lut_functions: Iterable[LUTFunction] = []
+			#used_function: Callable[[NetRelation], bool] = lambda x: True
+			#lut_functions: Iterable[LUTFunction] = []
 			exp_const: List[Gene] = []
 			exp_genes: List[Gene] = []
 			exp_sec: List[int] = []
@@ -1297,26 +1298,23 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		# carry in set and carry mux
 		tile = TilePosition(26, 19)
-		net_rels = NetRelation.from_net_data_iter(
-			[
-				NetData(((*tile, "carry_in_mux"),), False, (0, )),
-				NetData(((tile.x, tile.y-1, "lutff_7/cout"), (*tile, "carry_in")), True, (0, )),
-				NetData(((*tile, icecraft.representation.CARRY_ONE_IN),), True, (0, )),
-			],
-			[tile]
-		)
+		net_data = [
+			NetData(((*tile, "carry_in_mux"),), False, (0, )),
+			NetData(((tile.x, tile.y-1, "lutff_7/cout"), (*tile, "carry_in")), True, (0, )),
+			NetData(((*tile, icecraft.representation.CARRY_ONE_IN),), True, (0, )),
+		]
 		ci_bits = create_bits(*tile, [(1, 49)])
 		one_bits = create_bits(*tile, [(1, 50)])
 		con_items = [
 			ConnectionItem(ci_bits, "connection", "carry_in_mux", ((True, ), ), ("carry_in", )),
 			ConnectionItem(one_bits, "connection", "carry_in_mux", ((True, ), ), (icecraft.representation.CARRY_ONE_IN, )),
 		]
-		net_map = NetRelation.create_net_map(net_rels)
-		src_grps = SourceGroup.populate_net_relations(net_map, con_items)
+		config_map = {tile: ConfigAssemblage(connection=tuple(con_items))}
+		rep = InterRep(net_data, config_map)
 		ec = GeneTestCase(
 			"carry mux",
-			net_rels,
-			{tile: ConfigAssemblage(connection=tuple(con_items))},
+			rep,
+			config_map,
 			exp_genes = [
 				Gene(tuple(ci_bits+one_bits), AlleleList([Allele(v, "") for v in ((False, False), (False, True), (True, False))]), "")
 			],
@@ -1326,18 +1324,18 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		# glb2local_1 -> local_g0_5
 		(((2, 15), (2, 16), (2, 17), (2, 18), (3, 18)), [], [(False, False, True, False, False)]),
-		net_rels = NetRelation.from_net_data_iter([
+		net_data = [
 			NetData(((*tile, "glb2local_1"), ), False, (0, )),
 			NetData(((*tile, "local_g0_5"), ), False, (0, )),
-		], [tile])
+		]
 		bits = create_bits(*tile, [(2, 15), (2, 16), (2, 17), (2, 18), (3, 18)])
 		con_items = [ConnectionItem(bits, "connection", "local_g0_5", ((False, False, True, False, False), ), ("glb2local_1", )),]
-		net_map = NetRelation.create_net_map(net_rels)
-		src_grps = SourceGroup.populate_net_relations(net_map, con_items)
+		config_map = {tile: ConfigAssemblage(connection=tuple(con_items))}
+		rep = InterRep(net_data, config_map)
 		ec = GeneTestCase(
 			"glb2local_1 -> local_g0_5",
-			net_rels,
-			{tile: ConfigAssemblage(connection=tuple(con_items))},
+			rep,
+			config_map,
 			exp_genes = [
 				Gene(bits, AlleleList([Allele(v, "") for v in ((False, False, False, False, False), (False, False, True, False, False))]), "")
 			],
@@ -1347,9 +1345,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		for tc in test_cases:
 			with self.subTest(desc=tc.desc):
-				net_map = NetRelation.create_net_map(tc.net_rels)
 				#pdb.set_trace()
-				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_genes(tc.net_rels, tc.config_map, tc.used_function, tc.lut_functions, net_map)
+				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_genes(tc.rep, tc.config_map)
 				
 				self.assertEqual(tc.exp_const, res_const)
 				self.assertEqual(tc.exp_genes, res_genes)
@@ -1363,9 +1360,16 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		for tc in st_test_cases:
 			with self.subTest(desc=f"single tile case: {tc.desc}"):
-				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions)
+				try:
+					rep = tc.single_tile_vertices[0].rep
+				except IndexError:
+					rep = InterRep([], tc.config_map)
 				
-				self.assertEqual(tc.exp_const, res_const)
+				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_genes(rep, tc.config_map)
+				
+				for const_gene in tc.exp_const:
+					# const genes for external sources are not 
+					self.assertIn(const_gene, res_const)
 				self.assertEqual(tc.exp_genes, res_genes)
 				self.assertEqual(tc.exp_sec, res_sec)
 		
@@ -1374,15 +1378,15 @@ class IcecraftRepGenTest(unittest.TestCase):
 				continue
 			with self.subTest(desc=f"single tile exception case: {tc.desc}"):
 				with self.assertRaises(tc.excep):
-					icecraft.IcecraftRepGen.create_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions)
+					rep = self.create_rep(tc.single_tile_nets, tc.config_map, tc.lut_functions, tc.used_function)
+					icecraft.IcecraftRepGen.create_genes(rep, tc.config_map)
+					#icecraft.IcecraftRepGen.create_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions)
 	
 	def generate_tile_genes_test_cases(self):
 		class TileGenesTestData(NamedTuple):
 			desc: str
-			single_tile_nets: Iterable[NetRelation] = []
+			single_tile_vertices: List[Vertex] = []
 			config_map: Mapping[TilePosition, ConfigAssemblage] = {}
-			used_function: Callable[[NetRelation], bool] = lambda x: True
-			lut_functions: Iterable[LUTFunction] = []
 			exp_const: List[Gene] = []
 			exp_genes: List[Gene] = []
 			exp_sec: List[int] = []
@@ -1402,8 +1406,12 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		# LUT test cases
 		lut_in_unused = ([], [1], [3], [1, 2], [0, 3], [0, 1, 2], [0, 1, 3], [0, 1, 2, 3])
-		def lut_in_profile(net):
-			res = re.match(r"lutff_(\d)/in_(\d)", net.segment[0][2])
+		def lut_in_profile(vtx):
+			for desig in vtx.desigs:
+				res = re.match(r"NET#lutff_(\d)/in_(\d)", desig.name)
+				if res is not None:
+					break
+			
 			if res is None:
 				return True
 			
@@ -1508,31 +1516,40 @@ class IcecraftRepGenTest(unittest.TestCase):
 			exp_genes_no.append(Gene(bits_list[4], AllelePow(4, lut_in_unused[l]), ""))
 			exp_genes_enum.append(Gene(bits_list[4], AlleleList([Allele(v, "") for v in truth_tables_enum[l]]), ""))
 		
-		single_tile_nets = NetRelation.from_net_data_iter([
+		single_tile_nets = [
 			NetData(((2, 3, f"lutff_{l}/in_{i}"), ), False, (0, )) for l in range(8) for i in range(4)
-		], [(2, 3)])
+		]
+		lut_io = tuple(ElementInterface(tuple((2, 3, f"lutff_{l}/in_{i}") for i in range(4)), tuple()) for l in range(8))
 		config_map = {
-			TilePosition(2, 3): ConfigAssemblage(lut=tuple(lut_conf)),
+			TilePosition(2, 3): ConfigAssemblage(lut=tuple(lut_conf), lut_io=lut_io),
 			TilePosition(4, 3): ConfigAssemblage(),
 		}
 		
+		rep = InterRep(single_tile_nets, config_map)
+		for vtx in rep.iter_vertices():
+			vtx.used = lut_in_profile(vtx)
+		
 		ec = TileGenesTestData(
 			"LUT, no function restriction",
-			single_tile_nets = single_tile_nets, 
+			list(rep.iter_vertices()),
 			config_map = config_map,
-			used_function = lut_in_profile,
-			lut_functions = [],
 			exp_genes = exp_genes_no,
 			exp_sec = [32]
 		)
 		test_cases.append(ec)
 		
+		rep = InterRep(single_tile_nets, config_map)
+		for vtx in rep.iter_vertices():
+			vtx.used = lut_in_profile(vtx)
+			try:
+				vtx.functions = list(LUTFunction)
+			except AttributeError:
+				pass
+		
 		ec = TileGenesTestData(
 			"LUT, function restricted",
-			single_tile_nets = single_tile_nets, 
+			list(rep.iter_vertices()),
 			config_map = config_map,
-			used_function = lut_in_profile,
-			lut_functions = list(LUTFunction),
 			exp_genes = exp_genes_enum,
 			exp_sec = [32]
 		)
@@ -1564,7 +1581,6 @@ class IcecraftRepGenTest(unittest.TestCase):
 		net_rels[offset].available = False
 		dst_nets = {org_name(n)[:-2]: n for n in net_rels[:offset]}
 		src_nets = {org_name(n)[:-2]: n for n in net_rels[offset:]}
-		single_nets = [n for n in net_rels if not n.segment[0][2].startswith("external")]
 		
 		gene_data = []
 		# bits, dst_name, srcs, del_indices, conf_lengths
@@ -1641,15 +1657,25 @@ class IcecraftRepGenTest(unittest.TestCase):
 				))
 				
 				prev += l
+		config_map = {org_tile: ConfigAssemblage(connection=tuple(con_items))}
+		rep = InterRep(net_data_list, config_map)
 		
-		net_map = NetRelation.create_net_map(net_rels)
-		src_grps = SourceGroup.populate_net_relations(net_map, con_items)
+		for vtx in rep.iter_vertices():
+			vtx.used = all(not d.name.startswith("NET#unused") for d in vtx.desigs)
+			
+			if any(d.name.startswith("NET#unavail") for d in vtx.desigs):
+				vtx.available = False
+			
+			if any(d.name.startswith("NET#external") for d in vtx.desigs):
+				vtx.ext_src = True
+		
+		single_verts = [v for v in rep.iter_vertices() if all(not d.name.startswith("NET#external") for d in v.desigs)]
+		
 		self.maxDiff = None
 		ec = TileGenesTestData(
 			"Single tile nets",
-			single_tile_nets = single_nets, 
-			config_map = {org_tile: ConfigAssemblage(connection=tuple(con_items))},
-			used_function = lambda n: not n.segment[0][2].startswith("unused"),
+			single_tile_vertices = single_verts, 
+			config_map = config_map,
 			exp_const = exp_const,
 			exp_genes = exp_genes,
 			exp_sec = [3]
@@ -1721,14 +1747,21 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		return exception_cases
 	
+	def create_rep(self, raw_nets, config_map, lut_functions, used_function):
+		rep = InterRep(raw_nets, config_map)
+		icecraft.IcecraftRepGen.set_lut_functions(rep, lut_functions)
+		for vtx in rep.iter_vertices():
+			vtx.used = used_function(vtx)
+		
+		return rep
+	
 	def test_create_tile_genes(self):
 		test_cases = self.generate_tile_genes_test_cases()
 		exception_cases = self.generate_tile_genes_fail_test_cases()
 		
 		for tc in test_cases:
 			with self.subTest(desc=tc.desc):
-				net_map = NetRelation.create_net_map(tc.single_tile_nets)
-				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions, net_map)
+				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_vertices, tc.config_map)
 				
 				self.assertEqual(tc.exp_const, res_const)
 				self.assertEqual(tc.exp_genes, res_genes)
@@ -1737,43 +1770,6 @@ class IcecraftRepGenTest(unittest.TestCase):
 		for tc in exception_cases:
 			with self.subTest(desc=tc.desc):
 				with self.assertRaises(tc.excep):
-					net_map = NetRelation.create_net_map(tc.single_tile_nets)
-					icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions, net_map)
+					rep = self.create_rep(tc.single_tile_nets, tc.config_map, tc.lut_functions, tc.used_function)
+					icecraft.IcecraftRepGen.create_tile_genes(list(rep.iter_vertices()), tc.config_map)
 	
-	def test_lut_function_to_truth_table(self):
-		for func_enum in LUTFunction:
-			for in_count in range(5):
-				for used_inputs in itertools.combinations(range(4), in_count):
-					with self.subTest(func_enum=func_enum, used_inputs=used_inputs):
-						truth_table = icecraft.IcecraftRepGen.lut_function_to_truth_table(func_enum, used_inputs)
-						for in_values in itertools.product((0, 1), repeat=in_count):
-							
-							if func_enum == LUTFunction.AND:
-								expected = all(in_values)
-							elif func_enum == LUTFunction.OR:
-								expected = any(in_values)
-							elif func_enum == LUTFunction.NAND:
-								expected = not all(in_values)
-							elif func_enum == LUTFunction.NOR:
-								expected = not any(in_values)
-							elif func_enum == LUTFunction.PARITY:
-								expected = (in_values.count(1) % 2) == 1
-							elif func_enum == LUTFunction.CONST_0:
-								expected = False
-							elif func_enum == LUTFunction.CONST_1:
-								expected = True
-							else:
-								self.error("No test for {}".format(func_enum))
-							
-							used_index = 0
-							for i, shift in zip(in_values, used_inputs):
-								used_index |= i << shift
-							
-							# output should be invariant to value of unused inputs
-							unused_inputs = sorted(set(range(4))-set(used_inputs))
-							for invariant_values in itertools.product((0, 1), repeat=len(unused_inputs)):
-								index = used_index
-								for i, shift in zip(invariant_values, unused_inputs):
-									index |= i << shift
-								
-								self.assertEqual(expected, truth_table[index], f"Wrong truth table value {func_enum.name} {used_inputs} for input 0b{index:04b}")
