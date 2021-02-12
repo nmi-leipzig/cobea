@@ -860,6 +860,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 	@unittest.skip("creates wrong fails")
 	def test_create_genes_prev(self):
 		# test create_genes with stored results from previous implementation
+		# currently the change of the names of nets causes all cases to fail
+		# 'my_net_name' -> 'NET#my_net_name'
 		class PrevGeneData(NamedTuple):
 			tile: Tuple[int, int]
 			bits: Tuple[Tuple[int, int], ...]
@@ -1037,13 +1039,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 				raw_nets = get_net_data(tiles)
 				icecraft.IcecraftRepGen.carry_in_set_net(config_map, raw_nets)
 				
-				net_relations = NetRelation.from_net_data_iter(raw_nets, tiles)
-				net_map = NetRelation.create_net_map(net_relations)
-				con_items = []
-				for ci in config_map.values():
-					tile_cons = ci.connection
-					con_items.extend(tile_cons)
-				SourceGroup.populate_net_relations(net_map, con_items)
+				rep = InterRep(raw_nets, config_map)
 				
 				req = RequestObject()
 				req["x_min"] = mc.x_min
@@ -1056,19 +1052,17 @@ class IcecraftRepGenTest(unittest.TestCase):
 				req["joint_input_nets"] = mc.joint_input_nets
 				req["lone_input_nets"] = [IcecraftNetPosition.from_coords(*c) for c in mc.lone_input_nets]
 				req["lut_functions"] = [icecraft.LUTFunction[n] for n in mc.lut_functions]
-				icecraft.IcecraftRepGen._choose_nets(net_relations, net_map, req)
+				icecraft.IcecraftRepGen._choose_nets(rep, req)
 				
 				#print(req)
-				print(f"available: {sum([n.available for n in net_relations])}")
+				print(f"available: {sum([v.available for v in rep.iter_vertices()])}")
 				#pprint(config_map)
+				icecraft.IcecraftRepGen.set_lut_functions(rep, req.lut_functions)
 				
 				#pdb.set_trace()
 				const_res, gene_res, sec_res = icecraft.IcecraftRepGen.create_genes(
-					net_relations,
-					config_map,
-					lambda _: True,
-					req.lut_functions,
-					net_map
+					rep,
+					config_map
 				)
 				#pdb.set_trace()
 				const_exp_data = [prev_to_data(g) for g in mc.const_genes]
@@ -1121,10 +1115,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		class GeneTestCase(NamedTuple):
 			desc: str
 			rep: InterRep
-			#net_rels: Iterable[NetRelation] = []
 			config_map: Mapping[TilePosition, ConfigAssemblage] = {}
-			#used_function: Callable[[NetRelation], bool] = lambda x: True
-			#lut_functions: Iterable[LUTFunction] = []
 			exp_const: List[Gene] = []
 			exp_genes: List[Gene] = []
 			exp_sec: List[int] = []
@@ -1214,9 +1205,12 @@ class IcecraftRepGenTest(unittest.TestCase):
 				continue
 			with self.subTest(desc=f"single tile exception case: {tc.desc}"):
 				with self.assertRaises(tc.excep):
-					rep = self.create_rep(tc.single_tile_nets, tc.config_map, tc.lut_functions, tc.used_function)
+					try:
+						rep = tc.single_tile_vertices[0].rep
+					except IndexError:
+						rep = InterRep([], tc.config_map)
+					
 					icecraft.IcecraftRepGen.create_genes(rep, tc.config_map)
-					#icecraft.IcecraftRepGen.create_genes(tc.single_tile_nets, tc.config_map, tc.used_function, tc.lut_functions)
 	
 	def generate_tile_genes_test_cases(self):
 		class TileGenesTestData(NamedTuple):
@@ -1412,11 +1406,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 			net_data_list.append(NetData(((*org_tile, f"hard_driven_{i}"), ), True, (0, )))
 		
 		offset = len(net_data_list)//2
-		net_rels = NetRelation.from_net_data_iter(net_data_list, [org_tile])
-		net_rels[0].available = False
-		net_rels[offset].available = False
-		dst_nets = {org_name(n)[:-2]: n for n in net_rels[:offset]}
-		src_nets = {org_name(n)[:-2]: n for n in net_rels[offset:]}
+		dst_nets = {org_name(n)[:-2]: n for n in net_data_list[:offset]}
+		src_nets = {org_name(n)[:-2]: n for n in net_data_list[offset:]}
 		
 		gene_data = []
 		# bits, dst_name, srcs, del_indices, conf_lengths
@@ -1524,10 +1515,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		class TileGenesErrorTestData(NamedTuple):
 			desc: str
 			excep: Exception
-			single_tile_nets: Iterable[NetRelation] = []
+			single_tile_vertices: Iterable[Vertex] = []
 			config_map: Mapping[TilePosition, ConfigAssemblage] = {}
-			used_function: Callable[[NetRelation], bool] = lambda x: True
-			lut_functions: Iterable[LUTFunction] = []
 			general: bool = True # general error case, i.e. also for create_genes
 		
 		exception_cases = []
@@ -1566,17 +1555,16 @@ class IcecraftRepGenTest(unittest.TestCase):
 			("src_2", )
 		)
 		
-		net_rels = NetRelation.from_net_data_iter(net_data_list, [other_tile, org_tile])
-		net_map = NetRelation.create_net_map(net_rels)
-		src_grps = SourceGroup.populate_net_relations(net_map, [org_con, other_con])
+		config_map = {
+			org_tile: ConfigAssemblage(connection=(org_con, )),
+			other_tile: ConfigAssemblage(connection=(other_con, ))
+		}
+		rep = InterRep(net_data_list, config_map)
 		ec = TileGenesErrorTestData(
 			"multitile",
 			ValueError,
-			net_rels,
-			{
-				org_tile: ConfigAssemblage(connection=(org_con, )),
-				other_tile: ConfigAssemblage(connection=(other_con, ))
-			},
+			list(rep.iter_vertices()),
+			config_map,
 			general = False
 		)
 		exception_cases.append(ec)
@@ -1606,6 +1594,5 @@ class IcecraftRepGenTest(unittest.TestCase):
 		for tc in exception_cases:
 			with self.subTest(desc=tc.desc):
 				with self.assertRaises(tc.excep):
-					rep = self.create_rep(tc.single_tile_nets, tc.config_map, tc.lut_functions, tc.used_function)
-					icecraft.IcecraftRepGen.create_tile_genes(list(rep.iter_vertices()), tc.config_map)
+					icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_vertices, tc.config_map)
 	
