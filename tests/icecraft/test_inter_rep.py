@@ -302,7 +302,7 @@ class TestInterRep(unittest.TestCase):
 	def check_con_vertex(self, rep, raw_net, desig, vertex):
 		self.assertIn(desig, vertex.desigs)
 		self.assertEqual(set(raw_net.segment), set((*d.tile, d.name[4:]) for d in vertex.desigs))
-		self.assertEqual(raw_net.hard_driven, vertex.configurable)
+		self.assertEqual(raw_net.hard_driven, not vertex.configurable)
 		self.assertEqual(raw_net.drivers, vertex.drivers)
 		self.assertEqual(rep, vertex.rep)
 	
@@ -869,7 +869,7 @@ class TestConVertex(unittest.TestCase):
 				dut = ConVertex.from_net_data(rep, raw_net)
 				
 				self.assertEqual(rep, dut.rep)
-				self.assertEqual(raw_net.hard_driven, dut.configurable)
+				self.assertEqual(not raw_net.hard_driven, dut.configurable)
 				self.assertEqual(raw_net.drivers, dut.drivers)
 				self.assertEqual(set(raw_net.segment), set((*d.tile, d.name[4:]) for d in dut.desigs))
 	
@@ -1350,6 +1350,7 @@ class TestLUTVertex(unittest.TestCase):
 		self.assertEqual(index, int(dut.desig.name[4:]))
 		self.assertEqual(desig, dut.desig)
 		self.assertEqual(rep, dut.rep)
+		self.assertEqual(True, dut.configurable)
 	
 	def test_from_config_items(self):
 		for lut_items in LUT_DATA:
@@ -1361,6 +1362,7 @@ class TestLUTVertex(unittest.TestCase):
 				self.assertEqual(lut_items[0].index, int(dut.desig.name[4:]))
 				self.assertEqual(lut_items[0].bits[0].tile, dut.desig.tile)
 				self.assertEqual(rep, dut.rep)
+				self.assertEqual(True, dut.configurable)
 	
 	def test_desigs(self):
 		for lut_items in LUT_DATA:

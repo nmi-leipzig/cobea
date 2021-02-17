@@ -240,7 +240,7 @@ class ConVertex(Vertex):
 	@classmethod
 	def from_net_data(cls, rep: "InterRep", raw: NetData) -> "ConVertex":
 		desigs = tuple(VertexDesig.from_seg_entry(s) for s in raw.segment)
-		return cls(rep, desigs, raw.hard_driven, raw.drivers)
+		return cls(rep, desigs, not raw.hard_driven, raw.drivers)
 
 @dataclass
 class LUTBits:
@@ -286,7 +286,7 @@ class LUTVertex(Vertex):
 	functions: List[LUTFunction] = field(default_factory=list, init=False)
 	# override fields that are the same for all LUTs
 	# set init=False to avoid TypeError: non-default argument follows default argument
-	configurable: bool = field(default=False, init=False)
+	configurable: bool = field(default=True, init=False)
 	drivers: Tuple[int, ...] = field(default=(0, ), init=False)
 	
 	def __post_init__(self):
