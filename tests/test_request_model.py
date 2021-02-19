@@ -77,7 +77,9 @@ def check_parameter_user(test_case, parameter_user):
 
 class ParameterUserTest(unittest.TestCase):
 	class PUImpl(request_model.ParameterUser):
-		def __init__(self, params={}):
+		def __init__(self, params=None):
+			if params is None:
+				params = {}
 			self._params = params
 		
 		@property
