@@ -232,14 +232,20 @@ class TestSourceGroup(unittest.TestCase):
 				dut = SourceGroup(other_bits, dst_desig, edge_map)
 
 class TestInterRep(unittest.TestCase):
-	def add_con_config(self, config_map = {}):
+	def add_con_config(self, config_map=None):
+		if config_map is None:
+			config_map = {}
+		
 		for con_item in CON_DATA:
 			config_assem = config_map.setdefault(con_item.bits[0].tile, ConfigAssemblage())
 			config_assem.connection += (con_item, )
 		
 		return config_map
 	
-	def add_lut_config(self, config_map = {}):
+	def add_lut_config(self, config_map=None):
+		if config_map is None:
+			config_map = {}
+		
 		tile = LUT_DATA[0][0].bits[0].tile
 		config_map.setdefault(tile, ConfigAssemblage()).lut = LUT_DATA
 		config_map[tile].lut_io = LUT_CON
