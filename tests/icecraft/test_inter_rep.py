@@ -370,7 +370,7 @@ class TestInterRep(unittest.TestCase):
 				
 	
 	def test_add_con_vertex(self):
-		dut = InterRep(NET_DATA, {})
+		dut = InterRep([], {})
 		existing_vertices = []
 		
 		for raw_net in NET_DATA:
