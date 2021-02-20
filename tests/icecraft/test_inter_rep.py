@@ -400,6 +400,13 @@ class TestInterRep(unittest.TestCase):
 		self.assertEqual(tt_item.index, int(vertex.desig.name[4:]))
 		self.assertEqual(tt_item.bits[0].tile, vertex.desig.tile)
 		self.assertEqual(rep, vertex.rep)
+		
+		for item in lut_items:
+			if item.kind == "CarryEnable":
+				continue
+			for bit in item.bits:
+				res = rep.get_vertex_for_bit(bit)
+				self.assertEqual(vertex, res)
 	
 	def test_add_lut_vertex(self):
 		dut = InterRep(NET_DATA, {})
@@ -454,6 +461,36 @@ class TestInterRep(unittest.TestCase):
 		
 		self.assertIn(edge_desig, dut._edge_map)
 		self.check_consistency(self, dut)
+	
+	def test_register_bits(self):
+		dut = InterRep([], {})
+		desig = VertexDesig.from_seg_entry((3, 4, "my_net"))
+		vtx = Vertex(dut, (desig, ), False, (0, ))
+		bits = create_bits(3, 4, ((9, 1), (45, 12)))
+		
+		for bit in bits:
+			self.assertNotIn(bit, dut._bit_map)
+		
+		dut.register_bits(bits, vtx)
+		
+		for bit in bits:
+			self.assertIn(bit, dut._bit_map)
+			self.assertEqual(vtx, dut._bit_map[bit])
+		
+		with self.assertRaises(AssertionError):
+			dut.register_bits(bits, vtx)
+	
+	def test_get_vertex_for_bit(self):
+		dut = InterRep([], {})
+		desig = VertexDesig.from_seg_entry((3, 4, "my_net"))
+		vtx = Vertex(dut, (desig, ), False, (0, ))
+		bits = create_bits(3, 4, ((9, 1), (45, 12)))
+		
+		dut.register_bits(bits, vtx)
+		
+		for bit in bits:
+			res = dut.get_vertex_for_bit(bit)
+			self.assertEqual(vtx, res)
 	
 	# add LUT truth table, create LUTVertex
 	@staticmethod
@@ -891,6 +928,11 @@ class TestConVertex(unittest.TestCase):
 				self.assertEqual(raw_net.drivers, dut.drivers)
 				self.assertEqual(set(raw_net.segment), set((*d.tile, d.name[4:]) for d in dut.desigs))
 	
+	def check_registered_bits(self, rep, bits, vertex):
+		for bit in bits:
+			res = rep.get_vertex_for_bit(bit)
+			self.assertEqual(vertex, res)
+	
 	def test_add_src_grp(self):
 		rep = InterRep(NET_DATA, {})
 		TestInterRep.check_consistency(self, rep)
@@ -915,6 +957,7 @@ class TestConVertex(unittest.TestCase):
 					self.assertIn(src_grp, dut.src_grps)
 				for in_edge in prev_in_edges:
 					self.assertIn(in_edge, dut.in_edges)
+				self.check_registered_bits(rep, [b for sg in prev_src_grps for b in sg.bits], dut)
 				
 				# check new source group
 				new_grps = [s for s in dut.src_grps if s not in prev_src_grps]
@@ -930,6 +973,8 @@ class TestConVertex(unittest.TestCase):
 				
 				new_edge_desigs = [e.desig for e in dut.in_edges if e not in prev_in_edges]
 				self.assertEqual(set(new_edge_desigs), set(src_grp.srcs.keys()))
+				
+				self.check_registered_bits(rep, src_grp.bits, dut)
 				
 				TestInterRep.check_consistency(self, rep)
 	
@@ -1350,6 +1395,12 @@ class TestLUTBits(unittest.TestCase):
 		
 
 class TestLUTVertex(unittest.TestCase):
+	def check_registered_lut_bits(self, lut_vertex):
+		rep = lut_vertex.rep
+		for bit in [b for bg in lut_vertex.lut_bits.as_tuple() for b in bg]:
+			res = rep.get_vertex_for_bit(bit)
+			self.assertEqual(lut_vertex, res)
+	
 	def test_creation(self):
 		tile = TilePosition(4, 21)
 		index = 4
@@ -1369,6 +1420,7 @@ class TestLUTVertex(unittest.TestCase):
 		self.assertEqual(desig, dut.desig)
 		self.assertEqual(rep, dut.rep)
 		self.assertEqual(True, dut.configurable)
+		self.check_registered_lut_bits(dut)
 	
 	def test_from_config_items(self):
 		for lut_items in LUT_DATA:
@@ -1381,6 +1433,7 @@ class TestLUTVertex(unittest.TestCase):
 				self.assertEqual(lut_items[0].bits[0].tile, dut.desig.tile)
 				self.assertEqual(rep, dut.rep)
 				self.assertEqual(True, dut.configurable)
+				self.check_registered_lut_bits(dut)
 	
 	def test_desigs(self):
 		for lut_items in LUT_DATA:

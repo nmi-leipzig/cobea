@@ -182,6 +182,8 @@ class ConVertex(Vertex):
 		
 		src_grp = SourceGroup(con_item.bits, dst_desig, srcs)
 		self.src_grps.append(src_grp)
+		
+		self.rep.register_bits(src_grp.bits, self)
 	
 	def __post_init__(self):
 		assert len(self.desigs) > 0
@@ -294,6 +296,9 @@ class LUTVertex(Vertex):
 		tile = self.desig.tile
 		for b in self.lut_bits.truth_table:
 			assert b.tile == tile
+		
+		for bits in self.lut_bits.as_tuple():
+			self.rep.register_bits(bits, self)
 	
 	def connect(self, lut_con: ElementInterface) -> None:
 		for in_net in lut_con.in_nets:
@@ -403,6 +408,7 @@ class InterRep:
 		self._vertices = []
 		self._vertex_map = {}
 		self._edge_map = {}
+		self._bit_map = {}
 		
 		for raw_net in net_data_iter:
 			self._add_con_vertex(raw_net)
@@ -451,11 +457,19 @@ class InterRep:
 		
 		return edge
 	
+	def register_bits(self, bits: Iterable[IcecraftBitPosition], vertex: Vertex) -> None:
+		for bit in bits:
+			assert bit not in self._bit_map
+			self._bit_map[bit] = vertex
+	
 	def get_vertex(self, desig: VertexDesig) -> Vertex:
 		return self._vertex_map[desig]
 	
 	def get_edge(self, desig: EdgeDesig) -> Edge:
 		return self._edge_map[desig]
+	
+	def get_vertex_for_bit(self, bit: IcecraftBitPosition) -> Vertex:
+		return self._bit_map[bit]
 	
 	def iter_vertices(self) -> Iterable[Vertex]:
 		yield from self._vertices
@@ -467,3 +481,4 @@ class InterRep:
 		for v in self.iter_vertices():
 			if isinstance(v, LUTVertex):
 				yield v
+				
