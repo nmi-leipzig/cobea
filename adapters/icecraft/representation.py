@@ -245,7 +245,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		const_genes = []
 		genes = []
-		sec_len=[]
+		sec_len = []
 		
 		def add_genes(gene_iter):
 			for gene in gene_iter:
@@ -319,7 +319,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		"""returns const_genes, genes and gene_section_lengths"""
 		const_genes = []
 		genes = []
-		sec_len=[]
+		sec_len = []
 		
 		def empty_if_missing(dictionary, key):
 			try:
