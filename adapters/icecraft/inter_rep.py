@@ -435,6 +435,7 @@ class InterRep:
 	def _add_vertex(self, vertex: Vertex) -> None:
 		self._vertices.append(vertex)
 		for des in vertex.desigs:
+			assert des not in self._vertex_map
 			self._vertex_map[des] = vertex
 	
 	def _add_con_vertex(self, raw_net: NetData) -> ConVertex:

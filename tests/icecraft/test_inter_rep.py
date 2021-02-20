@@ -389,7 +389,11 @@ class TestInterRep(unittest.TestCase):
 					res = dut.get_vertex(exp_vtx.desigs[0])
 					self.assertEqual(exp_vtx, res)
 		
-		# add Connectionconfig, update ConVertex
+		for raw_net in NET_DATA:
+			with self.subTest(desc=f"double adding '{raw_net.segment[0]}'"):
+				with self.assertRaises(AssertionError):
+					dut._add_con_vertex(raw_net)
+		
 	
 	def check_lut_vertex(self, rep, lut_items, vertex):
 		item_dict = {i.kind: i for i in lut_items}
@@ -421,6 +425,11 @@ class TestInterRep(unittest.TestCase):
 				
 				self.check_lut_vertex(dut, lut_items, res)
 				self.check_consistency(self, dut)
+		
+		for lut_items in LUT_DATA:
+			with self.subTest(desc=f"double adding lut_items[0].index"):
+				with self.assertRaises(AssertionError):
+					dut._add_lut_vertex(lut_items)
 	
 	def test_carry_in(self):
 		tile = TilePosition(26, 19)
