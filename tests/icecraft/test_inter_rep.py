@@ -443,6 +443,18 @@ class TestInterRep(unittest.TestCase):
 		mux_desig = VertexDesig.from_net_name(tile, "carry_in_mux")
 		self.assertIn(mux_desig, out_edges[0].dst.desigs)
 	
+	def test_add_edge(self):
+		tile = TilePosition(4, 2)
+		dut = InterRep(NET_DATA, {})
+		vertices = [Vertex(dut, (VertexDesig.from_net_name(tile, f"net_{i}"), ), True, (0, )) for i in range(2)]
+		dut._add_vertex(vertices[0])
+		dut._add_vertex(vertices[1])
+		edge_desig = EdgeDesig(vertices[0].desigs[0], vertices[1].desigs[0])
+		res = dut.add_edge(edge_desig)
+		
+		self.assertIn(edge_desig, dut._edge_map)
+		self.check_consistency(self, dut)
+	
 	# add LUT truth table, create LUTVertex
 	@staticmethod
 	def check_consistency(test_case, rep):
