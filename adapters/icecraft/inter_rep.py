@@ -454,6 +454,7 @@ class InterRep:
 		edge.src.add_edge(edge, False)
 		edge.dst.add_edge(edge, True)
 		
+		assert desig not in self._edge_map
 		self._edge_map[desig] = edge
 		
 		return edge

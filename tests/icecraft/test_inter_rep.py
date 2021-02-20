@@ -470,6 +470,9 @@ class TestInterRep(unittest.TestCase):
 		
 		self.assertIn(edge_desig, dut._edge_map)
 		self.check_consistency(self, dut)
+		
+		with self.assertRaises(AssertionError):
+			res = dut.add_edge(edge_desig)
 	
 	def test_register_bits(self):
 		dut = InterRep([], {})
