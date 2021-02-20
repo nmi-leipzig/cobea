@@ -294,8 +294,8 @@ class LUTVertex(Vertex):
 	def __post_init__(self):
 		assert len(self.desigs) == 1
 		tile = self.desig.tile
-		for b in self.lut_bits.truth_table:
-			assert b.tile == tile
+		# LUTBits asserts that all tiles are the same, so only check one
+		assert self.lut_bits.dff_enable[0].tile == tile
 		
 		for bits in self.lut_bits.as_tuple():
 			self.rep.register_bits(bits, self)
