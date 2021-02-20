@@ -429,7 +429,7 @@ class InterRep:
 				desig = VertexDesig.from_net_name(tile, config_item.dst_net)
 				vertex = self.get_vertex(desig)
 				vertex.add_src_grp(config_item)
-		# TODO: CARRY_ONE_IN, RAM and D_IN
+		# TODO: RAM and D_IN
 		
 	
 	def _add_vertex(self, vertex: Vertex) -> None:
