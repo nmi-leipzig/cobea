@@ -158,6 +158,9 @@ class Vertex(InterElement):
 	def bit_count(self) -> int:
 		raise NotImplementedError()
 	
+	def get_bit_tuples(self) -> List[Tuple[IcecraftBitPosition, ...]]:
+		raise NotImplementedError()
+	
 	def get_genes(self, desc: Union[str, None]=None) -> List[Gene]:
 		raise NotImplementedError()
 	
@@ -191,6 +194,12 @@ class ConVertex(Vertex):
 	@property
 	def bit_count(self):
 		return sum(len(s.bits) for s in self.src_grps)
+	
+	def get_bit_tuples(self) -> List[Tuple[IcecraftBitPosition, ...]]:
+		if len(self.src_grps) == 0:
+			return []
+		else:
+			return [tuple(b for sg in self.src_grps for b in sg.bits)]
 	
 	def get_genes(self, desc: str="") -> List[Gene]:
 		if not self.available:
@@ -318,6 +327,9 @@ class LUTVertex(Vertex):
 	@property
 	def bit_count(self):
 		return sum(len(b) for b in self.lut_bits.as_tuple())
+	
+	def get_bit_tuples(self) -> List[Tuple[IcecraftBitPosition, ...]]:
+		return list(self.lut_bits.as_tuple())
 	
 	def get_genes(self, desc: str="") -> List[Gene]:
 		if not self.available:

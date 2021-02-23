@@ -1018,6 +1018,49 @@ class TestConVertex(unittest.TestCase):
 			exp_map[pivot] += len(con_item.bits)
 			self.check_bit_count(rep, exp_map)
 	
+	def create_bit_and_config_map(self):
+		config_map = {}
+		bit_conf_map = {}
+		for con_item in CON_DATA:
+			config_assem = config_map.setdefault(con_item.bits[0].tile, ConfigAssemblage())
+			config_assem.connection += (con_item, )
+			
+			assert con_item.bits[0] not in bit_conf_map
+			bit_conf_map[con_item.bits[0]] = con_item
+		
+		return config_map, bit_conf_map
+	
+	def test_get_bit_tuples(self):
+		config_map, bit_conf_map = self.create_bit_and_config_map()
+		
+		rep = InterRep(NET_DATA, config_map)
+		
+		seen = set()
+		
+		for dut in rep.iter_vertices():
+			if not isinstance(dut, ConVertex):
+				continue
+			
+			res = dut.get_bit_tuples()
+			genes = dut.get_genes()
+			
+			self.assertEqual(len(genes), len(res), f"{genes}\n{res}")
+			self.assertEqual([g.bit_positions for g in genes], res)
+			
+			for bits in res:
+				index = 0
+				while index < len(bits):
+					con_item = bit_conf_map[bits[index]]
+					self.assertEqual(con_item.bits, bits[index:index+len(con_item.bits)])
+					self.assertNotIn(bits[index], seen)
+					seen.add(bits[index])
+					
+					index += len(con_item.bits)
+				
+				self.assertEqual(len(bits), index)
+			
+		self.assertEqual(set(bit_conf_map), seen)
+	
 	def check_con_genes(self, rep, bits_to_vals, unavailable):
 		bit_to_bits = {b[0]: b for b in bits_to_vals}
 		seen_bits = set()
@@ -1063,14 +1106,7 @@ class TestConVertex(unittest.TestCase):
 		self.assertEqual(set(bits_to_vals), seen_bits)
 	
 	def test_get_genes(self):
-		config_map = {}
-		bit_conf_map = {}
-		for con_item in CON_DATA:
-			config_assem = config_map.setdefault(con_item.bits[0].tile, ConfigAssemblage())
-			config_assem.connection += (con_item, )
-			
-			assert con_item.bits[0] not in bit_conf_map
-			bit_conf_map[con_item.bits[0]] = con_item
+		config_map, bit_conf_map = self.create_bit_and_config_map()
 		
 		rep = InterRep(NET_DATA, config_map)
 		bits_to_vals = {}
@@ -1465,6 +1501,21 @@ class TestLUTVertex(unittest.TestCase):
 				dut = LUTVertex.from_config_items(rep, lut_items)
 				
 				self.assertEqual(exp, dut.bit_count)
+		
+	def test_get_bit_tuples(self):
+		for lut_items in LUT_DATA:
+			rep = InterRep([], {})
+			with self.subTest(lut_items=lut_items):
+				exp = [l.bits for l in lut_items if l.kind != "CarryEnable"]
+				dut = LUTVertex.from_config_items(rep, lut_items)
+				
+				res = dut.get_bit_tuples()
+				
+				self.assertEqual(exp, res)
+				
+				# check same consistency with genes
+				genes = dut.get_genes()
+				self.assertEqual([g.bit_positions for g in genes], res)
 		
 	
 	def test_post_init_checks(self):
