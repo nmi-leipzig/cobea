@@ -183,8 +183,8 @@ class IcecraftRepGen(RepresentationGenerator):
 				vertex.available = value
 	
 	@staticmethod
-	def set_available_edge(rep: InterRep, cond: Callable[[Edge], bool], value: bool = False) -> None:
-		for edge in rep.iter_edges():
+	def set_available_edge(edge_iter: Iterable[Edge], cond: Callable[[Edge], bool], value: bool = False) -> None:
+		for edge in edge_iter:
 			if edge.available == value:
 				continue
 			
