@@ -153,44 +153,56 @@ class IcecraftRepGenTest(unittest.TestCase):
 		rep = InterRep(NET_DATA, {})
 		
 		with self.subTest(desc="all to False"):
-			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: True, False)
+			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: True, False)
 			self.check_available(rep, {s: False for s in all_segs})
 		
 		with self.subTest(desc="all to True"):
-			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: True, True)
+			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: True, True)
 			exp_dict = {s: True for s in all_segs}
 			self.check_available(rep, exp_dict)
 		
+		with self.subTest(desc="only part to False"):
+			# reset
+			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: True, True)
+			
+			tile = TilePosition(2, 3)
+			vtx_list = [v for v in rep.iter_vertices() if any(d.tile==tile for d in v.desigs)]
+			excluded = [(2, 3, "internal"), (2, 3, "internal_2"), (2, 3, "lut_out"), (0, 3, "right"), (0, 3, "wire_in_1"), (2, 3, "empty_out")]
+			exp_dict = {s: True if s not in excluded else False for s in all_segs}
+			
+			icecraft.IcecraftRepGen.set_available_vertex(vtx_list, lambda x: True, False)
+			self.check_available(rep, exp_dict)
+		
 		with self.subTest(desc="no change"):
-			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: False, False)
+			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: False, False)
 			self.check_available(rep, exp_dict)
 		
 		with self.subTest(desc="regex"):
 			# reset
-			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: True, True)
+			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: True, True)
 			
 			excluded = [(2, 3, "lut_out"), (0, 3, "right"), (0, 3, "wire_in_1"), (2, 3, "empty_out"), (4, 2, "out"), (7, 0, "out")]
 			exp_dict = {s: True if s not in excluded else False for s in all_segs}
-			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: any(re.match(r".*out$", d.name) for d in x.desigs), False)
+			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: any(re.match(r".*out$", d.name) for d in x.desigs), False)
 			self.check_available(rep, exp_dict)
 		
 		with self.subTest(desc="regex function"):
 			# reset
-			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: True, True)
+			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: True, True)
 			
-			icecraft.IcecraftRepGen.set_available_vertex(rep, self.cond_func, False)
+			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), self.cond_func, False)
 			self.check_available(rep, exp_dict)
 		
 		with self.subTest(desc="external driver"):
 			# reset
-			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: True, True)
+			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: True, True)
 			# set ext_src
 			for vtx in rep.iter_vertices():
 				vtx.ext_src = any(vtx.desigs[i].tile in [(1, 3), (7, 0)] for i in vtx.drivers)
 			
 			excluded = [(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"), (7, 0, "out")]
 			exp_dict = {s: True if s not in excluded else False for s in all_segs}
-			icecraft.IcecraftRepGen.set_available_vertex(rep, lambda x: x.ext_src, False)
+			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: x.ext_src, False)
 			self.check_available(rep, exp_dict)
 			
 	

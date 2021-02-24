@@ -142,18 +142,18 @@ class IcecraftRepGen(RepresentationGenerator):
 		# exclude exclude nets
 		for regex_str in request.exclude_nets:
 			cond_func = cls.create_regex_condition_vertex(regex_str)
-			cls.set_available_vertex(rep, cond_func, False)
+			cls.set_available_vertex(rep.iter_vertices(), cond_func, False)
 		# exclude all nets with external drivers
-		cls.set_available_vertex(rep, lambda v: v.ext_src, False)
+		cls.set_available_vertex(rep.iter_vertices(), lambda v: v.ext_src, False)
 		
 		# include include nets
 		for regex_str in request.include_nets:
 			cond_func = cls.create_regex_condition_vertex(regex_str)
-			cls.set_available_vertex(rep, cond_func, True)
+			cls.set_available_vertex(rep.iter_vertices(), cond_func, True)
 		
 		# include joint input nets
 		for name in request.joint_input_nets:
-			cls.set_available_vertex(rep, lambda v: any([name==d.name for d in v.desigs]), True)
+			cls.set_available_vertex(rep.iter_vertices(), lambda v: any([name==d.name for d in v.desigs]), True)
 		
 		# include lone input nets
 		for net_pos in request.lone_input_nets:
@@ -174,8 +174,8 @@ class IcecraftRepGen(RepresentationGenerator):
 		return [TilePosition(x, y) for x in range(x_min, x_max+1) for y in range(y_min, y_max+1)]
 	
 	@staticmethod
-	def set_available_vertex(rep: InterRep, cond: Callable[[Vertex], bool], value: bool = False) -> None:
-		for vertex in rep.iter_vertices():
+	def set_available_vertex(vertex_iter: Iterable[Vertex], cond: Callable[[Vertex], bool], value: bool = False) -> None:
+		for vertex in vertex_iter:
 			if vertex.available == value:
 				continue
 			
