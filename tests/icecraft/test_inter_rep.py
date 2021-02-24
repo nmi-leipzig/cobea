@@ -312,6 +312,11 @@ class TestInterRep(unittest.TestCase):
 		self.assertEqual(raw_net.drivers, vertex.drivers)
 		self.assertEqual(rep, vertex.rep)
 		
+		bits = [b for bt in vertex.get_bit_tuples() for b in bt]
+		for b in bits:
+			res = rep.get_vertex_for_bit(b)
+			self.assertEqual(vertex, res)
+		
 		for desig in vertex.desigs:
 			res = rep.get_vertices_of_tile(desig.tile)
 			self.assertIn(vertex, res)
