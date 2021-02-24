@@ -419,6 +419,7 @@ class InterRep:
 	def __init__(self, net_data_iter: Iterable[NetData], config_map: Mapping[TilePosition, ConfigAssemblage]) -> None:
 		self._vertices = []
 		self._vertex_map = {}
+		self._tile_vertex_map = {}
 		self._edge_map = {}
 		self._bit_map = {}
 		
@@ -446,9 +447,14 @@ class InterRep:
 	
 	def _add_vertex(self, vertex: Vertex) -> None:
 		self._vertices.append(vertex)
+		tiles = set()
 		for des in vertex.desigs:
 			assert des not in self._vertex_map
 			self._vertex_map[des] = vertex
+			tiles.add(des.tile)
+		
+		for tile in tiles:
+			self._tile_vertex_map.setdefault(tile, []).append(vertex)
 	
 	def _add_con_vertex(self, raw_net: NetData) -> ConVertex:
 		vertex = ConVertex.from_net_data(self, raw_net)
@@ -484,6 +490,13 @@ class InterRep:
 	
 	def get_vertex_for_bit(self, bit: IcecraftBitPosition) -> Vertex:
 		return self._bit_map[bit]
+	
+	def get_vertices_of_tile(self, tile:TilePosition) -> List[Vertex]:
+		try:
+			return self._tile_vertex_map[tile]
+		except KeyError:
+			# no vertices for this tile -> no entry
+			return []
 	
 	def iter_vertices(self) -> Iterable[Vertex]:
 		yield from self._vertices

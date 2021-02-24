@@ -311,6 +311,10 @@ class TestInterRep(unittest.TestCase):
 		self.assertEqual(raw_net.hard_driven, not vertex.configurable)
 		self.assertEqual(raw_net.drivers, vertex.drivers)
 		self.assertEqual(rep, vertex.rep)
+		
+		for desig in vertex.desigs:
+			res = rep.get_vertices_of_tile(desig.tile)
+			self.assertIn(vertex, res)
 	
 	def test_get_vertex(self):
 		dut = InterRep(NET_DATA, self.add_lut_config())
@@ -411,6 +415,9 @@ class TestInterRep(unittest.TestCase):
 			for bit in item.bits:
 				res = rep.get_vertex_for_bit(bit)
 				self.assertEqual(vertex, res)
+		
+		res = rep.get_vertices_of_tile(vertex.desig.tile)
+		self.assertIn(vertex, res)
 	
 	def test_add_lut_vertex(self):
 		dut = InterRep(NET_DATA, {})
@@ -503,6 +510,33 @@ class TestInterRep(unittest.TestCase):
 		for bit in bits:
 			res = dut.get_vertex_for_bit(bit)
 			self.assertEqual(vtx, res)
+	
+	def test_get_vertices_of_tile(self):
+		dut = InterRep(NET_DATA, self.add_con_config(self.add_lut_config()))
+		
+		tile_names_map = {}
+		for raw_net in NET_DATA:
+			for x, y, raw_name in raw_net.segment:
+				name_set = tile_names_map.setdefault(TilePosition(x, y), set())
+				name = f"NET#{raw_name}"
+				assert name not in name_set
+				name_set.add(name)
+		
+		for item_list in LUT_DATA:
+			index = item_list[0].index
+			tile = item_list[0].bits[0].tile
+			
+			name_set = tile_names_map.setdefault(tile, set())
+			name = f"LUT#{index}"
+			assert name not in name_set
+			name_set.add(name)
+		
+		for tile, name_set in tile_names_map.items():
+			res = dut.get_vertices_of_tile(tile)
+			res_names = set()
+			for vtx in res:
+				res_names.update([d.name for d in vtx.desigs if d.tile==tile])
+			self.assertEqual(name_set, res_names)
 	
 	# add LUT truth table, create LUTVertex
 	@staticmethod
