@@ -5,6 +5,10 @@ from .ice_board.device_data import BRAMMode, TilePosition
 
 from domain.model import BitPosition
 
+TILE_EXTERNAL_BITS = -1
+TILE_ALL = -2
+TILE_ALL_LOGIC = -3
+
 class LUTFunction(Enum):
 	CONST_0 = auto()
 	CONST_1 = auto()
@@ -48,6 +52,13 @@ class IcecraftColBufCtrl(IcecraftLUTPosition):
 class IcecraftNetPosition(IcecraftPosition):
 	name: str
 
+class IcecraftResource(IcecraftNetPosition):
+	"""Resource in a tile
+	
+	Resource can be a net or a LUT
+	"""
+	pass
+
 @dataclass(frozen=True, order=True)
 class IcecraftConnection(IcecraftPosition):
 	src_name: str
@@ -61,6 +72,14 @@ class IcecraftConnection(IcecraftPosition):
 	def dst(self):
 		return IcecraftNetPosition(self.tile, self.dst_name)
 
+class IcecraftResCon(IcecraftConnection):
+	"""Connection between ressources"""
+	pass
+
 class IcecraftError(Exception):
 	"""Base class for exceptions in icecraft"""
+	pass
+
+class IcecraftInputError(IcecraftError):
+	"""Error in input"""
 	pass

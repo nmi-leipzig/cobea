@@ -9,7 +9,9 @@ from domain.model import TargetConfiguration, Gene, Chromosome
 from domain.request_model import RequestObject, Parameter
 from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 
-from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, IcecraftNetPosition, LUTFunction, IcecraftBitPosition
+from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, \
+	IcecraftNetPosition, LUTFunction, IcecraftBitPosition, \
+	IcecraftResource, TILE_ALL, TILE_ALL_LOGIC
 from .chip_data import get_config_items, get_net_data, get_colbufctrl, ConfigAssemblage
 from .chip_data_utils import NetData, SegEntryType, SegType
 from .config_item import ConfigItem, ConnectionItem, IndexedItem
@@ -50,7 +52,7 @@ class IcecraftRepGen(RepresentationGenerator):
 	Ressources can be excluded in two ways:
 	- not available -> ressource doesn't belong to the genotype nor the phenotype and is not 
 	configured, i.e. bits will not be set; described by the request
-	- unused -> ressource will not be used have a fixed, neutral genotype and phneotype, e.g bits 
+	- unused -> ressource will not be used have a fixed, neutral genotype and phenotype, e.g bits 
 	will be constantly set to neutral (as a general rule to 0); described by (the negation of) 
 	a used function constructed from the request
 	"""
@@ -60,11 +62,9 @@ class IcecraftRepGen(RepresentationGenerator):
 			Parameter("y_min", int),
 			Parameter("x_max", int),
 			Parameter("y_max", int),
-			Parameter("exclude_nets", str, multiple=True),
-			Parameter("include_nets", str, multiple=True),
+			Parameter("exclude_resources", IcecraftResource, default=[], multiple=True),
+			Parameter("include_resources", IcecraftResource, default=[], multiple=True),
 			Parameter("output_lutffs", IcecraftLUTPosition, multiple=True),
-			Parameter("joint_input_nets", str, default=[], multiple=True),
-			Parameter("lone_input_nets", IcecraftNetPosition, default=[], multiple=True),
 			Parameter("lut_functions", LUTFunction, default=[], multiple=True),
 			Parameter("prune_no_viable_src", bool, default=False),
 		]}
@@ -85,7 +85,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		self.set_external_source(rep, tiles)
 		
-		self._choose_nets(rep, request)
+		self._choose_resources(rep, request, tiles)
 		
 		self.set_lut_functions(rep, request.lut_functions)
 		
@@ -138,31 +138,46 @@ class IcecraftRepGen(RepresentationGenerator):
 			vtx.ext_src = any(t not in tiles for t in drv_tiles)
 	
 	@classmethod
-	def _choose_nets(cls, rep: InterRep, request: RequestObject) -> None:
-		# exclude exclude nets
-		for regex_str in request.exclude_nets:
-			cond_func = cls.create_regex_condition_vertex(regex_str)
-			cls.set_available_vertex(rep.iter_vertices(), cond_func, False)
+	def set_vertex_resources(
+		cls,
+		rep: InterRep,
+		resources: Iterable[IcecraftResource],
+		special_map: Mapping[int, List[TilePosition]],
+		value: bool
+	) -> None:
+		for resc in resources:
+			if resc.x in special_map or resc.y in special_map:
+				if resc.x != resc.y:
+					raise IcecraftInputError(f"{resc.x}!={resc.y}, only identical special values supported")
+				possible_tiles = special_map[resc.x]
+			else:
+				possible_tiles = [resc.tile]
+			
+			cond_func = cls.create_regex_condition_vertex(resc.name)
+			for tile in possible_tiles:
+				cls.set_available_vertex(rep.get_vertices_of_tile(tile), cond_func, value)
+		
+	
+	@classmethod
+	def _choose_resources(cls, rep: InterRep, request: RequestObject, tiles: Iterable[TilePosition]) -> None:
+		"""Set available flag of resources according to a request
+		
+		tiles specifies which tiles the wildcars TILE_ALL and TILE_ALL_LOGIC are applied to
+		"""
+		# sort by special values for tile coordinates
+		special_map = {}
+		special_map[TILE_ALL] = list(tiles)
+		# at the moment only logic tiles are supported so they are the same
+		special_map[TILE_ALL_LOGIC] = special_map[TILE_ALL]
+		
+		# exclude exclude resources
+		cls.set_vertex_resources(rep, request.exclude_resources, special_map, False)
+		
 		# exclude all nets with external drivers
 		cls.set_available_vertex(rep.iter_vertices(), lambda v: v.ext_src, False)
 		
-		# include include nets
-		for regex_str in request.include_nets:
-			cond_func = cls.create_regex_condition_vertex(regex_str)
-			cls.set_available_vertex(rep.iter_vertices(), cond_func, True)
-		
-		# include joint input nets
-		for name in request.joint_input_nets:
-			cls.set_available_vertex(rep.iter_vertices(), lambda v: any([name==d.name for d in v.desigs]), True)
-		
-		# include lone input nets
-		for net_pos in request.lone_input_nets:
-			desig = VertexDesig.from_net_position(net_pos)
-			try:
-				vtx = rep.get_vertex(desig)
-			except KeyError:
-				raise ValueError(f"Requested input net {net_pos} not found")
-			vtx.available = True
+		# include include resources
+		cls.set_vertex_resources(rep, request.include_resources, special_map, True)
 	
 	@staticmethod
 	def set_lut_functions(rep: InterRep, lut_functions: Iterable[LUTFunction]) -> None:

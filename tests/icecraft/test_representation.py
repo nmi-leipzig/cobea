@@ -16,6 +16,7 @@ from adapters.icecraft.chip_data import ConfigAssemblage, get_config_items, get_
 from adapters.icecraft.chip_data_utils import NetData, ElementInterface
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex
+from adapters.icecraft.misc import IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC
 
 from ..test_request_model import check_parameter_user
 
@@ -33,17 +34,16 @@ class IcecraftRepGenTest(unittest.TestCase):
 		dut = icecraft.IcecraftRepGen()
 	
 	def test_call(self):
+		ice_res = IcecraftResource.from_coords
 		dut = icecraft.IcecraftRepGen()
 		req = RequestObject()
 		req["x_min"] = 2
 		req["y_min"] = 2
 		req["x_max"] = 2
 		req["y_max"] = 2
-		req["exclude_nets"] = ["sp4", "sp12", "glb_netwk"]
-		req["include_nets"] = []
+		req["exclude_resources"] = [IcecraftResource.from_coords(TILE_ALL, TILE_ALL, n) for n in ("NET#sp4", "NET#sp12", "NET#glb_netwk")]
+		req["include_resources"] = []
 		req["output_lutffs"] = [icecraft.IcecraftLUTPosition.from_coords(2, 2, 2)]
-		req["joint_input_nets"] = []
-		req["lone_input_nets"] = []
 		req["lut_functions"] = [icecraft.LUTFunction.NAND, icecraft.LUTFunction.AND]
 		
 		dut(req)
@@ -335,28 +335,34 @@ class IcecraftRepGenTest(unittest.TestCase):
 					val = func(vtx)
 					self.assertEqual(exp_val, val, f"{desig}")
 	
-	def test_choose_nets(self):
+	def test_choose_resources(self):
 		all_segs = [n.segment[0] for n in NET_DATA]
 		ext_drv = {s: True if s in [(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"), (7, 0, "out")] else False for s in all_segs}
 		
+		ice_res = IcecraftResource.from_coords
+		
 		test_data = (
 			("empty parameters, only external driven unavailable", (
-				[], [], [], []
+				[], []
 			), {s: not v for s, v in ext_drv.items()}),
 			("exclude nets", (
-				[r".*span"], [], [], []
+				[ice_res(TILE_ALL, TILE_ALL, r".*span")], []
 			), {s: True if s in [(2, 3, "internal"), (2, 3, "internal_2"), (2, 3, "lut_out"), (2, 3, "empty_out"), (4, 2, "out")] else False for s in all_segs}),
 			("include nets", (
-				[], ["NET#left$"], [], []
+				[], [ice_res(TILE_ALL, TILE_ALL, "NET#left$")]
 			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')] else False for s in all_segs}),
 			("joint_input_nets", (
-				[], [], ["NET#left"], []
+				[], [ice_res(TILE_ALL, TILE_ALL, "NET#left")]
 			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')] else False for s in all_segs}),
 			("lone_input_nets", (
-				[], [], [], [IcecraftNetPosition.from_coords(2, 3, "left")]
+				[], [ice_res(2, 3, "NET#left$")]
 			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')] else False for s in all_segs}),
 			("complete example", (
-				[r".*span"], ["^NET#long_span_\d$"], ["NET#out"], [IcecraftNetPosition.from_coords(2, 3, "left")]
+				[ice_res(TILE_ALL, TILE_ALL, r".*span")], [
+					ice_res(TILE_ALL, TILE_ALL, "^NET#long_span_\d$"),
+					ice_res(TILE_ALL, TILE_ALL, "NET#out"),
+					ice_res(2, 3, "NET#left$")
+				]
 			), {s: True if s not in [(0, 3, 'wire_in_1'), (4, 2, 'short_span_1'), (4, 1, 'short_span_2')] else False for s in all_segs}),
 		)
 		
@@ -364,6 +370,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		with self.subTest(desc="default values of available"):
 			rep = InterRep(NET_DATA, {})
 			self.check_available(rep, {s: True for s in all_segs})
+		
+		tiles = [TilePosition(x, y) for n in NET_DATA for x, y, _ in n.segment]
 		
 		for desc, in_data, exp_dict in test_data:
 			with self.subTest(desc=desc):
@@ -375,9 +383,9 @@ class IcecraftRepGenTest(unittest.TestCase):
 					vtx.ext_src = ext_val
 				
 				req = RequestObject()
-				req["exclude_nets"], req["include_nets"], req["joint_input_nets"], req["lone_input_nets"] = in_data
+				req["exclude_resources"], req["include_resources"] = in_data
 				
-				icecraft.IcecraftRepGen._choose_nets(rep, req)
+				icecraft.IcecraftRepGen._choose_resources(rep, req, tiles)
 				
 				self.check_available(rep, exp_dict)
 	
