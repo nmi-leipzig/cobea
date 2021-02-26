@@ -335,6 +335,52 @@ class IcecraftRepGenTest(unittest.TestCase):
 					val = func(vtx)
 					self.assertEqual(exp_val, val, f"{desig}")
 	
+	def test_set_vertex_resources(self):
+		class VtxRescData(NamedTuple):
+			desc: str
+			resources: List[IcecraftResource]
+			special_map: Mapping[int, List[TilePosition]]
+			value: bool
+			exp_false: List[bool]
+		
+		ice_res = IcecraftResource.from_coords
+		all_tiles = sorted(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment))
+		test_data = [
+			VtxRescData(
+				"RegEx matches, but not for special tile",
+				[ice_res(-1, -1, r"NET#wire_out$")], {-1: [TilePosition(0, 3)]}, False, []
+			),
+			VtxRescData(
+				"RegEx matches, but not for requested tile",
+				[ice_res(1, 3, r"NET#wire_out$")], {-1: [TilePosition(0, 3)]}, False, []
+				
+			),
+			VtxRescData(
+				"RegEx doesn't match",
+				[ice_res(-1, -1, r"has to have NET in front")], {-1: all_tiles}, False, []
+			),
+			VtxRescData(
+				"Special value match",
+				[ice_res(-1, -1, r"NET#out$")], {-1: all_tiles}, False,
+				[(0, 3, "right"), (4, 2, "out"), (7, 0, "out")]
+			),
+			VtxRescData(
+				"Normal match",
+				[ice_res(1, 3, r"NET#out$")], {-1: all_tiles}, False,
+				[(0, 3, "right")]
+			),
+		]
+		
+		all_segs = [n.segment[0] for n in NET_DATA]
+		for td in test_data:
+			with self.subTest(desc=td.desc):
+				rep = InterRep(NET_DATA, {})
+				exp_dict = {s: False if s in td.exp_false else True for s in all_segs}
+				
+				icecraft.IcecraftRepGen.set_vertex_resources(rep, td.resources, td.special_map, td.value)
+				
+				self.check_available(rep, exp_dict)
+	
 	def test_choose_resources(self):
 		all_segs = [n.segment[0] for n in NET_DATA]
 		ext_drv = {s: True if s in [(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"), (7, 0, "out")] else False for s in all_segs}
