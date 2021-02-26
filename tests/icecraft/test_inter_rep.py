@@ -543,6 +543,38 @@ class TestInterRep(unittest.TestCase):
 				res_names.update([d.name for d in vtx.desigs if d.tile==tile])
 			self.assertEqual(name_set, res_names)
 	
+	def test_get_edges_of_tile(self):
+		dut = InterRep(NET_DATA, self.add_con_config(self.add_lut_config()))
+		
+		tile_names_map = {}
+		for con_item in CON_DATA:
+			tile = con_item.bits[0].tile
+			for src_net in con_item.src_nets:
+				tile_names_map.setdefault(tile, set()).add(EdgeDesig.net_to_net(tile, src_net, con_item.dst_net))
+		
+		for lut_index, lut_io in enumerate(LUT_CON):
+			for lut_in in lut_io.in_nets:
+				tile = TilePosition(*lut_in[:2])
+				in_name = lut_in[2]
+				tile_names_map.setdefault(tile, set()).add(EdgeDesig.net_to_lut(tile, in_name, lut_index))
+			
+			for lut_out in lut_io.out_nets:
+				tile = TilePosition(*lut_out[:2])
+				out_name = lut_out[2]
+				tile_names_map.setdefault(tile, set()).add(EdgeDesig.lut_to_net(tile, lut_index, out_name))
+		
+		all_desigs = set()
+		for tile, exp_set in tile_names_map.items():
+			res = dut.get_edges_of_tile(tile)
+			desig_set = set(e.desig for e in res)
+			self.assertEqual(len(res), len(desig_set))
+			
+			self.assertEqual(exp_set, desig_set)
+			
+			all_desigs.update(desig_set)
+		
+		self.assertEqual(set(e.desig for e in dut.iter_edges()), all_desigs)
+	
 	# add LUT truth table, create LUTVertex
 	@staticmethod
 	def check_consistency(test_case, rep):

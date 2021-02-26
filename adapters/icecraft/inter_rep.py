@@ -421,6 +421,7 @@ class InterRep:
 		self._vertex_map = {}
 		self._tile_vertex_map = {}
 		self._edge_map = {}
+		self._tile_edge_map = {}
 		self._bit_map = {}
 		
 		for raw_net in net_data_iter:
@@ -475,6 +476,8 @@ class InterRep:
 		assert desig not in self._edge_map
 		self._edge_map[desig] = edge
 		
+		self._tile_edge_map.setdefault(desig.dst.tile, []).append(edge)
+		
 		return edge
 	
 	def register_bits(self, bits: Iterable[IcecraftBitPosition], vertex: Vertex) -> None:
@@ -491,11 +494,18 @@ class InterRep:
 	def get_vertex_for_bit(self, bit: IcecraftBitPosition) -> Vertex:
 		return self._bit_map[bit]
 	
-	def get_vertices_of_tile(self, tile:TilePosition) -> List[Vertex]:
+	def get_vertices_of_tile(self, tile: TilePosition) -> List[Vertex]:
 		try:
 			return self._tile_vertex_map[tile]
 		except KeyError:
 			# no vertices for this tile -> no entry
+			return []
+	
+	def get_edges_of_tile(self, tile: TilePosition) -> List[Edge]:
+		try:
+			return self._tile_edge_map[tile]
+		except KeyError:
+			# no edges for this tile -> no entry
 			return []
 	
 	def iter_vertices(self) -> Iterable[Vertex]:
