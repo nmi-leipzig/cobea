@@ -536,12 +536,17 @@ class TestInterRep(unittest.TestCase):
 			assert name not in name_set
 			name_set.add(name)
 		
+		vertex_desigs = set()
 		for tile, name_set in tile_names_map.items():
 			res = dut.get_vertices_of_tile(tile)
+			vertex_desigs.update([v.desigs[0] for v in res])
 			res_names = set()
 			for vtx in res:
 				res_names.update([d.name for d in vtx.desigs if d.tile==tile])
 			self.assertEqual(name_set, res_names)
+		
+		exp_desigs = set(v.desigs[0] for v in dut.iter_vertices())
+		self.assertEqual(exp_desigs, vertex_desigs)
 	
 	def test_get_edges_of_tile(self):
 		dut = InterRep(NET_DATA, self.add_con_config(self.add_lut_config()))
