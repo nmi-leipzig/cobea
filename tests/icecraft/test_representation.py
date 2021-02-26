@@ -314,21 +314,23 @@ class IcecraftRepGenTest(unittest.TestCase):
 	
 	def test_create_regex_condition_vertex(self):
 		all_segs = [n.segment[0] for n in NET_DATA]
+		all_tiles = sorted(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment))
 		test_data = (
-			(r"", {s: True for s in all_segs}),
-			(r"never_seen", {s: False for s in all_segs}),
-			(r"NET#internal", {s: True if s in [(2, 3, "internal"), (2, 3, "internal_2")] else False for s in all_segs}),
-			(r".*span_\d", {s: True if s in [
+			(r"", all_tiles, {s: True for s in all_segs}),
+			(r"never_seen", all_tiles, {s: False for s in all_segs}),
+			(r"NET#internal", all_tiles, {s: True if s in [(2, 3, "internal"), (2, 3, "internal_2")] else False for s in all_segs}),
+			(r".*span_\d", all_tiles, {s: True if s in [
 				(4, 2, "short_span_1"), (4, 1, "short_span_2"), (5, 0, "long_span_1"),
 				(5, 3, "long_span_2"), (8, 0, "long_span_3"), (5, 0, "long_span_4")
-			] else False for s in all_segs})
+			] else False for s in all_segs}),
+			(r"NET#out$", [TilePosition(2, 3)], {s: False for s in all_segs}),
 		)
 		
 		rep = InterRep(NET_DATA, {})
 		
-		for regex_str, exp_dict in test_data:
+		for regex_str, tiles, exp_dict in test_data:
 			with self.subTest(regex=regex_str):
-				func = icecraft.IcecraftRepGen.create_regex_condition_vertex(regex_str)
+				func = icecraft.IcecraftRepGen.create_regex_condition_vertex(regex_str, tiles)
 				for seg, exp_val in exp_dict.items():
 					desig = VertexDesig.from_seg_entry(seg)
 					vtx = rep.get_vertex(desig)

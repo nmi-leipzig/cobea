@@ -1,5 +1,5 @@
 import re
-from typing import Sequence, Mapping, List, Tuple, Iterable, Callable, Union
+from typing import Sequence, Mapping, List, Tuple, Iterable, Callable, Union, Set
 from dataclasses import dataclass
 from contextlib import contextmanager
 from collections import defaultdict
@@ -153,7 +153,7 @@ class IcecraftRepGen(RepresentationGenerator):
 			else:
 				possible_tiles = [resc.tile]
 			
-			cond_func = cls.create_regex_condition_vertex(resc.name)
+			cond_func = cls.create_regex_condition_vertex(resc.name, possible_tiles)
 			for tile in possible_tiles:
 				cls.set_available_vertex(rep.get_vertices_of_tile(tile), cond_func, value)
 		
@@ -207,12 +207,13 @@ class IcecraftRepGen(RepresentationGenerator):
 				edge.available = value
 	
 	@staticmethod
-	def create_regex_condition_vertex(regex_str: str) -> Callable[[Vertex], bool]:
+	def create_regex_condition_vertex(regex_str: str, tiles: Iterable[TilePosition]) -> Callable[[Vertex], bool]:
 		pat = re.compile(regex_str)
+		tile_set = set(tiles)
 		
 		def func(vtx: Vertex) -> bool:
 			for desig in vtx.desigs:
-				if pat.match(desig.name):
+				if desig.tile in tile_set and pat.match(desig.name):
 					return True
 			return False
 		
