@@ -11,7 +11,8 @@ from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 
 from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, \
 	IcecraftNetPosition, LUTFunction, IcecraftBitPosition, \
-	IcecraftResource, TILE_ALL, TILE_ALL_LOGIC
+	IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, \
+	IcecraftInputError
 from .chip_data import get_config_items, get_net_data, get_colbufctrl, ConfigAssemblage
 from .chip_data_utils import NetData, SegEntryType, SegType
 from .config_item import ConfigItem, ConnectionItem, IndexedItem
@@ -64,6 +65,8 @@ class IcecraftRepGen(RepresentationGenerator):
 			Parameter("y_max", int),
 			Parameter("exclude_resources", IcecraftResource, default=[], multiple=True),
 			Parameter("include_resources", IcecraftResource, default=[], multiple=True),
+			Parameter("exclude_connections", IcecraftResCon, default=[], multiple=True),
+			Parameter("include_connections", IcecraftResCon, default=[], multiple=True),
 			Parameter("output_lutffs", IcecraftLUTPosition, multiple=True),
 			Parameter("lut_functions", LUTFunction, default=[], multiple=True),
 			Parameter("prune_no_viable_src", bool, default=False),
@@ -137,6 +140,21 @@ class IcecraftRepGen(RepresentationGenerator):
 			drv_tiles = [vtx.desigs[i].tile for i in vtx.drivers]
 			vtx.ext_src = any(t not in tiles for t in drv_tiles)
 	
+	@staticmethod
+	def tiles_from_resource_tile(resc_tile: TilePosition, special_map: Mapping[int, List[TilePosition]]) -> List[TilePosition]:
+		"""Get tiles that match the tile of a resource
+		
+		The resource tile may include special values while the returned tiles don't.
+		"""
+		if resc_tile.x in special_map or resc_tile.y in special_map:
+			if resc_tile.x != resc_tile.y:
+				raise IcecraftInputError(f"{resc_tile.x}!={resc_tile.y}, only identical special values supported")
+			tiles = special_map[resc_tile.x]
+		else:
+			tiles = [resc_tile]
+		
+		return tiles
+	
 	@classmethod
 	def set_vertex_resources(
 		cls,
@@ -146,17 +164,26 @@ class IcecraftRepGen(RepresentationGenerator):
 		value: bool
 	) -> None:
 		for resc in resources:
-			if resc.x in special_map or resc.y in special_map:
-				if resc.x != resc.y:
-					raise IcecraftInputError(f"{resc.x}!={resc.y}, only identical special values supported")
-				possible_tiles = special_map[resc.x]
-			else:
-				possible_tiles = [resc.tile]
-			
+			possible_tiles = cls.tiles_from_resource_tile(resc.tile, special_map)
 			cond_func = cls.create_regex_condition_vertex(resc.name, possible_tiles)
+			
 			for tile in possible_tiles:
 				cls.set_available_vertex(rep.get_vertices_of_tile(tile), cond_func, value)
-		
+	
+	@classmethod
+	def set_edge_resources(
+		cls,
+		rep: InterRep,
+		resccons: Iterable[IcecraftResCon],
+		special_map: Mapping[int, List[TilePosition]],
+		value: bool
+	) -> None:
+		for resccon in resccons:
+			possible_tiles = cls.tiles_from_resource_tile(resccon.tile, special_map)
+			cond_func = cls.create_regex_condition_edge(resccon.src_name, resccon.dst_name, possible_tiles)
+			
+			for tile in possible_tiles:
+				cls.set_available_edge(rep.get_edges_of_tile(tile), cond_func, value)
 	
 	@classmethod
 	def _choose_resources(cls, rep: InterRep, request: RequestObject, tiles: Iterable[TilePosition]) -> None:
@@ -178,6 +205,15 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		# include include resources
 		cls.set_vertex_resources(rep, request.include_resources, special_map, True)
+	
+	@classmethod
+	def _choose_connections(cls, rep: InterRep, request: RequestObject, special_map: Mapping[int, List[TilePosition]]) -> None:
+		"""Set available flag of connections between resources according to a request"""
+		# exclude exclude connections
+		cls.set_edge_resources(rep, request.exclude_connections, special_map, False)
+		
+		# include include connections
+		cls.set_edge_resources(rep, request.include_connections, special_map, True)
 	
 	@staticmethod
 	def set_lut_functions(rep: InterRep, lut_functions: Iterable[LUTFunction]) -> None:
@@ -216,6 +252,18 @@ class IcecraftRepGen(RepresentationGenerator):
 				if desig.tile in tile_set and pat.match(desig.name):
 					return True
 			return False
+		
+		return func
+	
+	@staticmethod
+	def create_regex_condition_edge(src_regex: str, dst_regex: str, tiles: Iterable[TilePosition]) -> Callable[[Edge], bool]:
+		src_pat = re.compile(src_regex)
+		dst_pat = re.compile(dst_regex)
+		tile_set = set(tiles)
+		
+		def func(edge: Edge) -> bool:
+			desig = edge.desig
+			return desig.src.tile in tile_set and src_pat.match(desig.src.name) is not None and dst_pat.match(desig.dst.name) is not None
 		
 		return func
 	

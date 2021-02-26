@@ -3,7 +3,7 @@ import re
 import copy
 import itertools
 import pdb
-from typing import NamedTuple, Iterable, List, Mapping, Callable, Tuple, Union, Dict
+from typing import NamedTuple, Iterable, List, Mapping, Callable, Tuple, Union, Dict, NewType
 from enum import Enum, auto
 from dataclasses import dataclass, field
 
@@ -13,10 +13,10 @@ from domain.request_model import RequestObject
 from domain.model import Gene
 from domain.allele_sequence import AlleleList, AlleleAll, AllelePow, Allele
 from adapters.icecraft.chip_data import ConfigAssemblage, get_config_items, get_net_data
-from adapters.icecraft.chip_data_utils import NetData, ElementInterface
+from adapters.icecraft.chip_data_utils import NetData, ElementInterface, SegEntryType
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex
-from adapters.icecraft.misc import IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC
+from adapters.icecraft.misc import IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftInputError
 
 from ..test_request_model import check_parameter_user
 
@@ -30,6 +30,26 @@ class Comparison(Enum):
 	IDENTICAL = auto()
 
 class IcecraftRepGenTest(unittest.TestCase):
+	def add_con_config(self, config_map=None):
+		if config_map is None:
+			config_map = {}
+		
+		for con_item in CON_DATA:
+			config_assem = config_map.setdefault(con_item.bits[0].tile, ConfigAssemblage())
+			config_assem.connection += (con_item, )
+		
+		return config_map
+	
+	def add_lut_config(self, config_map=None):
+		if config_map is None:
+			config_map = {}
+		
+		tile = LUT_DATA[0][0].bits[0].tile
+		config_map.setdefault(tile, ConfigAssemblage()).lut = LUT_DATA
+		config_map[tile].lut_io = LUT_CON
+		
+		return config_map
+	
 	def test_creation(self):
 		dut = icecraft.IcecraftRepGen()
 	
@@ -291,6 +311,23 @@ class IcecraftRepGenTest(unittest.TestCase):
 			exp_dict = {e.desig: True if e.desig not in excluded else False for e in rep.iter_edges()}
 			self.check_available_edge(rep, exp_dict)
 		
+	def test_tiles_from_resource_tile(self):
+		tile = TilePosition(2, 3)
+		all_tiles = [TilePosition(0, 3), TilePosition(1, 2), tile]
+		special_map = {-1: all_tiles, -2: [tile]}
+		
+		with self.subTest(desc="normal value"):
+			res = icecraft.IcecraftRepGen.tiles_from_resource_tile(tile, special_map)
+			self.assertEqual([tile], res)
+		
+		with self.subTest(desc="special value"):
+			res = icecraft.IcecraftRepGen.tiles_from_resource_tile(TilePosition(-1, -1), special_map)
+			self.assertEqual(all_tiles, res)
+		
+		with self.subTest(desc="special value, different"):
+			with self.assertRaises(IcecraftInputError):
+				res = icecraft.IcecraftRepGen.tiles_from_resource_tile(TilePosition(-1, -2), special_map)
+		
 	
 	def test_set_external_source(self):
 		all_segs = [n.segment[0] for n in NET_DATA]
@@ -337,13 +374,44 @@ class IcecraftRepGenTest(unittest.TestCase):
 					val = func(vtx)
 					self.assertEqual(exp_val, val, f"{desig}")
 	
+	def test_create_regex_condition_edge(self):
+		class EdgeCondData(NamedTuple):
+			desc: str
+			src_regex: str
+			dst_regex: str
+			tiles: List[TilePosition]
+			exp_true: List[EdgeDesig]
+		
+		rep = InterRep(NET_DATA, self.add_con_config())
+		all_tiles = sorted(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment))
+		all_desigs = list(e.desig for e in rep.iter_edges())
+		test_data = [
+			EdgeCondData("match all", r"", r"", all_tiles, all_desigs),
+			EdgeCondData("match none src", r"can't match", r"", all_tiles, []),
+			EdgeCondData("match none dst", r"", r"can't match", all_tiles, []),
+			EdgeCondData("match none tile", r"", r"", [TilePosition(13, 4)], []),
+			EdgeCondData("simple match", "NET#out$", r"NET#short_span_2$", [TilePosition(4, 2)], [
+				EdgeDesig.net_to_net(TilePosition(4, 2), "out", "short_span_2")
+			]),
+		]
+		
+		for td in test_data:
+			with self.subTest(desc=td.desc):
+				func = icecraft.IcecraftRepGen.create_regex_condition_edge(td.src_regex, td.dst_regex, td.tiles)
+				for desig in all_desigs:
+					exp_val = desig in td.exp_true
+					edge = rep.get_edge(desig)
+					val = func(edge)
+					self.assertEqual(exp_val, val, f"{desig}")
+			
+	
 	def test_set_vertex_resources(self):
 		class VtxRescData(NamedTuple):
 			desc: str
 			resources: List[IcecraftResource]
 			special_map: Mapping[int, List[TilePosition]]
 			value: bool
-			exp_false: List[bool]
+			exp_false: List[SegEntryType]
 		
 		ice_res = IcecraftResource.from_coords
 		all_tiles = sorted(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment))
@@ -382,6 +450,50 @@ class IcecraftRepGenTest(unittest.TestCase):
 				icecraft.IcecraftRepGen.set_vertex_resources(rep, td.resources, td.special_map, td.value)
 				
 				self.check_available(rep, exp_dict)
+	
+	def test_set_edge_resources(self):
+		class EdgeRescData(NamedTuple):
+			desc: str
+			resccons: List[IcecraftResCon]
+			special_map: Mapping[int, List[TilePosition]]
+			value: bool
+			exp_false: List[EdgeDesig]
+		
+		ice_rc = IcecraftResCon.from_coords
+		crt_dsg = EdgeDesig.net_to_net
+		rep = InterRep(NET_DATA, self.add_con_config())
+		all_desigs = list(e.desig for e in rep.iter_edges())
+		all_tiles = sorted(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment))
+		test_data = [
+			EdgeRescData("match all set to True", [ice_rc(-1, -1, r"", r"")], {-1: all_tiles}, True, []),
+			EdgeRescData("match all set to False", [ice_rc(-1, -1, r"", r"")], {-1: all_tiles}, False, all_desigs),
+			EdgeRescData("match none", [
+				ice_rc(-1, -1, r"no dst", r""),
+				ice_rc(-1, -1, r"", r"no src"),
+				ice_rc(13, 4, r"", r"")
+			], {-1: all_tiles}, False, []),
+			EdgeRescData("matches", [
+				ice_rc(-1, -1, r"NET#long_span_4$", r""),
+				ice_rc(8, 3, r"", r"NET#long_span_2$"),
+				ice_rc(1, 3, r"NET#out$", r"NET#wire_in_2$"),
+			], {-1: all_tiles}, False, [
+				crt_dsg(TilePosition(8, 0), "long_span_4", "long_span_3"),
+				crt_dsg(TilePosition(8, 3), "long_span_3", "long_span_2"),
+				crt_dsg(TilePosition(1, 3), "out", "wire_in_2"),
+			])
+		]
+		
+		for td in test_data:
+			with self.subTest(desc=td.desc):
+				exp_dict = {e.desig: e.desig not in td.exp_false for e in rep.iter_edges()}
+				
+				icecraft.IcecraftRepGen.set_edge_resources(rep, td.resccons, td.special_map, td.value)
+				
+				self.check_available_edge(rep, exp_dict)
+				
+				# reset
+				for edge in rep.iter_edges():
+					edge.available = True
 	
 	def test_choose_resources(self):
 		all_segs = [n.segment[0] for n in NET_DATA]
@@ -436,6 +548,40 @@ class IcecraftRepGenTest(unittest.TestCase):
 				icecraft.IcecraftRepGen._choose_resources(rep, req, tiles)
 				
 				self.check_available(rep, exp_dict)
+	
+	def test_choose_connections(self):
+		class ChooConData(NamedTuple):
+			desc: str
+			req_data: Tuple[List[IcecraftResCon], List[IcecraftResCon]]
+			special_map: Mapping[int, List[TilePosition]]
+			exp_false: List[EdgeDesig]
+		
+		ice_rc = IcecraftResCon.from_coords
+		crt_dsg = EdgeDesig.net_to_net
+		rep = InterRep(NET_DATA, self.add_con_config())
+		all_desigs = list(e.desig for e in rep.iter_edges())
+		all_tiles = sorted(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment))
+		test_data = [
+			ChooConData("empty, no change", ([], []), {}, []),
+			ChooConData("all but one", (
+				[ice_rc(-1, -1, r"", r"")],
+				[ice_rc(2, 3, "NET#left$", "NET#internal$")]
+			), {-1: all_tiles}, [d for d in all_desigs if d != crt_dsg(TilePosition(2, 3), "left", "internal")]),
+		]
+		
+		for td in test_data:
+			with self.subTest(desc=td.desc):
+				exp_dict = {e.desig: e.desig not in td.exp_false for e in rep.iter_edges()}
+				
+				req = RequestObject()
+				req["exclude_connections"], req["include_connections"] = td.req_data
+				icecraft.IcecraftRepGen._choose_connections(rep, req, td.special_map)
+				
+				self.check_available_edge(rep, exp_dict)
+				
+				# reset
+				for edge in rep.iter_edges():
+					edge.available = True
 	
 	def test_get_colbufctrl_coordinates(self):
 		net_data_glb = [NetData(tuple(
