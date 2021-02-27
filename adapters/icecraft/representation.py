@@ -185,17 +185,23 @@ class IcecraftRepGen(RepresentationGenerator):
 			for tile in possible_tiles:
 				cls.set_available_edge(rep.get_edges_of_tile(tile), cond_func, value)
 	
+	@staticmethod
+	def create_special_map(tiles: Iterable[TilePosition]) -> Mapping[int, List[TilePosition]]:
+		# sort by special values for tile coordinates
+		special_map = {}
+		special_map[TILE_ALL] = list(tiles)
+		# at the moment only logic tiles are supported so they are the same
+		special_map[TILE_ALL_LOGIC] = special_map[TILE_ALL]
+		
+		return special_map
+	
 	@classmethod
 	def _choose_resources(cls, rep: InterRep, request: RequestObject, tiles: Iterable[TilePosition]) -> None:
 		"""Set available flag of resources according to a request
 		
 		tiles specifies which tiles the wildcars TILE_ALL and TILE_ALL_LOGIC are applied to
 		"""
-		# sort by special values for tile coordinates
-		special_map = {}
-		special_map[TILE_ALL] = list(tiles)
-		# at the moment only logic tiles are supported so they are the same
-		special_map[TILE_ALL_LOGIC] = special_map[TILE_ALL]
+		special_map = cls.create_special_map(tiles)
 		
 		# exclude exclude resources
 		cls.set_vertex_resources(rep, request.exclude_resources, special_map, False)
