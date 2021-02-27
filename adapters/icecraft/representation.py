@@ -90,6 +90,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		special_map = self.create_special_map(tiles)
 		self._choose_resources(rep, request, special_map)
+		self._choose_connections(rep, request, special_map)
 		
 		self.set_lut_functions(rep, request.lut_functions)
 		

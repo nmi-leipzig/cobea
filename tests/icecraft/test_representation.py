@@ -63,6 +63,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		req["y_max"] = 2
 		req["exclude_resources"] = [IcecraftResource.from_coords(TILE_ALL, TILE_ALL, n) for n in ("NET#sp4", "NET#sp12", "NET#glb_netwk")]
 		req["include_resources"] = []
+		req["exclude_connections"] = []
+		req["include_connections"] = []
 		req["output_lutffs"] = [icecraft.IcecraftLUTPosition.from_coords(2, 2, 2)]
 		req["lut_functions"] = [icecraft.LUTFunction.NAND, icecraft.LUTFunction.AND]
 		
