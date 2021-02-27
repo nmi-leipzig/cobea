@@ -532,6 +532,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			self.check_available(rep, {s: True for s in all_segs})
 		
 		tiles = [TilePosition(x, y) for n in NET_DATA for x, y, _ in n.segment]
+		special_map = icecraft.IcecraftRepGen.create_special_map(tiles)
 		
 		for desc, in_data, exp_dict in test_data:
 			with self.subTest(desc=desc):
@@ -545,7 +546,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 				req = RequestObject()
 				req["exclude_resources"], req["include_resources"] = in_data
 				
-				icecraft.IcecraftRepGen._choose_resources(rep, req, tiles)
+				icecraft.IcecraftRepGen._choose_resources(rep, req, special_map)
 				
 				self.check_available(rep, exp_dict)
 	

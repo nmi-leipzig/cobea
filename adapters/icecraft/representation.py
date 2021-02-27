@@ -88,7 +88,8 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		self.set_external_source(rep, tiles)
 		
-		self._choose_resources(rep, request, tiles)
+		special_map = self.create_special_map(tiles)
+		self._choose_resources(rep, request, special_map)
 		
 		self.set_lut_functions(rep, request.lut_functions)
 		
@@ -196,13 +197,11 @@ class IcecraftRepGen(RepresentationGenerator):
 		return special_map
 	
 	@classmethod
-	def _choose_resources(cls, rep: InterRep, request: RequestObject, tiles: Iterable[TilePosition]) -> None:
+	def _choose_resources(cls, rep: InterRep, request: RequestObject, special_map: Mapping[int, List[TilePosition]]) -> None:
 		"""Set available flag of resources according to a request
 		
 		tiles specifies which tiles the wildcars TILE_ALL and TILE_ALL_LOGIC are applied to
 		"""
-		special_map = cls.create_special_map(tiles)
-		
 		# exclude exclude resources
 		cls.set_vertex_resources(rep, request.exclude_resources, special_map, False)
 		
