@@ -1,5 +1,5 @@
 import re
-from typing import Sequence, Mapping, List, Tuple, Iterable, Callable, Union, Set
+from typing import Sequence, Mapping, List, Tuple, Iterable, Callable, Union, Set, NamedTuple
 from dataclasses import dataclass
 from contextlib import contextmanager
 from collections import defaultdict
@@ -12,7 +12,7 @@ from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, \
 	IcecraftNetPosition, LUTFunction, IcecraftBitPosition, \
 	IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, \
-	IcecraftInputError
+	IcecraftInputError, IcecraftGeneConstraint
 from .chip_data import get_config_items, get_net_data, get_colbufctrl, ConfigAssemblage
 from .chip_data_utils import NetData, SegEntryType, SegType
 from .config_item import ConfigItem, ConnectionItem, IndexedItem
@@ -272,6 +272,98 @@ class IcecraftRepGen(RepresentationGenerator):
 			return desig.src.tile in tile_set and src_pat.match(desig.src.name) is not None and dst_pat.match(desig.dst.name) is not None
 		
 		return func
+	
+	@classmethod
+	def apply_gene_constraints(cls, genes: List[Gene], constraint_iter: Iterable[IcecraftGeneConstraint]) -> int:
+		"""
+		
+		Every bit can only be defined once, even if the multiple definition are compatible.
+		
+		position:
+		restraint of allesles only -> same position
+		reorder bits only -> same position
+		combination -> delete original genes, append siper gene
+		
+		return number of super genes
+		"""
+		class BitOrigin(NamedTuple):
+			gene_pos: int
+			bit_pos : int
+		
+		bit_org_gene_map = {b: g for g in genes for b in g.bit_positions}
+		bits_org_list_pos = {g.bit_positions: i for i, g in enumerate(genes)}
+		del_list = []
+		super_count = 0
+		for constraint in constraint_iter:
+			# find mapping from constraint bits to gene bits
+			bit_index_map = {b:i for i, b in enumerate(constraint.bits)}
+			pos_origin_map = [None]*len(constraint.bits)
+			org_gene_list = []
+			while len(bit_index_map) > 0:
+				next_bit = next(iter(bit_index_map.keys()))
+				
+				try:
+					org_gene = bit_org_gene_map[next_bit]
+				except KeyError as ke:
+					raise IcecraftInputError(f"bit {next_bit} not found; not defined or used twice") from ke
+				
+				gene_pos = len(org_gene_list)
+				org_gene_list.append(org_gene)
+				for bit_pos, bit in enumerate(org_gene.bit_positions):
+					try:
+						index = bit_index_map[bit]
+						del bit_index_map[bit]
+					except KeyError as ke:
+						raise IcecraftInputError(f"bits {org_gene.bit_positions} of single gene only partially included in constraint or included twice")
+					
+					pos_origin_map[index] = BitOrigin(gene_pos, bit_pos)
+					
+					try:
+						del bit_org_gene_map[bit]
+					except KeyError as ke:
+						raise IcecraftInputError(f"bit {bit} not found; not defined or used twice") from ke
+			
+			assert all(o is not None for o in pos_origin_map)
+			
+			# check values of alleles
+			#TODO: construct comments
+			for val in constraint.values:
+				assert len(val) == len(pos_origin_map)
+				
+				# reset every time to avoid covering unset values by using values from previous runs
+				values_list = [[None]*len(g.bit_positions) for g in org_gene_list]
+				
+				for bit_org, cur_val in zip(pos_origin_map, val):
+					values_list[bit_org.gene_pos][bit_org.bit_pos] = cur_val
+				
+				for gene, org_val in zip(org_gene_list, values_list):
+					assert all(v is not None for v in org_val)
+					
+					try:
+						i = gene.alleles.values_index(org_val)
+					except ValueError as ve:
+						raise IcecraftInputError(f"invalid values for {gene.bit_positions}") from ve
+			
+			# construct gene
+			cstr_gene = Gene(constraint.bits, AlleleList([Allele(v, "") for v in constraint.values]), "constraint")
+			
+			if len(org_gene_list) == 1:
+				# replace existing gene
+				index = bits_org_list_pos[org_gene_list[0].bit_positions]
+				genes[index] = cstr_gene
+			else:
+				genes.append(cstr_gene)
+				super_count += 1
+				# delete used genes
+				# do it later to not mess up indices in bits_org_list_pos
+				del_list.extend([bits_org_list_pos[o.bit_positions] for o in org_gene_list])
+		
+		assert len(set(del_list)) == len(del_list), "double entries in del list"
+		
+		for d in sorted(del_list, reverse=True):
+			genes.pop(d)
+			
+		return super_count
 	
 	@staticmethod
 	def get_colbufctrl_coordinates(rep: InterRep) -> List[IcecraftColBufCtrl]:

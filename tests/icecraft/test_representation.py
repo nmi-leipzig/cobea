@@ -16,7 +16,7 @@ from adapters.icecraft.chip_data import ConfigAssemblage, get_config_items, get_
 from adapters.icecraft.chip_data_utils import NetData, ElementInterface, SegEntryType
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex
-from adapters.icecraft.misc import IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftInputError
+from adapters.icecraft.misc import IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftInputError, IcecraftGeneConstraint
 
 from ..test_request_model import check_parameter_user
 
@@ -585,6 +585,149 @@ class IcecraftRepGenTest(unittest.TestCase):
 				# reset
 				for edge in rep.iter_edges():
 					edge.available = True
+	
+	def test_apply_gene_constraints(self):
+		class ConstraintData(NamedTuple):
+			desc: str
+			org_genes: List[Gene]
+			constraints: List[IcecraftGeneConstraint]
+			exp_genes: List[Gene]
+			exp_super: int
+		
+		def vals_to_alleles(vals):
+			return AlleleList([Allele(v, "") for v in vals])
+		
+		test_data = []
+		
+		bits_1 = create_bits(4, 15, [(14, 8)])
+		bits_2 = create_bits(32, 28, [(3, 36), (11, 27)])
+		bits_3 = create_bits(2, 1, [(6, 23), (1, 38), (11, 7)])
+		vals_1 = ((False, ), (True, ))
+		vals_2 = ((False, False), (False, True), (True, True))
+		vals_3 = ((False, False, False), (False, False, True), (False, True, False))
+		
+		# restrict alleles
+		rest_vals = ((True, True), (False, True))
+		test_data.append(
+			ConstraintData(
+				"restrict alleles",
+				[Gene(bits_2, AlleleAll(2), "")],
+				[IcecraftGeneConstraint(bits_2, rest_vals)],
+				[Gene(bits_2, vals_to_alleles(rest_vals), "")],
+				0
+			)
+		)
+		
+		# reorder bits
+		perm_bits = (bits_3[2], bits_3[0], bits_3[1])
+		perm_vals = ((False, False, False), (True, False, False), (False, False, True))
+		test_data.append(
+			ConstraintData(
+				"reorder bits",
+				[Gene(bits_3, vals_to_alleles(vals_3), "")],
+				[IcecraftGeneConstraint(perm_bits, perm_vals)],
+				[Gene(perm_bits, vals_to_alleles(perm_vals), "")],
+				0
+			)
+		)
+		
+		# aggregate genes to super gene
+		comb_vals = ((True, False, False), (False, False, True))
+		test_data.append(
+			ConstraintData(
+				"aggregate genes to super gene and restrict alleles",
+				[Gene(bits_1, vals_to_alleles(vals_1), ""), Gene(bits_2, vals_to_alleles(vals_2), "")],
+				[IcecraftGeneConstraint(bits_1+bits_2, comb_vals)],
+				[Gene(bits_1+bits_2, vals_to_alleles(comb_vals), "")],
+				1
+			)
+		)
+		
+		# all together
+		perm_bits = (bits_2[1], bits_1[0], bits_2[0])
+		perm_vals = ((False, True, False), (True, False, False))
+		test_data.append(
+			ConstraintData(
+				"aggregate, restrict and reorder",
+				[Gene(bits_1, vals_to_alleles(vals_1), ""), Gene(bits_2, vals_to_alleles(vals_2), "")],
+				[IcecraftGeneConstraint(perm_bits, perm_vals)],
+				[Gene(perm_bits, vals_to_alleles(perm_vals), "")],
+				1
+			)
+		)
+		
+		for td in test_data:
+			with self.subTest(desc=td.desc):
+				res_genes = list(td.org_genes)
+				res = icecraft.IcecraftRepGen.apply_gene_constraints(res_genes, td.constraints)
+				
+				self.assertEqual(td.exp_genes, res_genes)
+				self.assertEqual(td.exp_super, res)
+		
+		class ConstraintErrorData(NamedTuple):
+			desc: str
+			org_genes: List[Gene]
+			constraints: List[IcecraftGeneConstraint]
+			exp_error: Exception
+		
+		error_data = []
+		
+		# invalid value in restriction
+		error_data.append(
+			ConstraintErrorData(
+				"invalid value in restriction",
+				[Gene(bits_2, vals_to_alleles(vals_2), "")],
+				[IcecraftGeneConstraint(bits_2, ((False, False), (True, False)))],
+				IcecraftInputError
+			)
+		)
+		
+		# a bit in multiple super genes
+		error_data.append(
+			ConstraintErrorData(
+				"bit in multiple super genes",
+				[Gene(bits_1, vals_to_alleles(vals_1), ""), Gene(bits_2, vals_to_alleles(vals_2), ""), Gene(bits_3, vals_to_alleles(vals_3), "")],
+				[IcecraftGeneConstraint(bits_2+bits_1, ((False, )*3, )), IcecraftGeneConstraint(bits_3+bits_1, ((False, )*4, ))],
+				IcecraftInputError
+			)
+		)
+		
+		# multiple compatible definitions for bit
+		error_data.append(
+			ConstraintErrorData(
+				"multiple compatible definitions for bit",
+				[Gene(bits_1, vals_to_alleles(vals_1), "")],
+				[IcecraftGeneConstraint(bits_1, ((False, ), )), IcecraftGeneConstraint(bits_1, ((False, ), ))],
+				IcecraftInputError
+			)
+		)
+		
+		# only part of bits of gene in super gene
+		error_data.append(
+			ConstraintErrorData(
+				"only part of bits of gene in super gene",
+				[Gene(bits_1, vals_to_alleles(vals_1), ""), Gene(bits_2, vals_to_alleles(vals_2), "")],
+				[IcecraftGeneConstraint(bits_1+bits_2[:1], ((False, )*2, ))],
+				IcecraftInputError
+			)
+		)
+		
+		# unknown bits
+		error_data.append(
+			ConstraintErrorData(
+				"unknown bits",
+				[],
+				[IcecraftGeneConstraint(bits_1, vals_1)],
+				IcecraftInputError
+			)
+		)
+		
+		for ed in error_data:
+			with self.subTest(desc=ed.desc):
+				res_genes = list(ed.org_genes)
+				with self.assertRaises(ed.exp_error):
+					res = icecraft.IcecraftRepGen.apply_gene_constraints(res_genes, ed.constraints)
+					
 	
 	def test_get_colbufctrl_coordinates(self):
 		net_data_glb = [NetData(tuple(

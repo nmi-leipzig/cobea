@@ -1,9 +1,10 @@
 from enum import Enum, auto
 from dataclasses import dataclass
+from typing import Tuple, Iterable
 
 from .ice_board.device_data import BRAMMode, TilePosition
 
-from domain.model import BitPosition
+from domain.model import BitPosition, Gene
 
 TILE_EXTERNAL_BITS = -1
 TILE_ALL = -2
@@ -75,6 +76,16 @@ class IcecraftConnection(IcecraftPosition):
 class IcecraftResCon(IcecraftConnection):
 	"""Connection between ressources"""
 	pass
+
+@dataclass(frozen=True, order=True)
+class IcecraftGeneConstraint:
+	"""Constraint for genes
+	
+	Allows for restricting allele values, reordering of bits and
+	grouping of genes to 'super gene".
+	"""
+	bits: Tuple[IcecraftBitPosition, ...]
+	values: Iterable[Tuple[bool, ...]]
 
 class IcecraftError(Exception):
 	"""Base class for exceptions in icecraft"""
