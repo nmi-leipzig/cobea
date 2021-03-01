@@ -1247,11 +1247,14 @@ class IcecraftRepGenTest(unittest.TestCase):
 		for tc in test_cases:
 			with self.subTest(desc=tc.desc):
 				#pdb.set_trace()
-				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_genes(tc.rep, tc.config_map)
+				res_genes = icecraft.IcecraftRepGen.create_genes(tc.rep, tc.config_map)
 				
-				self.assertEqual(tc.exp_const, res_const)
-				self.assertEqual(tc.exp_genes, res_genes)
-				self.assertEqual(tc.exp_sec, res_sec)
+				res_set = set(res_genes)
+				self.assertEqual(len(res_genes), len(res_set))
+				
+				exp_genes = set(tc.exp_genes)
+				exp_genes.update(tc.exp_const)
+				self.assertEqual(exp_genes, res_set)
 		
 	
 	def test_create_genes_tile_cases(self):
@@ -1266,13 +1269,16 @@ class IcecraftRepGenTest(unittest.TestCase):
 				except IndexError:
 					rep = InterRep([], tc.config_map)
 				
-				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_genes(rep, tc.config_map)
+				res_genes = icecraft.IcecraftRepGen.create_genes(rep, tc.config_map)
 				
-				for const_gene in tc.exp_const:
+				exp_genes = set(tc.exp_genes)
+				exp_genes.update(tc.exp_const)
+				res_set = set(res_genes)
+				self.assertEqual(len(res_genes), len(res_set))
+				#self.assertEqual(exp_genes, res_set)
+				for gene in exp_genes:
 					# const genes for external sources are not 
-					self.assertIn(const_gene, res_const)
-				self.assertEqual(tc.exp_genes, res_genes)
-				self.assertEqual(tc.exp_sec, res_sec)
+					self.assertIn(gene, res_set)
 		
 		for tc in st_exception_cases:
 			if not tc.general:
@@ -1659,11 +1665,14 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		for tc in test_cases:
 			with self.subTest(desc=tc.desc):
-				res_const, res_genes, res_sec = icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_vertices, tc.config_map)
+				res_genes = icecraft.IcecraftRepGen.create_tile_genes(tc.single_tile_vertices, tc.config_map)
 				
-				self.assertEqual(tc.exp_const, res_const)
-				self.assertEqual(tc.exp_genes, res_genes)
-				self.assertEqual(tc.exp_sec, res_sec)
+				exp_genes = set(tc.exp_genes)
+				exp_genes.update(tc.exp_const)
+				
+				res_set = set(res_genes)
+				self.assertEqual(len(res_genes), len(res_set))
+				self.assertEqual(exp_genes, res_set)
 		
 		for tc in exception_cases:
 			with self.subTest(desc=tc.desc):

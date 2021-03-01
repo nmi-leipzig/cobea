@@ -96,12 +96,14 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		#TODO: set used flag
 		
-		const_genes, genes, sec_len = self.create_genes(rep, config_map)
+		genes = self.create_genes(rep, config_map)
+		#TODO: sort genes
+		# first gene section: nets having potential drivers in multiple nets
 		
 		cbc_coords = self.get_colbufctrl_coordinates(rep)
 		cbc_conf = self.get_colbufctrl_config(cbc_coords)
 		
-		return IcecraftRep(const_genes, genes, cbc_conf, tuple(sorted(request.output_lutffs)))
+		return IcecraftRep([], genes, cbc_conf, tuple(sorted(request.output_lutffs)))
 	
 	@staticmethod
 	def carry_in_set_net(config_map: Mapping[TilePosition, ConfigAssemblage], raw_nets: List[NetData]) -> None:
@@ -418,21 +420,10 @@ class IcecraftRepGen(RepresentationGenerator):
 		cls,
 		rep: InterRep,
 		config_map: Mapping[TilePosition, ConfigAssemblage]
-	) -> Tuple[List[Gene], List[Gene], List[int]]:
+	) -> List[Gene]:
 		"""returns const_genes, genes and gene_section_lengths"""
 		
-		const_genes = []
 		genes = []
-		sec_len = []
-		
-		def add_genes(gene_iter):
-			for gene in gene_iter:
-				if len(gene.alleles) > 1:
-					genes.append(gene)
-				elif len(gene.alleles) == 1:
-					const_genes.append(gene)
-				else:
-					raise Exception("Gene without alleles")
 		
 		# sort vertices
 		unused_vertices = []
@@ -464,54 +455,38 @@ class IcecraftRepGen(RepresentationGenerator):
 			
 			single_tile_vertices.append(vtx)
 		
-		const_genes = []
 		for vtx in unused_vertices+ext_drv_vertices:
 			tmp_genes = vtx.get_genes()
 			assert all(len(g.alleles) == 1 for g in tmp_genes)
-			const_genes.extend(tmp_genes)
+			genes.extend(tmp_genes)
 		
 		for vtx in multi_drv_vertices:
 			tmp_genes = vtx.get_genes()
-			add_genes(tmp_genes)
+			assert all(len(g.alleles) > 0 for g in tmp_genes)
+			genes.extend(tmp_genes)
 		
-		# first gene section: nets having potential drivers in multiple nets
-		if len(genes) > 0:
-			sec_len.append(len(genes))
-		
-		single_const_genes, single_genes, single_sec_len = cls.create_tile_genes(
+		single_genes = cls.create_tile_genes(
 			single_tile_vertices,
 			config_map,
 		)
-		const_genes.extend(single_const_genes)
 		genes.extend(single_genes)
-		sec_len.extend(single_sec_len)
 		
-		return const_genes, genes, sec_len
+		return genes
 	
 	@classmethod
 	def create_tile_genes(
 		cls,
 		single_tile_vertices: Iterable[Vertex],
 		config_map: Mapping[TilePosition, ConfigAssemblage]
-	) -> Tuple[List[Gene], List[Gene], List[int]]:
-		"""returns const_genes, genes and gene_section_lengths"""
-		const_genes = []
+	) -> List[Gene]:
+		"""returns genes"""
 		genes = []
-		sec_len = []
 		
 		def empty_if_missing(dictionary, key):
 			try:
 				return dictionary[key]
 			except KeyError:
 				return []
-		
-		def add_gene(gene):
-			if len(gene.alleles) > 1:
-				genes.append(gene)
-			elif len(gene.alleles) == 1:
-				const_genes.append(gene)
-			else:
-				raise Exception("Gene without alleles")
 		
 		# sort vertices by tile
 		single_tile_map = {}
@@ -526,7 +501,6 @@ class IcecraftRepGen(RepresentationGenerator):
 		tiles.update(config_map)
 		
 		for tile in sorted(tiles):
-			prev_len = len(genes)
 			# tile confs
 			for tile_conf in config_map[tile].tile:
 				if tile_conf.kind in ("NegClk", ):
@@ -534,19 +508,16 @@ class IcecraftRepGen(RepresentationGenerator):
 				else:
 					raise ValueError(f"Unsupported tile config '{tile_conf.kind}'")
 				
-				add_gene(tmp_gene)
+				genes.append(tmp_gene)
 			
 			# vertices that only belong to this tile
 			for vtx in empty_if_missing(single_tile_map, tile):
 				tmp_genes = vtx.get_genes()
 				for gene in tmp_genes:
-					add_gene(gene)
+					genes.append(gene)
 			
-			new_count = len(genes) - prev_len
-			if new_count > 0:
-				sec_len.append(new_count)
 		
-		return const_genes, genes, sec_len
+		return genes
 	
 	@staticmethod
 	def create_all_allele_gene(item: ConfigItem, desc: str=None) -> Gene:
