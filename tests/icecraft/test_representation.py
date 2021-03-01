@@ -595,7 +595,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			exp_super: int
 		
 		def vals_to_alleles(vals):
-			return AlleleList([Allele(v, "") for v in vals])
+			return AlleleList([Allele(v, f"{i}") for i, v in enumerate(vals)])
 		
 		test_data = []
 		

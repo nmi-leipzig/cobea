@@ -299,6 +299,7 @@ class IcecraftRepGen(RepresentationGenerator):
 			bit_index_map = {b:i for i, b in enumerate(constraint.bits)}
 			pos_origin_map = [None]*len(constraint.bits)
 			org_gene_list = []
+			descs = []
 			while len(bit_index_map) > 0:
 				next_bit = next(iter(bit_index_map.keys()))
 				
@@ -306,6 +307,9 @@ class IcecraftRepGen(RepresentationGenerator):
 					org_gene = bit_org_gene_map[next_bit]
 				except KeyError as ke:
 					raise IcecraftInputError(f"bit {next_bit} not found; not defined or used twice") from ke
+				
+				if org_gene.description != "":
+					descs.append(org_gene.description)
 				
 				gene_pos = len(org_gene_list)
 				org_gene_list.append(org_gene)
@@ -326,7 +330,7 @@ class IcecraftRepGen(RepresentationGenerator):
 			assert all(o is not None for o in pos_origin_map)
 			
 			# check values of alleles
-			#TODO: construct comments
+			val_descs_list = []
 			for val in constraint.values:
 				assert len(val) == len(pos_origin_map)
 				
@@ -336,6 +340,9 @@ class IcecraftRepGen(RepresentationGenerator):
 				for bit_org, cur_val in zip(pos_origin_map, val):
 					values_list[bit_org.gene_pos][bit_org.bit_pos] = cur_val
 				
+				val_descs = []
+				val_descs_list.append(val_descs)
+				
 				for gene, org_val in zip(org_gene_list, values_list):
 					assert all(v is not None for v in org_val)
 					
@@ -343,9 +350,18 @@ class IcecraftRepGen(RepresentationGenerator):
 						i = gene.alleles.values_index(org_val)
 					except ValueError as ve:
 						raise IcecraftInputError(f"invalid values for {gene.bit_positions}") from ve
+					
+					allele = gene.alleles[i]
+					if allele.description != "":
+						val_descs.append(allele.description)
 			
 			# construct gene
-			cstr_gene = Gene(constraint.bits, AlleleList([Allele(v, "") for v in constraint.values]), "constraint")
+			descs.append("constraint")
+			cstr_gene = Gene(
+				constraint.bits,
+				AlleleList([Allele(v, "; ".join(c)) for v, c in zip(constraint.values, val_descs_list)]),
+				"; ".join(descs)
+			)
 			
 			if len(org_gene_list) == 1:
 				# replace existing gene
