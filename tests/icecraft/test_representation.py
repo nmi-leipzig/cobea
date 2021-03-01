@@ -67,6 +67,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		req["include_connections"] = []
 		req["output_lutffs"] = [icecraft.IcecraftLUTPosition.from_coords(2, 2, 2)]
 		req["lut_functions"] = [icecraft.LUTFunction.NAND, icecraft.LUTFunction.AND]
+		req["gene_constraints"] = []
 		
 		dut(req)
 	

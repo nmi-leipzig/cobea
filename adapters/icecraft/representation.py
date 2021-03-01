@@ -69,6 +69,7 @@ class IcecraftRepGen(RepresentationGenerator):
 			Parameter("include_connections", IcecraftResCon, default=[], multiple=True),
 			Parameter("output_lutffs", IcecraftLUTPosition, multiple=True),
 			Parameter("lut_functions", LUTFunction, default=[], multiple=True),
+			Parameter("gene_constraints", IcecraftGeneConstraint, default=[], multiple=True),
 			Parameter("prune_no_viable_src", bool, default=False),
 		]}
 	
@@ -97,6 +98,8 @@ class IcecraftRepGen(RepresentationGenerator):
 		#TODO: set used flag
 		
 		genes = self.create_genes(rep, config_map)
+		self.apply_gene_constraints(genes, request.gene_constraints)
+		
 		#TODO: sort genes
 		# first gene section: nets having potential drivers in multiple nets
 		
