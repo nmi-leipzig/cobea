@@ -97,16 +97,15 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		#TODO: set used flag
 		
-		genes = self.create_genes(rep, config_map)
-		self.apply_gene_constraints(genes, request.gene_constraints)
+		all_genes = self.create_genes(rep, config_map)
+		self.apply_gene_constraints(all_genes, request.gene_constraints)
 		
-		#TODO: sort genes
-		# first gene section: nets having potential drivers in multiple nets
+		const_genes, genes, sec_len = self.sort_genes(all_genes)
 		
 		cbc_coords = self.get_colbufctrl_coordinates(rep)
 		cbc_conf = self.get_colbufctrl_config(cbc_coords)
 		
-		return IcecraftRep([], genes, cbc_conf, tuple(sorted(request.output_lutffs)))
+		return IcecraftRep(const_genes, genes, cbc_conf, tuple(sorted(request.output_lutffs)))
 	
 	@staticmethod
 	def carry_in_set_net(config_map: Mapping[TilePosition, ConfigAssemblage], raw_nets: List[NetData]) -> None:
@@ -418,13 +417,44 @@ class IcecraftRepGen(RepresentationGenerator):
 			cbc_conf.append(item_assemblage.col_buf_ctrl[cbc_coord.z])
 		return cbc_conf
 	
+	@staticmethod
+	def sort_genes(org_genes: Iterable[Gene]) -> Tuple[List[Gene], List[Gene], List[int]]:
+		"""returns const_genes, genes and gene_section_lengths"""
+		const_genes = []
+		multi_tile_genes = []
+		tile_gene_map = {}
+		
+		for gene in org_genes:
+			if len(gene.alleles) == 1:
+				const_genes.append(gene)
+				continue
+			
+			tile = gene.bit_positions[0].tile
+			if all(tile==b.tile for b in gene.bit_positions):
+				tile_gene_map.setdefault(tile, []).append(gene)
+			else:
+				multi_tile_genes.append(gene)
+		
+		genes = []
+		sec_len = []
+		if len(multi_tile_genes) > 0:
+			genes.extend(multi_tile_genes)
+			sec_len.append(len(multi_tile_genes))
+		
+		for tile in sorted(tile_gene_map):
+			tmp_genes = tile_gene_map[tile]
+			genes.extend(tmp_genes)
+			sec_len.append(len(tmp_genes))
+		
+		return const_genes, genes, sec_len
+	
 	@classmethod
 	def create_genes(
 		cls,
 		rep: InterRep,
 		config_map: Mapping[TilePosition, ConfigAssemblage]
 	) -> List[Gene]:
-		"""returns const_genes, genes and gene_section_lengths"""
+		"""returns genes"""
 		
 		genes = []
 		

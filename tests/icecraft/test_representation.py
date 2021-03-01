@@ -1186,6 +1186,64 @@ class IcecraftRepGenTest(unittest.TestCase):
 				
 				#self.assertEqual(len(mc.genes), len(gene_res_data))
 	
+	def test_sort_genes(self):
+		class SortData(NamedTuple):
+			desc: str
+			org_genes: List[Gene]
+			exp_const_genes: List[Gene]
+			exp_genes:List[Gene]
+			exp_sec_len: List[int]
+		
+		def fix_tile_bits(tile, raw_bits):
+			return tuple(IcecraftBitPosition(tile, *r) for r in raw_bits)
+		
+		def const_allele(count, val=False):
+			return AlleleList([Allele((val, )*count, "")])
+		
+		test_data = []
+		tile_1 = TilePosition(5, 1)
+		tile_2 = TilePosition(21, 17)
+		all_genes = [
+			Gene(fix_tile_bits(tile_1, [(12, 46)])+fix_tile_bits(tile_2, [(13, 45)]), const_allele(2), "multitile const"), # 0
+			Gene(fix_tile_bits(tile_1, [(5, 4)])+fix_tile_bits(tile_2, [(1, 2)]), AlleleAll(2), "multitile"), # 1
+			Gene(fix_tile_bits(tile_1, [(2, 11), (0, 5)]), const_allele(2, True), "tile 1 const"), # 2
+			Gene(fix_tile_bits(tile_1, [(14, 1)]), AlleleAll(1), "tile 1"), # 3
+			Gene(fix_tile_bits(tile_2, [(14, 4), (8, 13), (7, 7)]), const_allele(3, False), "tile 2 const"), # 4
+			Gene(fix_tile_bits(tile_2, [(9, 7), (14, 14)]), AlleleAll(2), "tile 2"), # 5
+		]
+		
+		def sel_genes(indices):
+			return [all_genes[i] for i in indices]
+		
+		test_data.append(SortData("all empty", [], [], [], []))
+		
+		# no multitile genes
+		test_data.append(SortData(
+			"no multitile genes",
+			sel_genes([2, 3, 5, 4]),
+			sel_genes([2, 4]),
+			sel_genes([3, 5]),
+			[1, 1]
+		))
+		
+		# full example
+		test_data.append(SortData(
+			"full example",
+			sel_genes([1, 3, 5, 0, 4, 2]),
+			sel_genes([0, 4, 2]),
+			sel_genes([1, 3, 5]),
+			[1, 1, 1]
+		))
+		
+		
+		for td in test_data:
+			with self.subTest(desc=td.desc):
+				res_const_genes, res_genes, res_sec_len = icecraft.IcecraftRepGen.sort_genes(td.org_genes)
+				
+				self.assertEqual(td.exp_const_genes, res_const_genes)
+				self.assertEqual(td.exp_genes, res_genes)
+				self.assertEqual(td.exp_sec_len, res_sec_len)
+	
 	def test_create_genes(self):
 		class GeneTestCase(NamedTuple):
 			desc: str
