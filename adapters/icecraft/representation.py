@@ -98,7 +98,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		#TODO: set used flag
 		
 		all_genes = self.create_genes(rep, config_map)
-		self.apply_gene_constraints(all_genes, request.gene_constraints)
+		self.apply_gene_constraints(all_genes, request.gene_constraints, special_map)
 		
 		const_genes, genes, sec_len = self.sort_genes(all_genes)
 		
@@ -278,7 +278,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		return func
 	
 	@classmethod
-	def apply_gene_constraints(cls, genes: List[Gene], constraint_iter: Iterable[IcecraftGeneConstraint]) -> int:
+	def apply_gene_constraints(cls, genes: List[Gene], constraint_iter: Iterable[IcecraftGeneConstraint], special_map: Mapping[int, List[TilePosition]]) -> int:
 		"""
 		
 		Every bit can only be defined once, even if the multiple definition are compatible.
@@ -298,7 +298,24 @@ class IcecraftRepGen(RepresentationGenerator):
 		bits_org_list_pos = {g.bit_positions: i for i, g in enumerate(genes)}
 		del_list = []
 		super_count = 0
-		for constraint in constraint_iter:
+		
+		# expand special values in constraints
+		constraints = []
+		for cstr in constraint_iter:
+			if any(b.x in special_map or b.y in special_map for b in cstr.bits):
+				special_val = cstr.bits[0].x
+				if any(b.x!=special_val or b.y!=special_val for b in cstr.bits):
+					raise IcecraftInputError(f"Inconsistent special value: {cstr.bits}")
+				
+				constraints.extend([IcecraftGeneConstraint(
+					tuple(IcecraftBitPosition(t, b.group, b.index) for b in cstr.bits),
+					cstr.values
+				) for t in special_map[special_val]])
+			else:
+				constraints.append(cstr)
+			
+		
+		for constraint in constraints:
 			# find mapping from constraint bits to gene bits
 			bit_index_map = {b:i for i, b in enumerate(constraint.bits)}
 			pos_origin_map = [None]*len(constraint.bits)

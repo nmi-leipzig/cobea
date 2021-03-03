@@ -660,7 +660,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		for td in test_data:
 			with self.subTest(desc=td.desc):
 				res_genes = list(td.org_genes)
-				res = icecraft.IcecraftRepGen.apply_gene_constraints(res_genes, td.constraints)
+				res = icecraft.IcecraftRepGen.apply_gene_constraints(res_genes, td.constraints, {})
 				
 				self.assertEqual(td.exp_genes, res_genes)
 				self.assertEqual(td.exp_super, res)
@@ -727,7 +727,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			with self.subTest(desc=ed.desc):
 				res_genes = list(ed.org_genes)
 				with self.assertRaises(ed.exp_error):
-					res = icecraft.IcecraftRepGen.apply_gene_constraints(res_genes, ed.constraints)
+					res = icecraft.IcecraftRepGen.apply_gene_constraints(res_genes, ed.constraints, {})
 					
 	
 	def test_get_colbufctrl_coordinates(self):
