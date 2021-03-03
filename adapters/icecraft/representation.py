@@ -105,7 +105,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		cbc_coords = self.get_colbufctrl_coordinates(rep)
 		cbc_conf = self.get_colbufctrl_config(cbc_coords)
 		
-		return IcecraftRep(const_genes, genes, cbc_conf, tuple(sorted(request.output_lutffs)))
+		return IcecraftRep(genes, const_genes, cbc_conf, tuple(sorted(request.output_lutffs)))
 	
 	@staticmethod
 	def carry_in_set_net(config_map: Mapping[TilePosition, ConfigAssemblage], raw_nets: List[NetData]) -> None:
