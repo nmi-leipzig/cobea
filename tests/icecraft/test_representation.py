@@ -53,6 +53,122 @@ class IcecraftRepGenTest(unittest.TestCase):
 	def test_creation(self):
 		dut = icecraft.IcecraftRepGen()
 	
+	def check_xc6200_representation(self, rep):
+		# out_map is map from output of XC6200 cell to (LUT) indices
+		
+		# sort genes by tile
+		tile_gene_map = {}
+		for gene in itertools.chain(rep.genes, rep.constant):
+			if len(gene.alleles) == 1 and not any(gene.alleles[0].values):
+				# only neutral allele
+				continue
+			
+			tile = gene.bit_positions[0].tile
+			# genes spanning multiple tiles are not supported
+			self.assertTrue(all(b.tile==tile for b in gene.bit_positions))
+			
+			tile_gene_map.setdefault(tile, []).append(gene)
+		
+		# assume all tiles have the same out_map -> detect mapping by checking which neigh_op nets are used
+		#config_map = {t: get_config_items(t) for t in tiles}
+		
+		for tile, genes in tile_gene_map.items():
+			# get all configs for tiles
+			config_assem = get_config_items(tile)
+			
+			bit_config_map = {b: c for c in config_assem.connection for b in c.bits}
+			for ll in config_assem.lut:
+				for l in ll:
+					for b in l.bits:
+						bit_config_map[b] = l
+			
+			for t in config_assem.tile:
+				for b in t.bits:
+					bit_config_map[b] = t
+			
+			dst_src_map = {}
+			src_dst_map = {}
+			
+			for gene in genes:
+				# find config items and map the bits
+				bit_gene_pos_map = {b: i for i, b in enumerate(gene.bit_positions)}
+				configs = []
+				gene_pos_conf_pos_map = [None]*len(gene.bit_positions)
+				
+				while len(bit_gene_pos_map) > 0:
+					bit = next(iter(bit_gene_pos_map))
+					config = bit_config_map[bit]
+					config_pos = len(configs)
+					configs.append(config)
+					
+					for i, b in enumerate(config.bits):
+						gene_pos_conf_pos_map[bit_gene_pos_map[b]] = (config_pos, i)
+						
+						del bit_gene_pos_map[b]
+						del bit_config_map[b]
+				
+				# find meaning of alleles from configs
+				for allele in gene.alleles:
+					# extract values from allele
+					vals = [[None]*len(c.bits) for c in configs]
+					for gene_pos, (conf_index, conf_pos) in enumerate(gene_pos_conf_pos_map):
+						vals[conf_index][conf_pos] = allele.values[gene_pos]
+					
+					meaning = []
+					# lookup meaning in configs
+					for config, allele_vals in zip(configs, vals):
+						if config.kind == "connection":
+							dst_name = config.dst_net
+							if all(not v for v in allele_vals):
+								meaning.append((None, dst_name))
+								continue
+							
+							try:
+								src_index = config.values.index(tuple(allele_vals))
+							except ValueError:
+								self.fail(f"{allele_vals} missing for {config.bits}")
+							
+							src_name = config.src_nets[src_index]
+							
+							dst_src_map.setdefault(dst_name, []).append(src_name)
+							src_dst_map.setdefault(src_name, []).append(dst_name)
+							meaning.append((src_name, dst_name))
+						elif config.kind == "TruthTable":
+							meaning.append(allele_vals)
+						else:
+							# ignore
+							continue
+				
+			all_sigs = ["top", "lft", "bot", "rgt", "f"]
+			# detect mapping
+			neigh_map = {}
+			for src_name in src_dst_map:
+				res = re.match(r"neigh_op_(?P<direction>\w+)_(?P<lut_index>\d)", src_name)
+				if res:
+					direc = res.group("direction")
+					lut_index = res.group("lut_index")
+					self.assertNotIn(direc, neigh_map)
+					neigh_map[direc] = int(lut_index)
+			
+			#print(src_dst_map)
+			if 4 != len(neigh_map):
+				print(f"not enough inputs for tile {tile}")
+				continue
+			out_map = {}
+			for neigh_index, neigh_dir in enumerate(all_sigs[:4]):
+				loc_dir = all_sigs[(neigh_index+2)%4]
+				out_map[loc_dir] = neigh_map[neigh_dir]
+			
+			#print(out_map)
+			self.assertEqual(4, len(set(out_map.values())), f"couldn't match inputs to outputs in tile {tile}")
+			
+			# check function unit
+			# check connection options
+			for out_i, out_sig in enumerate(all_sigs[:4]):
+				for in_sig in all_sigs:
+					if in_sig == all_sigs[(out_i+2)%5]:
+						continue
+	
 	def test_call(self):
 		ice_res = IcecraftResource.from_coords
 		dut = icecraft.IcecraftRepGen()
@@ -320,6 +436,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		res = dut(req)
 		
+		self.check_xc6200_representation(res)
 	
 	@unittest.skip
 	def test_correct_rep(self):
