@@ -72,6 +72,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		# assume all tiles have the same out_map -> detect mapping by checking which neigh_op nets are used
 		#config_map = {t: get_config_items(t) for t in tiles}
 		
+		tile_meaning_map = {}
 		for tile, genes in tile_gene_map.items():
 			# get all configs for tiles
 			config_assem = get_config_items(tile)
@@ -86,10 +87,13 @@ class IcecraftRepGenTest(unittest.TestCase):
 				for b in t.bits:
 					bit_config_map[b] = t
 			
-			dst_src_map = {}
-			src_dst_map = {}
+			dst_map = {}
+			src_map = {}
+			tt_map = {}
 			
-			for gene in genes:
+			tile_meaning = []
+			tile_meaning_map[tile] = tile_meaning
+			for gene_index, gene in enumerate(genes):
 				# find config items and map the bits
 				bit_gene_pos_map = {b: i for i, b in enumerate(gene.bit_positions)}
 				configs = []
@@ -101,6 +105,20 @@ class IcecraftRepGenTest(unittest.TestCase):
 					config_pos = len(configs)
 					configs.append(config)
 					
+					if config.kind == "connection":
+						dst_name = config.dst_net
+						
+						try:
+							entry = dst_map[dst_name]
+							self.assertEqual(gene_index, entry[0])
+							entry[1].append(config_pos)
+						except KeyError:
+							dst_map[dst_name] = (gene_index, [config_pos])
+					elif config.kind == "TruthTable":
+						self.assertNotIn(config.index, tt_map)
+						
+						tt_map[config.index] = (gene_index, config_pos)
+					
 					for i, b in enumerate(config.bits):
 						gene_pos_conf_pos_map[bit_gene_pos_map[b]] = (config_pos, i)
 						
@@ -108,19 +126,21 @@ class IcecraftRepGenTest(unittest.TestCase):
 						del bit_config_map[b]
 				
 				# find meaning of alleles from configs
-				for allele in gene.alleles:
+				gene_meaning = []
+				tile_meaning.append(gene_meaning)
+				for allele_index, allele in enumerate(gene.alleles):
 					# extract values from allele
 					vals = [[None]*len(c.bits) for c in configs]
 					for gene_pos, (conf_index, conf_pos) in enumerate(gene_pos_conf_pos_map):
 						vals[conf_index][conf_pos] = allele.values[gene_pos]
 					
-					meaning = []
+					allele_meaning = []
 					# lookup meaning in configs
-					for config, allele_vals in zip(configs, vals):
+					for config_pos, (config, allele_vals) in enumerate(zip(configs, vals)):
 						if config.kind == "connection":
 							dst_name = config.dst_net
 							if all(not v for v in allele_vals):
-								meaning.append((None, dst_name))
+								allele_meaning.append((None, dst_name))
 								continue
 							
 							try:
@@ -130,19 +150,20 @@ class IcecraftRepGenTest(unittest.TestCase):
 							
 							src_name = config.src_nets[src_index]
 							
-							dst_src_map.setdefault(dst_name, []).append(src_name)
-							src_dst_map.setdefault(src_name, []).append(dst_name)
-							meaning.append((src_name, dst_name))
+							src_map.setdefault(src_name, []).append((gene_index, config_pos, allele_index))
+							allele_meaning.append((src_name, dst_name))
 						elif config.kind == "TruthTable":
-							meaning.append(allele_vals)
+							allele_meaning.append(allele_vals)
 						else:
-							# ignore
-							continue
+							# ignore, but keep absolute index of meaning and configs in sync
+							allele_meaning.append(None)
+					
+					gene_meaning.append(allele_meaning)
 				
 			all_sigs = ["top", "lft", "bot", "rgt", "f"]
 			# detect mapping
 			neigh_map = {}
-			for src_name in src_dst_map:
+			for src_name in src_map:
 				res = re.match(r"neigh_op_(?P<direction>\w+)_(?P<lut_index>\d)", src_name)
 				if res:
 					direc = res.group("direction")
@@ -150,7 +171,6 @@ class IcecraftRepGenTest(unittest.TestCase):
 					self.assertNotIn(direc, neigh_map)
 					neigh_map[direc] = int(lut_index)
 			
-			#print(src_dst_map)
 			if 4 != len(neigh_map):
 				print(f"not enough inputs for tile {tile}")
 				continue
@@ -159,8 +179,50 @@ class IcecraftRepGenTest(unittest.TestCase):
 				loc_dir = all_sigs[(neigh_index+2)%4]
 				out_map[loc_dir] = neigh_map[neigh_dir]
 			
-			#print(out_map)
 			self.assertEqual(4, len(set(out_map.values())), f"couldn't match inputs to outputs in tile {tile}")
+			
+			f_out = None
+			for dir_index, direction in enumerate(all_sigs[:4]):
+				# trace back the inputs of the LUT and collect relevant genes/meanings
+				lut_index = out_map[direction]
+				relevant_gene_indices = set()
+				relevant_gene_indices.add(tt_map[lut_index][0])
+				
+				net_stack = [f"lutff_{lut_index}/in_{i}" for i in range(4)]
+				done_nets = {None}
+				while len(net_stack) > 0:
+					cur_net = net_stack.pop()
+					if cur_net in done_nets:
+						continue
+					done_nets.add(cur_net)
+					if re.match(r"neigh_op_(\w+)_(\d)", cur_net):
+						neigh_dir = cur_net[9:12]
+						neigh_lut = int(cur_net[13])
+						self.assertIn(neigh_dir, neigh_map)
+						self.assertEqual(neigh_map[neigh_dir], neigh_lut)
+					elif re.match(r"lutff_(\d)/(c|l)?out", cur_net):
+						other_lut = int(cur_net[6])
+						# assume that another LUT output as input can only be the function unit
+						if f_out is None:
+							f_out = other_lut
+						self.assertEqual(f_out, other_lut, "inconsistent f LUT")
+					else:
+						# simple net -> find source
+						gene_index, config_pos_list = dst_map[cur_net]
+						
+						relevant_gene_indices.add(gene_index)
+						# add all possible sources to the stack
+						for allele_meaning in tile_meaning[gene_index]:
+							for config_pos in config_pos_list:
+								src_net, dst_net = allele_meaning[config_pos]
+								self.assertEqual(cur_net, dst_net)
+								
+								net_stack.append(src_net)
+				print([tile_meaning[i] for i in relevant_gene_indices])
+				
+				# for all allele combinations check the behaviour of the LUT output with respect to the inputs
+				
+				#TODO: check number of combinations that lead to a certain state
 			
 			# check function unit
 			# check connection options
@@ -236,8 +298,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		req["gene_constraints"] = [
 			IcecraftGeneConstraint(
 				tuple(IcecraftBitPosition.from_coords(TILE_ALL_LOGIC, TILE_ALL_LOGIC, *c) for c in b),
-				(
-					(False, )*16,
+				tuple(
+					tuple((s & (1<<i)) > 0 for s in range(16)) for i in range(4)
 				)
 			) for b in [
 				(
