@@ -22,10 +22,10 @@ import icebox
 
 try:
 	# execution as script
-	from chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType, InterfaceType
+	from chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType, InterfaceType, UNCONNECTED_NAME
 except ModuleNotFoundError:
 	# import as module in tests
-	from .chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType, InterfaceType
+	from .chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType, InterfaceType, UNCONNECTED_NAME
 
 def get_inner_tiles(ic: icebox.iceconfig) -> Set[TileType]:
 	"""Get set of inner tiles for an iceconfig."""
@@ -135,7 +135,7 @@ def get_driver_indices(ic: icebox.iceconfig, segment: SegType) -> DriverType:
 	for i, (x, y, net_name) in enumerate(segment):
 		# check hardwired
 		if re.match(r"ram/RDATA_\d", net_name) or re.match(r"io_\d/D_IN_\d", net_name) or\
-		re.match(r"lutff_\d/(c|l)?out", net_name):
+		re.match(r"lutff_\d/(c|l)?out", net_name) or UNCONNECTED_NAME == net_name:
 			hard_drivers.append(i)
 		
 		# check configurable driver
@@ -472,7 +472,13 @@ def write_chip_data(chip_file: TextIO) -> None:
 	
 	inner_tiles = get_inner_tiles(ic)
 	inner_segs = get_segments(ic, inner_tiles)
+	
+	# add unconnected netto explicitly represent unconnected state
+	inner_segs.extend([((*t, UNCONNECTED_NAME), ) for t in inner_tiles])
+	inner_segs = sorted(inner_segs)
+	
 	inner_segs = fix_known_issues(ic, inner_segs)
+	
 	seg_kinds, seg_tile_map, drv_kinds = get_seg_kinds_and_drivers(ic, inner_segs)
 	seg_kinds, seg_tile_map, drv_kinds = sort_net_data(seg_kinds, seg_tile_map, drv_kinds)
 	#for tile_pos in seg_tile_map:
@@ -530,6 +536,11 @@ def write_chip_data(chip_file: TextIO) -> None:
 				config_data.setdefault(entry[1], []).append((bits, entry[2]))
 			else:
 				raise ValueError(f"Unknown entry type: {entry[1]}")
+		
+		# insert unconnected option explicitly
+		for bits, con_entry in config_data["connection"].items():
+			con_entry[1].insert(0, ((False, )*len(bits), UNCONNECTED_NAME))
+		
 		config_data_list.append(config_data)
 	
 	colbufctrl_map = get_colbufctrl_data(ic, inner_tiles)

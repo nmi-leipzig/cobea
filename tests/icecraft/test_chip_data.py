@@ -8,6 +8,7 @@ sys.path.append("/usr/local/bin")
 import icebox
 
 import adapters.icecraft.chip_data as chip_data
+from adapters.icecraft.chip_data_utils import UNCONNECTED_NAME
 
 def get_names(segs):
 	return tuple(n for x, y, n in segs)
@@ -213,7 +214,8 @@ class ChipDataTest(unittest.TestCase):
 		if net_name.startswith("padin"):
 			return False
 		
-		if (net_name.endswith("out") and net_name != "fabout") or net_name.startswith("ram/RDATA") or re.match(r"io_\d/D_IN", net_name):
+		if (net_name.endswith("out") and net_name != "fabout") or net_name.startswith("ram/RDATA") or\
+		re.match(r"io_\d/D_IN", net_name) or UNCONNECTED_NAME == net_name:
 			return True
 		
 		if net_name in self.get_destinations(ic, x, y):
@@ -261,9 +263,11 @@ class ChipDataTest(unittest.TestCase):
 		
 		with Pool() as pool:
 			seg_func = functools.partial(self.ic_seg, ic=ic)
-			exp = pool.map(seg_func , test_tiles)
+			exp = pool.map(seg_func, test_tiles)
 		
 		for tiles, exp_segs in zip(test_tiles, exp):
+			# add unconnected net
+			exp_segs.update([((*t, UNCONNECTED_NAME), ) for t in tiles])
 			with self.subTest(tiles=tiles):
 				self.generic_get_net_data_test(tiles, ic, exp_segs)
 		
@@ -323,6 +327,16 @@ class ChipDataTest(unittest.TestCase):
 				for kind, config in res.items():
 					if kind == "connection":
 						for bits, (dst, src_data) in config.items():
+							# check unconnected src
+							try:
+								uncon = [s for _, s in src_data].index(UNCONNECTED_NAME)
+							except ValueError:
+								self.fail("unconnected net missing")
+							self.assertEqual((False, )*len(bits), src_data[uncon][0])
+							
+							# filter unconnected src as it not explicitly in the iceconfig results
+							src_data = src_data[:uncon] + src_data[uncon+1:]
+							
 							res_set.update([(tuple(sorted(self.merge_bit_values(bits, v))), kind, s, dst) for v, s in src_data])
 					elif kind == "tile":
 						res_set.update([(tuple(sorted(self.bits_to_str(b))), n) for b, n in config])
@@ -380,7 +394,13 @@ class ChipDataTest(unittest.TestCase):
 		raw_set = set()
 		
 		for item in config_assemblage.connection:
-			raw_set.update([(tuple(sorted(self.merge_bit_positions_values(item.bits, v))), item.kind, s, item.dst_net) for v, s in zip(item.values, item.src_nets)])
+			# filter unconnected option, as it is implicit in iceconfig
+			raw_set.update([(tuple(
+				sorted(self.merge_bit_positions_values(item.bits, v))),
+				item.kind,
+				s,
+				item.dst_net
+			) for v, s in zip(item.values, item.src_nets) if s != UNCONNECTED_NAME])
 		
 		raw_set.update([(tuple(sorted(self.bit_positions_to_str(i.bits))), i.kind) for i in config_assemblage.tile])
 		
@@ -404,6 +424,13 @@ class ChipDataTest(unittest.TestCase):
 	
 	def generic_get_config_items_test(self, ic, tile):
 		res = chip_data.get_config_items(tile)
+		
+		# check unconnected net as it is not included in iceconfig output
+		for con_item in res.connection:
+			self.assertIn(UNCONNECTED_NAME, con_item.src_nets)
+			uncon_pos = con_item.src_nets.index(UNCONNECTED_NAME)
+			self.assertTrue(all(not v for v in con_item.values[uncon_pos]))
+		
 		res_set = self.config_items_to_raw(res)
 		
 		exp_set = self.prep_reference_config(ic, tile)
@@ -443,6 +470,7 @@ class ChipDataTest(unittest.TestCase):
 	
 	def test_hard_driven(self):
 		exp_names = {
+			UNCONNECTED_NAME,
 			'io_0/D_IN_0', 'io_0/D_IN_1', 'io_1/D_IN_0', 'io_1/D_IN_1',
 			'lutff_0/cout', 'lutff_0/lout', 'lutff_0/out',
 			'lutff_1/cout', 'lutff_1/lout', 'lutff_1/out',
