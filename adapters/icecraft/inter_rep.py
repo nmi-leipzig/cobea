@@ -27,9 +27,9 @@ from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 from domain.model import Gene
 
 from .chip_data import ConfigAssemblage
-from .chip_data_utils import NetData, ElementInterface, SegEntryType
+from .chip_data_utils import NetData, ElementInterface, SegEntryType, UNCONNECTED_NAME
 from .config_item import ConnectionItem, IndexedItem
-from .misc import IcecraftNetPosition, IcecraftLUTPosition, TilePosition, IcecraftBitPosition, LUTFunction
+from .misc import IcecraftNetPosition, IcecraftLUTPosition, TilePosition, IcecraftBitPosition, LUTFunction, IcecraftSatisfiabilityError
 
 VertexPosition = NewType("VertexPosition", Union[IcecraftNetPosition, IcecraftLUTPosition])
 
@@ -164,9 +164,8 @@ class Vertex(InterElement):
 	def get_genes(self, desc: Union[str, None]=None) -> List[Gene]:
 		raise NotImplementedError()
 	
-	@staticmethod
-	def neutral_alleles(bit_count: int) -> AlleleList:
-		return AlleleList([Allele((False, )*bit_count, "neutral")])
+	def neutral_alleles(self) -> List[AlleleList]:
+		raise NotImplementedError()
 
 @dataclass
 class ConVertex(Vertex):
@@ -222,7 +221,7 @@ class ConVertex(Vertex):
 			else:
 				base_desc += " unused"
 			
-			allele_seq = self.neutral_alleles(bit_count)
+			allele_seq = self.neutral_alleles()[0]
 		else:
 			alleles = [Allele((False, )*bit_count, "not driven")]
 			edge_map = {e.desig: e for e in self.in_edges}
@@ -247,6 +246,18 @@ class ConVertex(Vertex):
 			allele_seq = AlleleList(alleles)
 		
 		return [Gene(all_bits, allele_seq, base_desc+desc)]
+	
+	def neutral_alleles(self) -> List[AlleleList]:
+		neutral_vals_list = []
+		for src_grp in self.src_grps:
+			desig = EdgeDesig(VertexDesig.from_net_name(src_grp.dst.tile, UNCONNECTED_NAME), src_grp.dst)
+			try:
+				vals = src_grp.srcs[desig]
+			except KeyError:
+				raise IcecraftSatisfiabilityError("UNCONNECTED option missing for neutral allele")
+			neutral_vals_list.append(vals)
+		
+		return [AlleleList([Allele(tuple(s for v in neutral_vals_list for s in v), "neutral")])]
 	
 	@classmethod
 	def from_net_data(cls, rep: "InterRep", raw: NetData) -> "ConVertex":
@@ -346,7 +357,7 @@ class LUTVertex(Vertex):
 			else:
 				base_desc += " unused"
 			
-			allele_seqs = [self.neutral_alleles(len(b)) for b in self.lut_bits.as_tuple()]
+			allele_seqs = self.neutral_alleles()
 		else:
 			allele_seqs = [AlleleAll(len(b)) for b in self.lut_bits.as_tuple()[:3]]
 			
@@ -373,6 +384,9 @@ class LUTVertex(Vertex):
 		
 		genes = [Gene(b, a, f"{base_desc} {n}{desc}") for b, a, n in zip(self.lut_bits.as_tuple(), allele_seqs, LUTBits.names)]
 		return genes
+	
+	def neutral_alleles(self) -> List[AlleleList]:
+		return [AlleleList([Allele((False, )*len(b), "neutral")]) for b in self.lut_bits.as_tuple()]
 	
 	@staticmethod
 	def lut_function_to_truth_table(lut_function: LUTFunction, input_count: int, used_inputs: Iterable[int]) -> Tuple[bool, ...]:
