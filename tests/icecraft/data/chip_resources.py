@@ -1,5 +1,5 @@
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftLUTPosition
-from adapters.icecraft.chip_data_utils import NetData, ElementInterface
+from adapters.icecraft.chip_data_utils import NetData, ElementInterface, UNCONNECTED_NAME
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem
 from ..common import create_bits
 
@@ -18,6 +18,7 @@ NET_DATA = (
 	NetData(((8, 0, "long_span_3"), (8, 3, "long_span_3")), False, (0, 1)), # 11
 	NetData(((5, 0, "long_span_4"), (7, 0, "long_span_4"), (8, 0, "long_span_4")), False, (0, 1, 2)), # 12
 	NetData(((7, 0, "out"), ), True, (0, )), # 13
+	NetData(((2, 3, UNCONNECTED_NAME), ), True, (0, )), # 14
 )
 
 # left, wire_out -> internal -> LUT -> lut_out

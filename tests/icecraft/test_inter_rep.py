@@ -12,10 +12,10 @@ from queue import SimpleQueue
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftLUTPosition
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Edge, SourceGroup, Vertex, ConVertex, LUTVertex, LUTBits
 from adapters.icecraft.chip_data import ConfigAssemblage
-from adapters.icecraft.chip_data_utils import NetData, ElementInterface
+from adapters.icecraft.chip_data_utils import NetData, ElementInterface, UNCONNECTED_NAME
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem
 from adapters.icecraft.representation import CARRY_ONE_IN
-from adapters.icecraft.misc import LUTFunction
+from adapters.icecraft.misc import LUTFunction, IcecraftSatisfiabilityError
 from domain.allele_sequence import AlleleList, AlleleAll, Allele
 
 from .common import create_bits
@@ -978,13 +978,6 @@ class TestVertex(unittest.TestCase):
 				
 				self.assertEqual(exp, res)
 	
-	def test_neutral_alleles(self):
-		for bit_count in range(1, 17):
-			with self.subTest(bit_count=bit_count):
-				res = Vertex.neutral_alleles(bit_count)
-				
-				self.assertEqual(1, len(res))
-				self.assertFalse(any(res[0].values))
 
 class TestConVertex(unittest.TestCase):
 	def test_creation(self):
@@ -1321,6 +1314,33 @@ class TestConVertex(unittest.TestCase):
 		
 		for edge in edge_list:
 			edge.used = True
+	
+	def test_neutral_alleles(self):
+		rep = InterRep(NET_DATA, {})
+		seg = NET_DATA[0].segment[0]
+		desig = VertexDesig.from_seg_entry(seg)
+		dut = rep.get_vertex(desig)
+		
+		bits = (IcecraftBitPosition.from_coords(2, 3, 5, 1), )
+		config_item = 	ConnectionItem(
+			bits,
+			"connection", seg[2], ((False, ), (True, )), (UNCONNECTED_NAME, "lut_out")
+		)
+		dut.add_src_grp(config_item)
+		with self.subTest("simple case"):
+			res = dut.neutral_alleles()
+			# single allele seq
+			self.assertEqual(1, len(res))
+			seq = res[0]
+			self.assertEqual(1, len(seq))
+			self.assertEqual(len(bits), len(seq[0].values))
+			# all false
+			self.assertFalse(any(seq[0].values))
+		
+		dut.add_src_grp(CON_DATA[0])
+		with self.subTest("missing unconnected"):
+			with self.assertRaises(IcecraftSatisfiabilityError):
+				res = dut.neutral_alleles()
 	
 	def generate_src_grps_test_cases(self, x, y):
 		class SrcGrpsTestData(NamedTuple):
@@ -1751,6 +1771,22 @@ class TestLUTVertex(unittest.TestCase):
 				
 				self.assertEqual([], res)
 			
+	
+	def test_neutral_alleles(self):
+		for lut_items in LUT_DATA:
+			rep = InterRep([], {})
+			with self.subTest(lut_items=lut_items):
+				dut = LUTVertex.from_config_items(rep, lut_items)
+				res = dut.neutral_alleles()
+				
+				bits_list = dut.get_bit_tuples()
+				self.assertEqual(len(bits_list), len(res))
+				for bits, res_seq in zip(bits_list, res):
+					self.assertEqual(1, len(res_seq))
+					res_vals = res_seq[0].values
+					self.assertEqual(len(bits), len(res_vals))
+					self.assertFalse(any(v for v in res_vals))
+		
 	
 	def test_lut_function_to_truth_table(self):
 		for func_enum in LUTFunction:
