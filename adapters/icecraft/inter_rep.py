@@ -179,11 +179,11 @@ class ConVertex(Vertex):
 		for value, src_net in zip(con_item.values, con_item.src_nets):
 			src_desig = VertexDesig.from_net_name(dst_desig.tile, src_net)
 			edge_desig = EdgeDesig(src_desig, dst_desig)
+			srcs[edge_desig] = value
 			if src_net == UNCONNECTED_NAME and self.rep.has_edge(edge_desig):
 				# connection to UNCONNECTED net is enabled by multiple source groups
 				# -> don't add edge more than once
 				continue
-			srcs[edge_desig] = value
 			self.rep.add_edge(edge_desig)
 		
 		src_grp = SourceGroup(con_item.bits, dst_desig, srcs)
