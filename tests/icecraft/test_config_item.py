@@ -75,6 +75,19 @@ class ConnectionItemTest(ConfigItemTest):
 		),
 	)
 	
+	def test_post_init_checks(self):
+		with self.subTest(desc="less values than sources"):
+			data = list(self.test_data[0])
+			data[3] = data[3][:1]
+			with self.assertRaises(AssertionError):
+				self.dut_class(*data)
+		
+		with self.subTest(desc="wrong values length"):
+			data = list(self.test_data[0])
+			data[3] = (data[3][0], data[3][1][:1])
+			with self.assertRaises(AssertionError):
+				self.dut_class(*data)
+	
 	def test_values(self):
 		bits, kind, dst_net, values, src_nets = self.test_data[0]
 		
