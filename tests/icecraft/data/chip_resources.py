@@ -19,6 +19,13 @@ NET_DATA = (
 	NetData(((5, 0, "long_span_4"), (7, 0, "long_span_4"), (8, 0, "long_span_4")), False, (0, 1, 2)), # 12
 	NetData(((7, 0, "out"), ), True, (0, )), # 13
 	NetData(((2, 3, UNCONNECTED_NAME), ), True, (0, )), # 14
+	NetData(((1, 3, UNCONNECTED_NAME), ), True, (0, )), # 15
+	NetData(((4, 2, UNCONNECTED_NAME), ), True, (0, )), # 16
+	NetData(((5, 3, UNCONNECTED_NAME), ), True, (0, )), # 17
+	NetData(((8, 3, UNCONNECTED_NAME), ), True, (0, )), # 18
+	NetData(((8, 0, UNCONNECTED_NAME), ), True, (0, )), # 19
+	NetData(((5, 0, UNCONNECTED_NAME), ), True, (0, )), # 20
+	NetData(((7, 0, UNCONNECTED_NAME), ), True, (0, )), # 21
 )
 
 # left, wire_out -> internal -> LUT -> lut_out
@@ -31,43 +38,43 @@ NET_DATA = (
 CON_DATA = (
 	ConnectionItem(
 		create_bits(2, 3, ((7, 0), (7, 1))),
-		"connection", "internal", ((True, False), (True, True)), ("left", "wire_out")
+		"connection", "internal", ((False, False), (True, False), (True, True)), (UNCONNECTED_NAME, "left", "wire_out")
 	), # 0
 	ConnectionItem(
 		create_bits(2, 3, ((7, 2), (7, 3))),
-		"connection", "internal_2", ((True, True), ), ("wire_out", )
+		"connection", "internal_2", ((False, False), (True, True)), (UNCONNECTED_NAME, "wire_out")
 	), # 1
 	ConnectionItem(
 		create_bits(1, 3, ((6, 10), (6, 11))),
-		"connection", "wire_in_2", ((True, False), ), ("out", )
+		"connection", "wire_in_2", ((False, False), (True, False)), (UNCONNECTED_NAME, "out")
 	), # 2
 	ConnectionItem(
 		(IcecraftBitPosition.from_coords(4, 2, 11, 30), ),
-		"connection", "short_span_1", ((True, ), ), ("short_span_2", )
+		"connection", "short_span_1", ((False, ), (True, )), (UNCONNECTED_NAME, "short_span_2")
 	), # 3
 	ConnectionItem(
 		create_bits(4, 2, ((2, 0), (2, 1))),
-		"connection", "short_span_2", ((False, True), (True, False)), ("short_span_1", "out")
+		"connection", "short_span_2", ((False, False), (False, True), (True, False)), (UNCONNECTED_NAME, "short_span_1", "out")
 	), # 4
 	ConnectionItem(
 		(IcecraftBitPosition.from_coords(5, 3, 5, 1), ),
-		"connection", "long_span_1", ((True, ), ), ("long_span_2", )
+		"connection", "long_span_1", ((False, ), (True, )), (UNCONNECTED_NAME, "long_span_2")
 	), # 5
 	ConnectionItem(
 		(IcecraftBitPosition.from_coords(8, 3, 5, 1), ),
-		"connection", "long_span_2", ((True, ), ), ("long_span_3", )
+		"connection", "long_span_2", ((False, ), (True, )), (UNCONNECTED_NAME, "long_span_3")
 	), # 6
 	ConnectionItem(
 		(IcecraftBitPosition.from_coords(8, 0, 5, 1), ),
-		"connection", "long_span_3", ((True, ), ), ("long_span_4", )
+		"connection", "long_span_3", ((False, ), (True, )), (UNCONNECTED_NAME, "long_span_4")
 	), # 7
 	ConnectionItem(
 		(IcecraftBitPosition.from_coords(5, 0, 5, 1), ),
-		"connection", "long_span_4", ((True, ), ), ("long_span_1", )
+		"connection", "long_span_4", ((False, ), (True, )), (UNCONNECTED_NAME, "long_span_1")
 	), # 8
 	ConnectionItem(
 		(IcecraftBitPosition.from_coords(7, 0, 5, 3), ),
-		"connection", "long_span_4", ((True, ), ), ("out", )
+		"connection", "long_span_4", ((False, ), (True, )), (UNCONNECTED_NAME, "out")
 	), # 9
 )
 

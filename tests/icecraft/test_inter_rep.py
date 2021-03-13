@@ -1163,9 +1163,6 @@ class TestConVertex(unittest.TestCase):
 					
 					# check all values of con item found
 					con_values = set([v[bit_index:end_index] for v in values])
-					neutral = (False, )*len(part_bits)
-					self.assertIn(neutral, con_values)
-					con_values.remove(neutral)
 					self.assertEqual(set(bits_to_vals[part_bits]), con_values)
 					
 					seen_bits.add(part_bits)
@@ -1176,6 +1173,7 @@ class TestConVertex(unittest.TestCase):
 	
 	def test_get_genes(self):
 		config_map, bit_conf_map = self.create_bit_and_config_map()
+		uncon_name = VertexDesig.canonical_net_name(UNCONNECTED_NAME)
 		
 		rep = InterRep(NET_DATA, config_map)
 		bits_to_vals = {}
@@ -1223,6 +1221,10 @@ class TestConVertex(unittest.TestCase):
 			vtx = rep.get_vertex(vtx_desig)
 			for edge in itertools.chain(vtx.iter_out_edges(), vtx.iter_in_edges()):
 				bits, vals = ed_to_bit_vals[edge.desig]
+				if edge.desig.src.name == uncon_name and vtx_desig.name != uncon_name:
+					# unconnected
+					continue
+				
 				try:
 					btv_vtx[bits].remove(vals)
 				except ValueError:
@@ -1253,6 +1255,10 @@ class TestConVertex(unittest.TestCase):
 		for vtx_desig in [VertexDesig.from_seg_entry(s) for s in es_data]:
 			vtx = rep.get_vertex(vtx_desig)
 			for edge in vtx.iter_in_edges():
+				if edge.desig.src.name == uncon_name:
+					# unconnected
+					continue
+				
 				bits, vals = ed_to_bit_vals[edge.desig]
 				btv_vtx[bits].remove(vals)
 			
@@ -1321,23 +1327,23 @@ class TestConVertex(unittest.TestCase):
 		desig = VertexDesig.from_seg_entry(seg)
 		dut = rep.get_vertex(desig)
 		
-		bits = (IcecraftBitPosition.from_coords(2, 3, 5, 1), )
-		config_item = 	ConnectionItem(
-			bits,
-			"connection", seg[2], ((False, ), (True, )), (UNCONNECTED_NAME, "lut_out")
-		)
-		dut.add_src_grp(config_item)
+		dut.add_src_grp(CON_DATA[0])
 		with self.subTest("simple case"):
 			res = dut.neutral_alleles()
 			# single allele seq
 			self.assertEqual(1, len(res))
 			seq = res[0]
 			self.assertEqual(1, len(seq))
-			self.assertEqual(len(bits), len(seq[0].values))
+			self.assertEqual(len(CON_DATA[0].bits), len(seq[0].values))
 			# all false
 			self.assertFalse(any(seq[0].values))
 		
-		dut.add_src_grp(CON_DATA[0])
+		bits = (IcecraftBitPosition.from_coords(2, 3, 5, 1), )
+		config_item = ConnectionItem(
+			bits,
+			"connection", seg[2], ((True, ), ), ("lut_out", )
+		)
+		dut.add_src_grp(config_item)
 		with self.subTest("missing unconnected"):
 			with self.assertRaises(IcecraftSatisfiabilityError):
 				res = dut.neutral_alleles()
@@ -1355,26 +1361,27 @@ class TestConVertex(unittest.TestCase):
 		bit_pos = IcecraftBitPosition.from_coords
 		
 		net_data_list = [NetData(((x, y, f"src_{i}"), ), True, (0,)) for i in range(4)]
+		net_data_list.extend([NetData(((x+i, y, UNCONNECTED_NAME), ), True, (0,)) for i in range(2)])
 		net_data_list.extend([NetData(((x+1, y, f"src_{i+4}"), ), True, (0,)) for i in range(4)])
 		net_data_list.append(NetData(((x, y, "dst"), (x+1, y, "dst")), False, (0, 1)))
 		tile_items = [
 			ConnectionItem(
 				(bit_pos(x, y, 7, 0), bit_pos(x, y, 7, 1)),
-				"connection", "dst", ((True, False), (True, True)), ("src_0", "src_1")
+				"connection", "dst", ((False, False), (True, False), (True, True)), (UNCONNECTED_NAME, "src_0", "src_1")
 			),
 			ConnectionItem(
 				(bit_pos(x, y, 3, 0), bit_pos(x, y, 3, 1)),
-				"connection", "dst", ((False, True), (True, False)), ("src_2", "src_3")
+				"connection", "dst", ((False, False), (False, True), (True, False)), (UNCONNECTED_NAME, "src_2", "src_3")
 			),
 		]
 		other_items = [
 			ConnectionItem(
 				(bit_pos(x+1, y, 7, 0), bit_pos(x+1, y, 7, 1)),
-				"connection", "dst", ((True, False), (True, True)), ("src_4", "src_5")
+				"connection", "dst", ((False, False), (True, False), (True, True)), (UNCONNECTED_NAME, "src_4", "src_5")
 			),
 			ConnectionItem(
 				(bit_pos(x+1, y, 3, 0), bit_pos(x+1, y, 3, 1)),
-				"connection", "dst", ((False, True), (True, False)), ("src_6", "src_7")
+				"connection", "dst", ((False, False), (False, True), (True, False)), (UNCONNECTED_NAME, "src_6", "src_7")
 			),
 		]
 		test_cases = (
