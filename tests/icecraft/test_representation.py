@@ -421,7 +421,11 @@ class IcecraftRepGenTest(unittest.TestCase):
 			
 			tile = TilePosition(2, 3)
 			vtx_list = [v for v in rep.iter_vertices() if any(d.tile==tile for d in v.desigs)]
-			excluded = [(2, 3, "internal"), (2, 3, "internal_2"), (2, 3, "lut_out"), (0, 3, "right"), (0, 3, "wire_in_1"), (2, 3, "empty_out")]
+			excluded = [
+				(2, 3, "internal"), (2, 3, "internal_2"), (2, 3, "lut_out"),
+				(0, 3, "right"), (0, 3, "wire_in_1"), (2, 3, "empty_out"),
+				(2, 3, UNCONNECTED_NAME)
+			]
 			exp_dict = {s: True if s not in excluded else False for s in all_segs}
 			
 			icecraft.IcecraftRepGen.set_available_vertex(vtx_list, lambda x: True, False)
@@ -454,7 +458,10 @@ class IcecraftRepGenTest(unittest.TestCase):
 			for vtx in rep.iter_vertices():
 				vtx.ext_src = any(vtx.desigs[i].tile in [(1, 3), (7, 0)] for i in vtx.drivers)
 			
-			excluded = [(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"), (7, 0, "out")]
+			excluded = [
+				(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"),
+				(7, 0, "out"), (1, 3, UNCONNECTED_NAME), (7, 0, UNCONNECTED_NAME)
+			]
 			exp_dict = {s: True if s not in excluded else False for s in all_segs}
 			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: x.ext_src, False)
 			self.check_available(rep, exp_dict)
