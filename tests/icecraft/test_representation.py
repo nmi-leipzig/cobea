@@ -13,7 +13,7 @@ from domain.request_model import RequestObject
 from domain.model import Gene
 from domain.allele_sequence import AlleleList, AlleleAll, AllelePow, Allele
 from adapters.icecraft.chip_data import ConfigAssemblage, get_config_items, get_net_data
-from adapters.icecraft.chip_data_utils import NetData, ElementInterface, SegEntryType
+from adapters.icecraft.chip_data_utils import NetData, ElementInterface, SegEntryType, UNCONNECTED_NAME
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex
 from adapters.icecraft.misc import IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftInputError, IcecraftGeneConstraint
@@ -570,9 +570,11 @@ class IcecraftRepGenTest(unittest.TestCase):
 			(list(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment)), {s: False for s in all_segs}, "all tiles"),
 			([TilePosition(2, 3)], {s: True if s not in [
 				(2, 3, "internal"), (2, 3, "internal_2"),
-				(2, 3, "lut_out"), (2, 3, "empty_out")
+				(2, 3, "lut_out"), (2, 3, "empty_out"), (2, 3, UNCONNECTED_NAME)
 			] else False for s in all_segs}, "single driver in"),
-			([TilePosition(1, 3)], {s: True if s not in [(0, 3, "right"), (2, 3, "empty_out")] else False for s in all_segs}, "multiple driver one in, one out"),
+			([TilePosition(1, 3)], {s: True if s not in [
+				(0, 3, "right"), (2, 3, "empty_out"), (1, 3, UNCONNECTED_NAME)
+			] else False for s in all_segs}, "multiple driver one in, one out"),
 		)
 		for tiles, exp_dict, desc in test_data:
 			rep = InterRep(NET_DATA, {})
