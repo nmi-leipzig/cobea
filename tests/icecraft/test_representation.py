@@ -742,7 +742,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 	
 	def test_choose_resources(self):
 		all_segs = [n.segment[0] for n in NET_DATA]
-		ext_drv = {s: True if s in [(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"), (7, 0, "out")] else False for s in all_segs}
+		ext_uncon = [(x, y, UNCONNECTED_NAME) for x,y in [(1, 3), (4, 2), (5, 3), (8, 3), (8, 0), (5, 0), (7, 0)]]
+		ext_drv = {s: True if s in [(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"), (7, 0, "out")]+ext_uncon else False for s in all_segs}
 		
 		ice_res = IcecraftResource.from_coords
 		
@@ -752,23 +753,23 @@ class IcecraftRepGenTest(unittest.TestCase):
 			), {s: not v for s, v in ext_drv.items()}),
 			("exclude nets", (
 				[ice_res(TILE_ALL, TILE_ALL, r".*span")], []
-			), {s: True if s in [(2, 3, "internal"), (2, 3, "internal_2"), (2, 3, "lut_out"), (2, 3, "empty_out"), (4, 2, "out")] else False for s in all_segs}),
+			), {s: True if s in [(2, 3, "internal"), (2, 3, "internal_2"), (2, 3, "lut_out"), (2, 3, "empty_out"), (2, 3, UNCONNECTED_NAME), (4, 2, "out")] else False for s in all_segs}),
 			("include nets", (
 				[], [ice_res(TILE_ALL, TILE_ALL, "NET#left$")]
-			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')] else False for s in all_segs}),
+			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')]+ext_uncon else False for s in all_segs}),
 			("joint_input_nets", (
 				[], [ice_res(TILE_ALL, TILE_ALL, "NET#left")]
-			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')] else False for s in all_segs}),
+			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')]+ext_uncon else False for s in all_segs}),
 			("lone_input_nets", (
 				[], [ice_res(2, 3, "NET#left$")]
-			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')] else False for s in all_segs}),
+			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')]+ext_uncon else False for s in all_segs}),
 			("complete example", (
 				[ice_res(TILE_ALL, TILE_ALL, r".*span")], [
 					ice_res(TILE_ALL, TILE_ALL, "^NET#long_span_\d$"),
 					ice_res(TILE_ALL, TILE_ALL, "NET#out"),
 					ice_res(2, 3, "NET#left$")
 				]
-			), {s: True if s not in [(0, 3, 'wire_in_1'), (4, 2, 'short_span_1'), (4, 1, 'short_span_2')] else False for s in all_segs}),
+			), {s: True if s not in [(0, 3, 'wire_in_1'), (4, 2, 'short_span_1'), (4, 1, 'short_span_2')]+ext_uncon else False for s in all_segs}),
 		)
 		
 		
