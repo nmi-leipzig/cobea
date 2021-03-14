@@ -1088,7 +1088,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		exp_map[one_cis_pos].connection += (ConnectionItem(
 			(IcecraftBitPosition.from_coords(*one_cis_pos, 1, 50), ),
-			"connection", "carry_in_mux", ((True, ), ), (icecraft.representation.CARRY_ONE_IN, )
+			"connection", "carry_in_mux", ((False, ), (True, )), (UNCONNECTED_NAME, icecraft.representation.CARRY_ONE_IN)
 		), )
 		
 		exp_nets = list(in_nets)
