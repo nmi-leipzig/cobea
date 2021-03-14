@@ -547,7 +547,9 @@ class IcecraftRepGenTest(unittest.TestCase):
 			excluded = [
 				EdgeDesig.net_to_net(TilePosition(2, 3), "left",  "internal"),
 				EdgeDesig.net_to_net(TilePosition(2, 3), "wire_out",  "internal"),
+				EdgeDesig.net_to_net(TilePosition(2, 3), UNCONNECTED_NAME,  "internal"),
 				EdgeDesig.net_to_net(TilePosition(5, 3), "long_span_2", "long_span_1"),
+				EdgeDesig.net_to_net(TilePosition(5, 3), UNCONNECTED_NAME, "long_span_1"),
 			]
 			exp_dict = {e.desig: True if e.desig not in excluded else False for e in rep.iter_edges()}
 			self.check_available_edge(rep, exp_dict)
