@@ -1506,12 +1506,13 @@ class IcecraftRepGenTest(unittest.TestCase):
 			NetData(((*tile, "carry_in_mux"),), False, (0, )),
 			NetData(((tile.x, tile.y-1, "lutff_7/cout"), (*tile, "carry_in")), True, (0, )),
 			NetData(((*tile, icecraft.representation.CARRY_ONE_IN),), True, (0, )),
+			NetData(((*tile, UNCONNECTED_NAME), ), True, (0, )),
 		]
 		ci_bits = create_bits(*tile, [(1, 49)])
 		one_bits = create_bits(*tile, [(1, 50)])
 		con_items = [
-			ConnectionItem(ci_bits, "connection", "carry_in_mux", ((True, ), ), ("carry_in", )),
-			ConnectionItem(one_bits, "connection", "carry_in_mux", ((True, ), ), (icecraft.representation.CARRY_ONE_IN, )),
+			ConnectionItem(ci_bits, "connection", "carry_in_mux", ((False, ), (True, )), (UNCONNECTED_NAME, "carry_in")),
+			ConnectionItem(one_bits, "connection", "carry_in_mux", ((False, ), (True, )), (UNCONNECTED_NAME, icecraft.representation.CARRY_ONE_IN)),
 		]
 		config_map = {tile: ConfigAssemblage(connection=tuple(con_items))}
 		rep = InterRep(net_data, config_map)
@@ -1531,9 +1532,10 @@ class IcecraftRepGenTest(unittest.TestCase):
 		net_data = [
 			NetData(((*tile, "glb2local_1"), ), False, (0, )),
 			NetData(((*tile, "local_g0_5"), ), False, (0, )),
+			NetData(((*tile, UNCONNECTED_NAME), ), True, (0, )),
 		]
 		bits = create_bits(*tile, [(2, 15), (2, 16), (2, 17), (2, 18), (3, 18)])
-		con_items = [ConnectionItem(bits, "connection", "local_g0_5", ((False, False, True, False, False), ), ("glb2local_1", )),]
+		con_items = [ConnectionItem(bits, "connection", "local_g0_5", ((False, False, False, False, False), (False, False, True, False, False)), (UNCONNECTED_NAME, "glb2local_1")),]
 		config_map = {tile: ConfigAssemblage(connection=tuple(con_items))}
 		rep = InterRep(net_data, config_map)
 		ec = GeneTestCase(
