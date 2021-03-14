@@ -724,6 +724,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			], {-1: all_tiles}, False, [
 				crt_dsg(TilePosition(8, 0), "long_span_4", "long_span_3"),
 				crt_dsg(TilePosition(8, 3), "long_span_3", "long_span_2"),
+				crt_dsg(TilePosition(8, 3), UNCONNECTED_NAME, "long_span_2"),
 				crt_dsg(TilePosition(1, 3), "out", "wire_in_2"),
 			])
 		]
