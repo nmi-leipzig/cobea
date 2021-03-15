@@ -28,6 +28,10 @@ class ConnectionItem(ConfigItem):
 	values: Tuple[Tuple[bool, ...], ...]
 	src_nets: Tuple[str, ...]
 	
+	def __post_init__(self):
+		assert len(self.values) == len(self.src_nets)
+		assert all(len(v)==len(self.bits) for v in self.values)
+	
 	@property
 	def identifier(self) -> str:
 		return f"{self.bits[0].x:02d}{self.bits[0].y:02d}_{self.kind}_{self.dst_net}"

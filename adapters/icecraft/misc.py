@@ -94,3 +94,7 @@ class IcecraftError(Exception):
 class IcecraftInputError(IcecraftError):
 	"""Error in input"""
 	pass
+
+class IcecraftSatisfiabilityError(IcecraftError):
+	"""Condition for representation or unsatisfiable"""
+	pass

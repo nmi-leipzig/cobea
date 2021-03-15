@@ -12,10 +12,10 @@ from queue import SimpleQueue
 from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftLUTPosition
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Edge, SourceGroup, Vertex, ConVertex, LUTVertex, LUTBits
 from adapters.icecraft.chip_data import ConfigAssemblage
-from adapters.icecraft.chip_data_utils import NetData, ElementInterface
+from adapters.icecraft.chip_data_utils import NetData, ElementInterface, UNCONNECTED_NAME
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem
 from adapters.icecraft.representation import CARRY_ONE_IN
-from adapters.icecraft.misc import LUTFunction
+from adapters.icecraft.misc import LUTFunction, IcecraftSatisfiabilityError
 from domain.allele_sequence import AlleleList, AlleleAll, Allele
 
 from .common import create_bits
@@ -978,13 +978,6 @@ class TestVertex(unittest.TestCase):
 				
 				self.assertEqual(exp, res)
 	
-	def test_neutral_alleles(self):
-		for bit_count in range(1, 17):
-			with self.subTest(bit_count=bit_count):
-				res = Vertex.neutral_alleles(bit_count)
-				
-				self.assertEqual(1, len(res))
-				self.assertFalse(any(res[0].values))
 
 class TestConVertex(unittest.TestCase):
 	def test_creation(self):
@@ -1170,9 +1163,6 @@ class TestConVertex(unittest.TestCase):
 					
 					# check all values of con item found
 					con_values = set([v[bit_index:end_index] for v in values])
-					neutral = (False, )*len(part_bits)
-					self.assertIn(neutral, con_values)
-					con_values.remove(neutral)
 					self.assertEqual(set(bits_to_vals[part_bits]), con_values)
 					
 					seen_bits.add(part_bits)
@@ -1183,6 +1173,7 @@ class TestConVertex(unittest.TestCase):
 	
 	def test_get_genes(self):
 		config_map, bit_conf_map = self.create_bit_and_config_map()
+		uncon_name = VertexDesig.canonical_net_name(UNCONNECTED_NAME)
 		
 		rep = InterRep(NET_DATA, config_map)
 		bits_to_vals = {}
@@ -1230,6 +1221,10 @@ class TestConVertex(unittest.TestCase):
 			vtx = rep.get_vertex(vtx_desig)
 			for edge in itertools.chain(vtx.iter_out_edges(), vtx.iter_in_edges()):
 				bits, vals = ed_to_bit_vals[edge.desig]
+				if edge.desig.src.name == uncon_name and vtx_desig.name != uncon_name:
+					# unconnected
+					continue
+				
 				try:
 					btv_vtx[bits].remove(vals)
 				except ValueError:
@@ -1260,6 +1255,10 @@ class TestConVertex(unittest.TestCase):
 		for vtx_desig in [VertexDesig.from_seg_entry(s) for s in es_data]:
 			vtx = rep.get_vertex(vtx_desig)
 			for edge in vtx.iter_in_edges():
+				if edge.desig.src.name == uncon_name:
+					# unconnected
+					continue
+				
 				bits, vals = ed_to_bit_vals[edge.desig]
 				btv_vtx[bits].remove(vals)
 			
@@ -1322,6 +1321,33 @@ class TestConVertex(unittest.TestCase):
 		for edge in edge_list:
 			edge.used = True
 	
+	def test_neutral_alleles(self):
+		rep = InterRep(NET_DATA, {})
+		seg = NET_DATA[0].segment[0]
+		desig = VertexDesig.from_seg_entry(seg)
+		dut = rep.get_vertex(desig)
+		
+		dut.add_src_grp(CON_DATA[0])
+		with self.subTest("simple case"):
+			res = dut.neutral_alleles()
+			# single allele seq
+			self.assertEqual(1, len(res))
+			seq = res[0]
+			self.assertEqual(1, len(seq))
+			self.assertEqual(len(CON_DATA[0].bits), len(seq[0].values))
+			# all false
+			self.assertFalse(any(seq[0].values))
+		
+		bits = (IcecraftBitPosition.from_coords(2, 3, 5, 1), )
+		config_item = ConnectionItem(
+			bits,
+			"connection", seg[2], ((True, ), ), ("lut_out", )
+		)
+		dut.add_src_grp(config_item)
+		with self.subTest("missing unconnected"):
+			with self.assertRaises(IcecraftSatisfiabilityError):
+				res = dut.neutral_alleles()
+	
 	def generate_src_grps_test_cases(self, x, y):
 		class SrcGrpsTestData(NamedTuple):
 			desc: str # description
@@ -1335,26 +1361,27 @@ class TestConVertex(unittest.TestCase):
 		bit_pos = IcecraftBitPosition.from_coords
 		
 		net_data_list = [NetData(((x, y, f"src_{i}"), ), True, (0,)) for i in range(4)]
+		net_data_list.extend([NetData(((x+i, y, UNCONNECTED_NAME), ), True, (0,)) for i in range(2)])
 		net_data_list.extend([NetData(((x+1, y, f"src_{i+4}"), ), True, (0,)) for i in range(4)])
 		net_data_list.append(NetData(((x, y, "dst"), (x+1, y, "dst")), False, (0, 1)))
 		tile_items = [
 			ConnectionItem(
 				(bit_pos(x, y, 7, 0), bit_pos(x, y, 7, 1)),
-				"connection", "dst", ((True, False), (True, True)), ("src_0", "src_1")
+				"connection", "dst", ((False, False), (True, False), (True, True)), (UNCONNECTED_NAME, "src_0", "src_1")
 			),
 			ConnectionItem(
 				(bit_pos(x, y, 3, 0), bit_pos(x, y, 3, 1)),
-				"connection", "dst", ((False, True), (True, False)), ("src_2", "src_3")
+				"connection", "dst", ((False, False), (False, True), (True, False)), (UNCONNECTED_NAME, "src_2", "src_3")
 			),
 		]
 		other_items = [
 			ConnectionItem(
 				(bit_pos(x+1, y, 7, 0), bit_pos(x+1, y, 7, 1)),
-				"connection", "dst", ((True, False), (True, True)), ("src_4", "src_5")
+				"connection", "dst", ((False, False), (True, False), (True, True)), (UNCONNECTED_NAME, "src_4", "src_5")
 			),
 			ConnectionItem(
 				(bit_pos(x+1, y, 3, 0), bit_pos(x+1, y, 3, 1)),
-				"connection", "dst", ((False, True), (True, False)), ("src_6", "src_7")
+				"connection", "dst", ((False, False), (False, True), (True, False)), (UNCONNECTED_NAME, "src_6", "src_7")
 			),
 		]
 		test_cases = (
@@ -1751,6 +1778,22 @@ class TestLUTVertex(unittest.TestCase):
 				
 				self.assertEqual([], res)
 			
+	
+	def test_neutral_alleles(self):
+		for lut_items in LUT_DATA:
+			rep = InterRep([], {})
+			with self.subTest(lut_items=lut_items):
+				dut = LUTVertex.from_config_items(rep, lut_items)
+				res = dut.neutral_alleles()
+				
+				bits_list = dut.get_bit_tuples()
+				self.assertEqual(len(bits_list), len(res))
+				for bits, res_seq in zip(bits_list, res):
+					self.assertEqual(1, len(res_seq))
+					res_vals = res_seq[0].values
+					self.assertEqual(len(bits), len(res_vals))
+					self.assertFalse(any(v for v in res_vals))
+		
 	
 	def test_lut_function_to_truth_table(self):
 		for func_enum in LUTFunction:

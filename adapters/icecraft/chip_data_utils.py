@@ -3,6 +3,8 @@
 from typing import Iterable, Set, Tuple, List, Iterable, Mapping, Any, NewType, TextIO, Dict
 from dataclasses import dataclass
 
+UNCONNECTED_NAME = "UNCONNECTED"
+
 SegEntryType = NewType("SegEntryType", Tuple[int, int, str])
 SegType = NewType("SegType", Tuple[SegEntryType, ...])
 TileType = NewType("TileType", Tuple[int, int])

@@ -27,9 +27,9 @@ from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 from domain.model import Gene
 
 from .chip_data import ConfigAssemblage
-from .chip_data_utils import NetData, ElementInterface, SegEntryType
+from .chip_data_utils import NetData, ElementInterface, SegEntryType, UNCONNECTED_NAME
 from .config_item import ConnectionItem, IndexedItem
-from .misc import IcecraftNetPosition, IcecraftLUTPosition, TilePosition, IcecraftBitPosition, LUTFunction
+from .misc import IcecraftNetPosition, IcecraftLUTPosition, TilePosition, IcecraftBitPosition, LUTFunction, IcecraftSatisfiabilityError
 
 VertexPosition = NewType("VertexPosition", Union[IcecraftNetPosition, IcecraftLUTPosition])
 
@@ -41,13 +41,21 @@ class VertexDesig:
 	tile: TilePosition
 	name: str
 	
+	@staticmethod
+	def canonical_net_name(net_name: str) -> str:
+		return f"NET{SEPARATOR}{net_name}"
+	
+	@staticmethod
+	def canonical_lut_name(lut_index: int) -> str:
+		return f"LUT{SEPARATOR}{lut_index}"
+	
 	@classmethod
 	def from_net_name(cls, tile: TilePosition, net_name: str) -> "VertexDesig":
-		return cls(tile, f"NET{SEPARATOR}{net_name}")
+		return cls(tile, cls.canonical_net_name(net_name))
 	
 	@classmethod
 	def from_lut_index(cls, tile: TilePosition, lut_index: int) -> "VertexDesig":
-		return cls(tile, f"LUT{SEPARATOR}{lut_index}")
+		return cls(tile, cls.canonical_lut_name(lut_index))
 	
 	@classmethod
 	def from_net_position(cls, net_pos: IcecraftNetPosition) -> "VertexDesig":
@@ -164,9 +172,8 @@ class Vertex(InterElement):
 	def get_genes(self, desc: Union[str, None]=None) -> List[Gene]:
 		raise NotImplementedError()
 	
-	@staticmethod
-	def neutral_alleles(bit_count: int) -> AlleleList:
-		return AlleleList([Allele((False, )*bit_count, "neutral")])
+	def neutral_alleles(self) -> List[AlleleList]:
+		raise NotImplementedError()
 
 @dataclass
 class ConVertex(Vertex):
@@ -181,6 +188,10 @@ class ConVertex(Vertex):
 			src_desig = VertexDesig.from_net_name(dst_desig.tile, src_net)
 			edge_desig = EdgeDesig(src_desig, dst_desig)
 			srcs[edge_desig] = value
+			if src_net == UNCONNECTED_NAME and self.rep.has_edge(edge_desig):
+				# connection to UNCONNECTED net is enabled by multiple source groups
+				# -> don't add edge more than once
+				continue
 			self.rep.add_edge(edge_desig)
 		
 		src_grp = SourceGroup(con_item.bits, dst_desig, srcs)
@@ -222,31 +233,69 @@ class ConVertex(Vertex):
 			else:
 				base_desc += " unused"
 			
-			allele_seq = self.neutral_alleles(bit_count)
+			allele_seq = self.neutral_alleles()[0]
 		else:
-			alleles = [Allele((False, )*bit_count, "not driven")]
+			alleles = []
 			edge_map = {e.desig: e for e in self.in_edges}
+			
+			# prepare unconnected option and connected options
+			no_uncon = []
+			uncon_list = []
+			uncon_name = VertexDesig.canonical_net_name(UNCONNECTED_NAME)
+			options_list = []
+			for sg_index, src_grp in enumerate(self.src_grps):
+				options = []
+				uncon_vals = None
+				
+				for edge_desig, vals in sorted(src_grp.srcs.items(), key=lambda i: i[1]):
+					if edge_desig.src.name == uncon_name:
+						uncon_vals = vals
+						continue
+					
+					options.append((edge_map[edge_desig], vals))
+				
+				options_list.append(options)
+				
+				uncon_list.append(uncon_vals)
+				if uncon_vals is None:
+					no_uncon.append(sg_index)
+			
+			if len(no_uncon) == 0:
+				alleles.append(Allele(sum(uncon_list, tuple()), "unconnected"))
+			else:
+				raise IcecraftSatisfiabilityError(f"Can't create genes as {len(no_uncon)} have to be connected at the same time")
+				# for len(no_uncon)=1 it could be recovered by setting all other option to empty list
+				# but that case is currently not required and causes just more complexity
+			
 			# add available and used sources for each SourceGroup
 			# while bits from other SourceGroups remain False
-			suffix_len = 0
-			for src_grp in reversed(self.src_grps): # reverse to get values closer to sorted order
-				for edge_desig, vals in sorted(src_grp.srcs.items(), key=lambda i: i[1]):
-					edge = edge_map[edge_desig]
+			for sg_index, options in reversed(list(enumerate(options_list))): # reverse to get values closer to sorted order
+				for edge, vals in options:
 					if not all((edge.available, edge.used, edge.src.available, edge.src.used)):
 						continue
 					allele = Allele(
-						(False, )*(bit_count-len(vals)-suffix_len) + vals + (False, )*suffix_len,
+						sum(uncon_list[:sg_index], tuple()) + vals + sum(uncon_list[sg_index+1:], tuple()),
 						edge.desig.src.name
 					)
 					alleles.append(allele)
-				
-				suffix_len += len(src_grp.bits)
-			
-			assert suffix_len==bit_count
+					
+					assert len(allele.values)==bit_count
 			
 			allele_seq = AlleleList(alleles)
 		
 		return [Gene(all_bits, allele_seq, base_desc+desc)]
+	
+	def neutral_alleles(self) -> List[AlleleList]:
+		neutral_vals_list = []
+		for src_grp in self.src_grps:
+			desig = EdgeDesig(VertexDesig.from_net_name(src_grp.dst.tile, UNCONNECTED_NAME), src_grp.dst)
+			try:
+				vals = src_grp.srcs[desig]
+			except KeyError as ke:
+				raise IcecraftSatisfiabilityError("UNCONNECTED option missing for neutral allele") from ke
+			neutral_vals_list.append(vals)
+		
+		return [AlleleList([Allele(tuple(s for v in neutral_vals_list for s in v), "neutral")])]
 	
 	@classmethod
 	def from_net_data(cls, rep: "InterRep", raw: NetData) -> "ConVertex":
@@ -346,7 +395,7 @@ class LUTVertex(Vertex):
 			else:
 				base_desc += " unused"
 			
-			allele_seqs = [self.neutral_alleles(len(b)) for b in self.lut_bits.as_tuple()]
+			allele_seqs = self.neutral_alleles()
 		else:
 			allele_seqs = [AlleleAll(len(b)) for b in self.lut_bits.as_tuple()[:3]]
 			
@@ -373,6 +422,9 @@ class LUTVertex(Vertex):
 		
 		genes = [Gene(b, a, f"{base_desc} {n}{desc}") for b, a, n in zip(self.lut_bits.as_tuple(), allele_seqs, LUTBits.names)]
 		return genes
+	
+	def neutral_alleles(self) -> List[AlleleList]:
+		return [AlleleList([Allele((False, )*len(b), "neutral")]) for b in self.lut_bits.as_tuple()]
 	
 	@staticmethod
 	def lut_function_to_truth_table(lut_function: LUTFunction, input_count: int, used_inputs: Iterable[int]) -> Tuple[bool, ...]:
@@ -473,7 +525,7 @@ class InterRep:
 		edge.src.add_edge(edge, False)
 		edge.dst.add_edge(edge, True)
 		
-		assert desig not in self._edge_map
+		assert not self.has_edge(desig)
 		self._edge_map[desig] = edge
 		
 		self._tile_edge_map.setdefault(desig.dst.tile, []).append(edge)
@@ -507,6 +559,9 @@ class InterRep:
 		except KeyError:
 			# no edges for this tile -> no entry
 			return []
+	
+	def has_edge(self, desig: EdgeDesig) -> bool:
+		return desig in self._edge_map
 	
 	def iter_vertices(self) -> Iterable[Vertex]:
 		yield from self._vertices

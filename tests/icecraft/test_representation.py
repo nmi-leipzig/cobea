@@ -13,7 +13,7 @@ from domain.request_model import RequestObject
 from domain.model import Gene
 from domain.allele_sequence import AlleleList, AlleleAll, AllelePow, Allele
 from adapters.icecraft.chip_data import ConfigAssemblage, get_config_items, get_net_data
-from adapters.icecraft.chip_data_utils import NetData, ElementInterface, SegEntryType
+from adapters.icecraft.chip_data_utils import NetData, ElementInterface, SegEntryType, UNCONNECTED_NAME
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex
 from adapters.icecraft.misc import IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftInputError, IcecraftGeneConstraint
@@ -600,7 +600,11 @@ class IcecraftRepGenTest(unittest.TestCase):
 			
 			tile = TilePosition(2, 3)
 			vtx_list = [v for v in rep.iter_vertices() if any(d.tile==tile for d in v.desigs)]
-			excluded = [(2, 3, "internal"), (2, 3, "internal_2"), (2, 3, "lut_out"), (0, 3, "right"), (0, 3, "wire_in_1"), (2, 3, "empty_out")]
+			excluded = [
+				(2, 3, "internal"), (2, 3, "internal_2"), (2, 3, "lut_out"),
+				(0, 3, "right"), (0, 3, "wire_in_1"), (2, 3, "empty_out"),
+				(2, 3, UNCONNECTED_NAME)
+			]
 			exp_dict = {s: True if s not in excluded else False for s in all_segs}
 			
 			icecraft.IcecraftRepGen.set_available_vertex(vtx_list, lambda x: True, False)
@@ -633,7 +637,10 @@ class IcecraftRepGenTest(unittest.TestCase):
 			for vtx in rep.iter_vertices():
 				vtx.ext_src = any(vtx.desigs[i].tile in [(1, 3), (7, 0)] for i in vtx.drivers)
 			
-			excluded = [(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"), (7, 0, "out")]
+			excluded = [
+				(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"),
+				(7, 0, "out"), (1, 3, UNCONNECTED_NAME), (7, 0, UNCONNECTED_NAME)
+			]
 			exp_dict = {s: True if s not in excluded else False for s in all_segs}
 			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: x.ext_src, False)
 			self.check_available(rep, exp_dict)
@@ -719,7 +726,9 @@ class IcecraftRepGenTest(unittest.TestCase):
 			excluded = [
 				EdgeDesig.net_to_net(TilePosition(2, 3), "left",  "internal"),
 				EdgeDesig.net_to_net(TilePosition(2, 3), "wire_out",  "internal"),
+				EdgeDesig.net_to_net(TilePosition(2, 3), UNCONNECTED_NAME,  "internal"),
 				EdgeDesig.net_to_net(TilePosition(5, 3), "long_span_2", "long_span_1"),
+				EdgeDesig.net_to_net(TilePosition(5, 3), UNCONNECTED_NAME, "long_span_1"),
 			]
 			exp_dict = {e.desig: True if e.desig not in excluded else False for e in rep.iter_edges()}
 			self.check_available_edge(rep, exp_dict)
@@ -749,9 +758,11 @@ class IcecraftRepGenTest(unittest.TestCase):
 			(list(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment)), {s: False for s in all_segs}, "all tiles"),
 			([TilePosition(2, 3)], {s: True if s not in [
 				(2, 3, "internal"), (2, 3, "internal_2"),
-				(2, 3, "lut_out"), (2, 3, "empty_out")
+				(2, 3, "lut_out"), (2, 3, "empty_out"), (2, 3, UNCONNECTED_NAME)
 			] else False for s in all_segs}, "single driver in"),
-			([TilePosition(1, 3)], {s: True if s not in [(0, 3, "right"), (2, 3, "empty_out")] else False for s in all_segs}, "multiple driver one in, one out"),
+			([TilePosition(1, 3)], {s: True if s not in [
+				(0, 3, "right"), (2, 3, "empty_out"), (1, 3, UNCONNECTED_NAME)
+			] else False for s in all_segs}, "multiple driver one in, one out"),
 		)
 		for tiles, exp_dict, desc in test_data:
 			rep = InterRep(NET_DATA, {})
@@ -892,6 +903,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			], {-1: all_tiles}, False, [
 				crt_dsg(TilePosition(8, 0), "long_span_4", "long_span_3"),
 				crt_dsg(TilePosition(8, 3), "long_span_3", "long_span_2"),
+				crt_dsg(TilePosition(8, 3), UNCONNECTED_NAME, "long_span_2"),
 				crt_dsg(TilePosition(1, 3), "out", "wire_in_2"),
 			])
 		]
@@ -910,7 +922,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 	
 	def test_choose_resources(self):
 		all_segs = [n.segment[0] for n in NET_DATA]
-		ext_drv = {s: True if s in [(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"), (7, 0, "out")] else False for s in all_segs}
+		ext_uncon = [(x, y, UNCONNECTED_NAME) for x,y in [(1, 3), (4, 2), (5, 3), (8, 3), (8, 0), (5, 0), (7, 0)]]
+		ext_drv = {s: True if s in [(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"), (7, 0, "out")]+ext_uncon else False for s in all_segs}
 		
 		ice_res = IcecraftResource.from_coords
 		
@@ -920,23 +933,23 @@ class IcecraftRepGenTest(unittest.TestCase):
 			), {s: not v for s, v in ext_drv.items()}),
 			("exclude nets", (
 				[ice_res(TILE_ALL, TILE_ALL, r".*span")], []
-			), {s: True if s in [(2, 3, "internal"), (2, 3, "internal_2"), (2, 3, "lut_out"), (2, 3, "empty_out"), (4, 2, "out")] else False for s in all_segs}),
+			), {s: True if s in [(2, 3, "internal"), (2, 3, "internal_2"), (2, 3, "lut_out"), (2, 3, "empty_out"), (2, 3, UNCONNECTED_NAME), (4, 2, "out")] else False for s in all_segs}),
 			("include nets", (
 				[], [ice_res(TILE_ALL, TILE_ALL, "NET#left$")]
-			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')] else False for s in all_segs}),
+			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')]+ext_uncon else False for s in all_segs}),
 			("joint_input_nets", (
 				[], [ice_res(TILE_ALL, TILE_ALL, "NET#left")]
-			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')] else False for s in all_segs}),
+			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')]+ext_uncon else False for s in all_segs}),
 			("lone_input_nets", (
 				[], [ice_res(2, 3, "NET#left$")]
-			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')] else False for s in all_segs}),
+			), {s: True if s not in [(0, 3, 'wire_in_1'), (5, 0, 'long_span_4'), (7, 0, 'out')]+ext_uncon else False for s in all_segs}),
 			("complete example", (
 				[ice_res(TILE_ALL, TILE_ALL, r".*span")], [
 					ice_res(TILE_ALL, TILE_ALL, "^NET#long_span_\d$"),
 					ice_res(TILE_ALL, TILE_ALL, "NET#out"),
 					ice_res(2, 3, "NET#left$")
 				]
-			), {s: True if s not in [(0, 3, 'wire_in_1'), (4, 2, 'short_span_1'), (4, 1, 'short_span_2')] else False for s in all_segs}),
+			), {s: True if s not in [(0, 3, 'wire_in_1'), (4, 2, 'short_span_1'), (4, 1, 'short_span_2')]+ext_uncon else False for s in all_segs}),
 		)
 		
 		
@@ -1265,7 +1278,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		exp_map[one_cis_pos].connection += (ConnectionItem(
 			(IcecraftBitPosition.from_coords(*one_cis_pos, 1, 50), ),
-			"connection", "carry_in_mux", ((True, ), ), (icecraft.representation.CARRY_ONE_IN, )
+			"connection", "carry_in_mux", ((False, ), (True, )), (UNCONNECTED_NAME, icecraft.representation.CARRY_ONE_IN)
 		), )
 		
 		exp_nets = list(in_nets)
@@ -1672,12 +1685,13 @@ class IcecraftRepGenTest(unittest.TestCase):
 			NetData(((*tile, "carry_in_mux"),), False, (0, )),
 			NetData(((tile.x, tile.y-1, "lutff_7/cout"), (*tile, "carry_in")), True, (0, )),
 			NetData(((*tile, icecraft.representation.CARRY_ONE_IN),), True, (0, )),
+			NetData(((*tile, UNCONNECTED_NAME), ), True, (0, )),
 		]
 		ci_bits = create_bits(*tile, [(1, 49)])
 		one_bits = create_bits(*tile, [(1, 50)])
 		con_items = [
-			ConnectionItem(ci_bits, "connection", "carry_in_mux", ((True, ), ), ("carry_in", )),
-			ConnectionItem(one_bits, "connection", "carry_in_mux", ((True, ), ), (icecraft.representation.CARRY_ONE_IN, )),
+			ConnectionItem(ci_bits, "connection", "carry_in_mux", ((False, ), (True, )), (UNCONNECTED_NAME, "carry_in")),
+			ConnectionItem(one_bits, "connection", "carry_in_mux", ((False, ), (True, )), (UNCONNECTED_NAME, icecraft.representation.CARRY_ONE_IN)),
 		]
 		config_map = {tile: ConfigAssemblage(connection=tuple(con_items))}
 		rep = InterRep(net_data, config_map)
@@ -1697,9 +1711,10 @@ class IcecraftRepGenTest(unittest.TestCase):
 		net_data = [
 			NetData(((*tile, "glb2local_1"), ), False, (0, )),
 			NetData(((*tile, "local_g0_5"), ), False, (0, )),
+			NetData(((*tile, UNCONNECTED_NAME), ), True, (0, )),
 		]
 		bits = create_bits(*tile, [(2, 15), (2, 16), (2, 17), (2, 18), (3, 18)])
-		con_items = [ConnectionItem(bits, "connection", "local_g0_5", ((False, False, True, False, False), ), ("glb2local_1", )),]
+		con_items = [ConnectionItem(bits, "connection", "local_g0_5", ((False, False, False, False, False), (False, False, True, False, False)), (UNCONNECTED_NAME, "glb2local_1")),]
 		config_map = {tile: ConfigAssemblage(connection=tuple(con_items))}
 		rep = InterRep(net_data, config_map)
 		ec = GeneTestCase(
@@ -1957,6 +1972,9 @@ class IcecraftRepGenTest(unittest.TestCase):
 		offset = len(net_data_list)//2
 		dst_nets = {org_name(n)[:-2]: n for n in net_data_list[:offset]}
 		src_nets = {org_name(n)[:-2]: n for n in net_data_list[offset:]}
+		# unconnected
+		uncon_index = len(net_data_list)
+		net_data_list.append(NetData(((*org_tile, UNCONNECTED_NAME), ), True, (0, )))
 		
 		gene_data = []
 		# bits, dst_name, srcs, del_indices, conf_lengths
@@ -2010,8 +2028,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 			dst_name = org_name(dst_net)
 			prev = 0
 			for l in gd.conf_lengths:
-				part_values_list = []
-				part_src_list = []
+				part_values_list = [(False, )*l]
+				part_src_list = [UNCONNECTED_NAME]
 				part_bits = all_bits[prev:prev+l]
 				for values, src_label in gd.src_list:
 					part_values = values[prev:prev+l]
@@ -2087,21 +2105,23 @@ class IcecraftRepGenTest(unittest.TestCase):
 		net_data_list = [
 			NetData(((*other_tile, "dst"), (*org_tile, "dst")), False, (0, 1)),
 			NetData(((*other_tile, f"src_1"), ), True, (0, )),
+			NetData(((*other_tile, UNCONNECTED_NAME), ), True, (0, )),
 			NetData(((*org_tile, f"src_2"), ), True, (0, )),
+			NetData(((*org_tile, UNCONNECTED_NAME), ), True, (0, )),
 		]
 		org_con = ConnectionItem(
 			create_bits(*other_tile, [(9, 7), (9, 8)]),
 			"connection",
 			"dst",
-			((True, True), ),
-			("src_1", )
+			((False, False), (True, True)),
+			(UNCONNECTED_NAME, "src_1")
 		)
 		other_con = ConnectionItem(
 			create_bits(*org_tile, [(4, 5), (4, 6)]),
 			"connection",
 			"dst",
-			((True, True), ),
-			("src_2", )
+			((False, False), (True, True)),
+			(UNCONNECTED_NAME, "src_2")
 		)
 		
 		config_map = {

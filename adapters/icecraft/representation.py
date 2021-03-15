@@ -14,7 +14,7 @@ from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, \
 	IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, \
 	IcecraftInputError, IcecraftGeneConstraint
 from .chip_data import get_config_items, get_net_data, get_colbufctrl, ConfigAssemblage
-from .chip_data_utils import NetData, SegEntryType, SegType
+from .chip_data_utils import NetData, SegEntryType, SegType, UNCONNECTED_NAME
 from .config_item import ConfigItem, ConnectionItem, IndexedItem
 from .inter_rep import InterRep, Vertex, Edge, VertexDesig, EdgeDesig
 
@@ -134,8 +134,8 @@ class IcecraftRepGen(RepresentationGenerator):
 				carry_set_item.bits,
 				"connection",
 				"carry_in_mux",
-				((True, ), ),
-				(CARRY_ONE_IN, )
+				((False, ), (True, )),
+				(UNCONNECTED_NAME, CARRY_ONE_IN)
 			)
 			conf.connection += (con_item, )
 		
