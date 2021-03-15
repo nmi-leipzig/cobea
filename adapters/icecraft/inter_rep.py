@@ -235,21 +235,27 @@ class ConVertex(Vertex):
 			
 			allele_seq = self.neutral_alleles()[0]
 		else:
+			def usable_in_edge(edge):
+				return all((edge.available, edge.used, edge.src.available, edge.src.used))
+			
 			alleles = []
 			edge_map = {e.desig: e for e in self.in_edges}
 			
 			# prepare unconnected option and connected options
 			no_uncon = []
 			uncon_list = []
+			uncon_edge_list = []
 			uncon_name = VertexDesig.canonical_net_name(UNCONNECTED_NAME)
 			options_list = []
 			for sg_index, src_grp in enumerate(self.src_grps):
 				options = []
 				uncon_vals = None
+				uncon_edge = None
 				
 				for edge_desig, vals in sorted(src_grp.srcs.items(), key=lambda i: i[1]):
 					if edge_desig.src.name == uncon_name:
 						uncon_vals = vals
+						uncon_edge = edge_map[edge_desig]
 						continue
 					
 					options.append((edge_map[edge_desig], vals))
@@ -257,21 +263,23 @@ class ConVertex(Vertex):
 				options_list.append(options)
 				
 				uncon_list.append(uncon_vals)
+				uncon_edge_list.append(uncon_edge)
 				if uncon_vals is None:
 					no_uncon.append(sg_index)
 			
-			if len(no_uncon) == 0:
-				alleles.append(Allele(sum(uncon_list, tuple()), "unconnected"))
-			else:
+			if len(no_uncon) > 0:
 				raise IcecraftSatisfiabilityError(f"Can't create genes as {len(no_uncon)} have to be connected at the same time")
 				# for len(no_uncon)=1 it could be recovered by setting all other option to empty list
 				# but that case is currently not required and causes just more complexity
+			
+			if all(usable_in_edge(e) for e in uncon_edge_list):
+				alleles.append(Allele(sum(uncon_list, tuple()), "unconnected"))
 			
 			# add available and used sources for each SourceGroup
 			# while bits from other SourceGroups remain False
 			for sg_index, options in reversed(list(enumerate(options_list))): # reverse to get values closer to sorted order
 				for edge, vals in options:
-					if not all((edge.available, edge.used, edge.src.available, edge.src.used)):
+					if not usable_in_edge(edge):
 						continue
 					allele = Allele(
 						sum(uncon_list[:sg_index], tuple()) + vals + sum(uncon_list[sg_index+1:], tuple()),
