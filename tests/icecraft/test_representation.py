@@ -139,9 +139,6 @@ class IcecraftRepGenTest(unittest.TestCase):
 					for config_pos, (config, allele_vals) in enumerate(zip(configs, vals)):
 						if config.kind == "connection":
 							dst_name = config.dst_net
-							if all(not v for v in allele_vals):
-								allele_meaning.append((None, dst_name))
-								continue
 							
 							try:
 								src_index = config.values.index(tuple(allele_vals))
@@ -189,7 +186,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 				relevant_gene_indices.add(tt_map[lut_index][0])
 				
 				net_stack = [f"lutff_{lut_index}/in_{i}" for i in range(4)]
-				done_nets = {None}
+				done_nets = {UNCONNECTED_NAME}
 				while len(net_stack) > 0:
 					cur_net = net_stack.pop()
 					if cur_net in done_nets:
