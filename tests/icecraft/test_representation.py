@@ -1793,6 +1793,9 @@ class IcecraftRepGenTest(unittest.TestCase):
 		offset = len(net_data_list)//2
 		dst_nets = {org_name(n)[:-2]: n for n in net_data_list[:offset]}
 		src_nets = {org_name(n)[:-2]: n for n in net_data_list[offset:]}
+		# unconnected
+		uncon_index = len(net_data_list)
+		net_data_list.append(NetData(((*org_tile, UNCONNECTED_NAME), ), True, (0, )))
 		
 		gene_data = []
 		# bits, dst_name, srcs, del_indices, conf_lengths
@@ -1846,8 +1849,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 			dst_name = org_name(dst_net)
 			prev = 0
 			for l in gd.conf_lengths:
-				part_values_list = []
-				part_src_list = []
+				part_values_list = [(False, )*l]
+				part_src_list = [UNCONNECTED_NAME]
 				part_bits = all_bits[prev:prev+l]
 				for values, src_label in gd.src_list:
 					part_values = values[prev:prev+l]
@@ -1923,21 +1926,23 @@ class IcecraftRepGenTest(unittest.TestCase):
 		net_data_list = [
 			NetData(((*other_tile, "dst"), (*org_tile, "dst")), False, (0, 1)),
 			NetData(((*other_tile, f"src_1"), ), True, (0, )),
+			NetData(((*other_tile, UNCONNECTED_NAME), ), True, (0, )),
 			NetData(((*org_tile, f"src_2"), ), True, (0, )),
+			NetData(((*org_tile, UNCONNECTED_NAME), ), True, (0, )),
 		]
 		org_con = ConnectionItem(
 			create_bits(*other_tile, [(9, 7), (9, 8)]),
 			"connection",
 			"dst",
-			((True, True), ),
-			("src_1", )
+			((False, False), (True, True)),
+			(UNCONNECTED_NAME, "src_1")
 		)
 		other_con = ConnectionItem(
 			create_bits(*org_tile, [(4, 5), (4, 6)]),
 			"connection",
 			"dst",
-			((True, True), ),
-			("src_2", )
+			((False, False), (True, True)),
+			(UNCONNECTED_NAME, "src_2")
 		)
 		
 		config_map = {
