@@ -5,7 +5,7 @@ import itertools
 import re
 import pdb
 
-from typing import NamedTuple, Iterable, Mapping, Union, Callable, List, Tuple
+from typing import NamedTuple, Iterable, Mapping, Union, Callable, List, Tuple, Optional
 from dataclasses import fields, dataclass
 from queue import SimpleQueue
 
@@ -1130,9 +1130,17 @@ class TestConVertex(unittest.TestCase):
 			
 		self.assertEqual(set(bit_conf_map), seen)
 	
-	def check_con_genes(self, rep, bits_to_vals, unavailable):
+	def check_con_genes(self, rep, bits_to_vals, unavailable, bits_to_uncon):
 		bit_to_bits = {b[0]: b for b in bits_to_vals}
 		seen_bits = set()
+		
+		@dataclass
+		class Section:
+			bits: Optional[Tuple[IcecraftBitPosition, ...]] = None
+			start: Optional[int] = None
+			end: Optional[int] = None
+			uncon: Optional[Tuple[bool, ...]] = None
+		
 		for dut in rep.iter_vertices():
 			if not isinstance(dut, ConVertex):
 				continue
@@ -1147,28 +1155,51 @@ class TestConVertex(unittest.TestCase):
 				bit_index = 0
 				bit_count = len(gene.bit_positions)
 				values = [a.values for a in gene.alleles]
+				section_list = []
 				
-				# neutral allele
-				self.assertIn((False, )*bit_count, values)
-				
+				# map bits to values
 				while bit_index < bit_count:
-					part_bits = bit_to_bits[gene.bit_positions[bit_index]]
-					end_index = bit_index + len(part_bits)
-					self.assertEqual(part_bits, gene.bit_positions[bit_index:end_index])
-					# check all values alone, i.e. any bits set for this con_item -> no bits set for other con_items
-					for val in values:
-						# any(this_con_bits) -> not any(other_bits)
-						# not(any(this_con_bits) and any(other_bits))
-						self.assertFalse(any(val[bit_index:end_index]) and any(val[:bit_index]+val[end_index:]))
+					sec = Section()
+					section_list.append(sec)
+					sec.bits = bit_to_bits[gene.bit_positions[bit_index]]
+					sec.start = bit_index
+					sec.end = bit_index + len(sec.bits)
+					try:
+						sec.uncon = bits_to_uncon[sec.bits]
+					except KeyError:
+						pass
 					
-					# check all values of con item found
-					con_values = set([v[bit_index:end_index] for v in values])
-					self.assertEqual(set(bits_to_vals[part_bits]), con_values)
+					self.assertEqual(sec.bits, gene.bit_positions[sec.start:sec.end])
 					
-					seen_bits.add(part_bits)
-					bit_index = end_index
+					seen_bits.add(sec.bits)
+					bit_index = sec.end
 				
 				self.assertEqual(bit_count, bit_index)
+				
+				# check values
+				main_vals_list = [set() for _ in range(len(section_list))]
+				for vals in values:
+					main_indices = [i for i, s in enumerate(section_list) if vals[s.start:s.end]!=s.uncon]
+					self.assertTrue(len(main_indices)<2, "More than one input connect, possible shortcut")
+					
+					if len(main_indices) == 0:
+						# all unconnected -> include all in seen values
+						main_indices = list(range(len(main_vals_list)))
+					else:
+						for i in range(len(section_list)):
+							if i in main_indices:
+								continue
+							sec = section_list[i]
+							self.assertEqual(sec.uncon, vals[sec.start:sec.end])
+					
+					# collect values that drove the output
+					for i in main_indices:
+						sec = section_list[i]
+						main_vals_list[i].add(vals[sec.start:sec.end])
+				
+				for sec, main_vals in zip(section_list, main_vals_list):
+					self.assertEqual(set(bits_to_vals[sec.bits]), main_vals)
+				
 		self.assertEqual(set(bits_to_vals), seen_bits)
 	
 	def test_get_genes(self):
@@ -1177,6 +1208,7 @@ class TestConVertex(unittest.TestCase):
 		
 		rep = InterRep(NET_DATA, config_map)
 		bits_to_vals = {}
+		bits_to_uncon = {}
 		ed_to_bit_vals = {}
 		for vtx in rep.iter_vertices():
 			try:
@@ -1188,6 +1220,14 @@ class TestConVertex(unittest.TestCase):
 				new_dict = {e: (grp.bits, v) for e, v in grp.srcs.items()}
 				ed_to_bit_vals.update(new_dict)
 				bits_to_vals[grp.bits] = list(grp.srcs.values())
+				uncon_vals_list = [v for e, v in grp.srcs.items() if e.src.name==uncon_name]
+				assert len(uncon_vals_list)<2, "More than one value for unconnected not supported"
+				try:
+					uncon_vals = uncon_vals_list[0]
+					bits_to_uncon[grp.bits] = uncon_vals
+				except KeyError:
+					# no unconnected value, no problem here
+					pass
 		
 		# no vertex available
 		unavailable = set()
@@ -1196,14 +1236,14 @@ class TestConVertex(unittest.TestCase):
 			unavailable.add(vtx.desigs[0])
 		
 		with self.subTest(desc="not available"):
-			self.check_con_genes(rep, {}, unavailable)
+			self.check_con_genes(rep, {}, unavailable, bits_to_uncon)
 		
 		for vtx in rep.iter_vertices():
 			vtx.available = True
 		
 		# all vertices available
 		with self.subTest(desc="all available"):
-			self.check_con_genes(rep, bits_to_vals, [])
+			self.check_con_genes(rep, bits_to_vals, [], bits_to_uncon)
 		
 		# unused vertices
 		btv_vtx = copy.deepcopy(bits_to_vals)
@@ -1215,6 +1255,7 @@ class TestConVertex(unittest.TestCase):
 			(4, 1, "short_span_2"),
 			(5, 0, "long_span_1"),
 			(5, 3, "long_span_2"),
+			(8, 0, UNCONNECTED_NAME),
 		]
 		vtx_list = []
 		for vtx_desig in [VertexDesig.from_seg_entry(s) for s in unused_data]:
@@ -1235,7 +1276,7 @@ class TestConVertex(unittest.TestCase):
 			vtx_list.append(vtx)
 		
 		with self.subTest(desc="unused vertex"):
-			self.check_con_genes(rep, btv_vtx, [])
+			self.check_con_genes(rep, btv_vtx, [], bits_to_uncon)
 			
 		for vtx in vtx_list:
 			vtx.used = True
@@ -1266,7 +1307,7 @@ class TestConVertex(unittest.TestCase):
 			vtx_list.append(vtx)
 		
 		with self.subTest(desc="ext_src"):
-			self.check_con_genes(rep, btv_vtx, [])
+			self.check_con_genes(rep, btv_vtx, [], bits_to_uncon)
 		
 		for vtx in vtx_list:
 			vtx.ext_src = False
@@ -1280,6 +1321,7 @@ class TestConVertex(unittest.TestCase):
 			(4, 2, "short_span_1", "short_span_2"),
 			(5, 3, "long_span_2", "long_span_1"),
 			(5, 0, "long_span_1", "long_span_4"),
+			(8, 0, UNCONNECTED_NAME, "long_span_3"),
 		]
 		edge_list = []
 		for edge_desig in [EdgeDesig.net_to_net(TilePosition(*d[:2]), *d[2:]) for d in unavail_data]:
@@ -1291,7 +1333,7 @@ class TestConVertex(unittest.TestCase):
 			edge_list.append(edge)
 		
 		with self.subTest(desc="unavailable edge"):
-			self.check_con_genes(rep, btv_edge, [])
+			self.check_con_genes(rep, btv_edge, [], bits_to_uncon)
 		
 		for edge in edge_list:
 			edge.available = True
@@ -1299,6 +1341,7 @@ class TestConVertex(unittest.TestCase):
 		# edges unused
 		btv_edge = copy.deepcopy(bits_to_vals)
 		unused_data = [
+			(2, 3, UNCONNECTED_NAME, "internal"),
 			(2, 3, "wire_out", "internal_2"),
 			(4, 2, "short_span_2", "short_span_1"),
 			(4, 2, "out", "short_span_2"),
@@ -1316,7 +1359,7 @@ class TestConVertex(unittest.TestCase):
 			edge_list.append(edge)
 		
 		with self.subTest(desc="unused edge"):
-			self.check_con_genes(rep, btv_edge, [])
+			self.check_con_genes(rep, btv_edge, [], bits_to_uncon)
 		
 		for edge in edge_list:
 			edge.used = True
