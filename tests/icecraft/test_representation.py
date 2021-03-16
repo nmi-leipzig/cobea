@@ -93,10 +93,12 @@ class IcecraftRepGenTest(unittest.TestCase):
 			
 			tile_meaning = []
 			tile_meaning_map[tile] = tile_meaning
+			gene_index_configs_map = []
 			for gene_index, gene in enumerate(genes):
 				# find config items and map the bits
 				bit_gene_pos_map = {b: i for i, b in enumerate(gene.bit_positions)}
 				configs = []
+				gene_index_configs_map.append(configs)
 				gene_pos_conf_pos_map = [None]*len(gene.bit_positions)
 				
 				while len(bit_gene_pos_map) > 0:
@@ -182,8 +184,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 			for dir_index, direction in enumerate(all_sigs[:4]):
 				# trace back the inputs of the LUT and collect relevant genes/meanings
 				lut_index = out_map[direction]
-				relevant_gene_indices = set()
-				relevant_gene_indices.add(tt_map[lut_index][0])
+				relevant_gene_indices = list()
+				relevant_gene_indices.append(tt_map[lut_index][0])
 				
 				net_stack = [f"lutff_{lut_index}/in_{i}" for i in range(4)]
 				done_nets = {UNCONNECTED_NAME}
@@ -207,7 +209,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 						# simple net -> find source
 						gene_index, config_pos_list = dst_map[cur_net]
 						
-						relevant_gene_indices.add(gene_index)
+						relevant_gene_indices.append(gene_index)
 						# add all possible sources to the stack
 						for allele_meaning in tile_meaning[gene_index]:
 							for config_pos in config_pos_list:
@@ -215,11 +217,80 @@ class IcecraftRepGenTest(unittest.TestCase):
 								self.assertEqual(cur_net, dst_net)
 								
 								net_stack.append(src_net)
-				print([tile_meaning[i] for i in relevant_gene_indices])
+				#print([tile_meaning[i] for i in relevant_gene_indices])
 				
 				# for all allele combinations check the behaviour of the LUT output with respect to the inputs
+				src_list = [f"neigh_op_{d}_{neigh_map[d]}" for d in all_sigs[:4]]
+				src_list.append(f"lutff_{f_out}/out")
+				out_comb_map = {}
+				for comb_index, allele_comb in enumerate(itertools.product(*[tile_meaning[i] for i in relevant_gene_indices])):
+					assert len(allele_comb) == len(relevant_gene_indices)
+					# create truth table and connection state according to the allele combination
+					tt_state = {}
+					src_state = {}
+					for allele_meaning, gene_index in zip(allele_comb, relevant_gene_indices):
+						configs = gene_index_configs_map[gene_index]
+						assert len(allele_meaning) == len(configs)
+						for meaning, config in zip(allele_meaning, configs):
+							if config.kind == "connection":
+								src, dst = meaning
+								if dst in src_state:
+									if src == UNCONNECTED_NAME:
+										continue
+									# only unconnected can be overwritten
+									self.assertEqual(UNCONNECTED_NAME, src_state[dst])
+								
+								src_state[dst] = src
+								
+							elif config.kind == "TruthTable":
+								self.assertNotIn(config.index, tt_state)
+								tt_state[config.index] = meaning
+							else:
+								pass
+					todo_stack = [(d, s) for d, s in src_state.items()]
+					con_state = dict(src_state)
+					while len(todo_stack) > 0:
+						dst, src = todo_stack.pop()
+						try:
+							src_src = con_state[src]
+						except KeyError:
+							# no source for source -> done
+							continue
+						con_state[dst] = src_src
+						todo_stack.append((dst, src_src))
+					#print(con_state)
+					matches = [True]*len(src_list)
+					for src_values in itertools.product([False, True], repeat=len(src_list)):
+						src_val_map = {s: v for s, v in zip(src_list, src_values)}
+						# compute LUT output
+						tt_index = 0
+						for in_index in range(4):
+							dst = f"lutff_{lut_index}/in_{in_index}"
+							src = con_state[dst]
+							# KeyError from here -> source that should have no influence
+							val = src_val_map[src]
+							if val:
+								tt_index |= 1 << in_index
+						lut_val = tt_state[lut_index][tt_index]
+						# compare LUT output to sources
+						matches = [m and (lut_val == s) for m, s in zip(matches, src_values)]
+					self.assertEqual(1, sum(matches))
+					match_index = matches.index(True)
+					out_comb_map.setdefault(all_sigs[match_index], []).append(src_list[match_index])#comb_index)
 				
-				#TODO: check number of combinations that lead to a certain state
+				# all inputs included, except the same direction
+				self.assertNotIn(direction, out_comb_map, f"should not be in {direction}")
+				# check number of combinations that lead to a certain state
+				comb_count = None
+				for sig in all_sigs:
+					if sig == direction:
+						continue
+					self.assertIn(sig, out_comb_map)
+					if comb_count is None:
+						comb_count = len(out_comb_map[sig])
+					else:
+						self.assertEqual(comb_count, len(out_comb_map[sig]))
+				
 			
 			# check function unit
 			# check connection options
