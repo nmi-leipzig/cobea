@@ -2,11 +2,15 @@ import unittest
 import re
 import itertools
 
+from dataclasses import dataclass
+from typing import NamedTuple, List
+from queue import SimpleQueue
+
 from domain.request_model import RequestObject
-from adapters.icecraft.inter_rep import InterRep
+from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex, LUTVertex, Edge
 from adapters.icecraft.representation import IcecraftRepGen
-from adapters.icecraft.misc import IcecraftBitPosition, IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftGeneConstraint
-from adapters.icecraft.chip_data import get_config_items
+from adapters.icecraft.misc import TilePosition, IcecraftBitPosition, IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftGeneConstraint
+from adapters.icecraft.chip_data import get_config_items, get_net_data
 from adapters.icecraft.chip_data_utils import UNCONNECTED_NAME
 
 class TestXC6200(unittest.TestCase):
@@ -489,4 +493,266 @@ class TestXC6200(unittest.TestCase):
 		
 		self.check_xc6200_representation(res)
 	
+	@staticmethod
+	def find_routes(need, rep):
+		src_vtx = rep.get_vertex(need.src)
+		dst_vtx = rep.get_vertex(need.dst)
+		routes = []
+		
+		@dataclass
+		class RouteTask:
+			vtx: Vertex
+			path: List[EdgeDesig]
+		
+		visited = set()
+		fifo = SimpleQueue()
+		fifo.put(RouteTask(src_vtx, []))
+		while not fifo.empty():
+			task = fifo.get()
+			if task.vtx == dst_vtx:
+				routes.append(task.path)
+				continue
+			
+			if task.vtx.desigs[0] in visited:
+				# already seen -> cycles not interesting
+				continue
+			
+			# no spans
+			if re.match(r"NET#sp", task.vtx.desigs[0].name):
+				continue
+			
+			visited.add(task.vtx.desigs[0])
+			
+			for edge in task.vtx.iter_out_edges():
+				new_path = list(task.path)
+				new_path.append(edge.desig)
+				new_task = RouteTask(edge.dst, new_path)
+				fifo.put(new_task)
+		
+		return routes
+	
+	@classmethod
+	def create_routes(cls, needs, rep):
+		res_dict = {}
+		for need in needs:
+			res = cls.find_routes(need, rep)
+			res_dict[need] = res
+		
+		return res_dict
+	
+	#@unittest.skip("experimental, takes a long(!) time")
+	def test_simple_xc6200(self):
+		x = 16
+		y = 17
+		mid_tile = TilePosition(x, y)
+		top_tile = TilePosition(x, y+1)
+		lft_tile = TilePosition(x-1, y)
+		bot_tile = TilePosition(x, y-1)
+		rgt_tile = TilePosition(x+1, y)
+		tiles = [mid_tile, lft_tile, rgt_tile, top_tile, bot_tile]
+		
+		config_map = {t: get_config_items(t) for t in tiles}
+		
+		raw_nets = get_net_data(tiles)
+		rep = InterRep(raw_nets, config_map)
+		
+		class LUTPlacement(NamedTuple):
+			func: int
+			top_out: int
+			lft_out: int
+			bot_out: int
+			rgt_out: int
+		
+		def lut_out_desig(tile, lut_index):
+			return VertexDesig.from_net_name(tile, f"lutff_{lut_index}/out")
+		
+		@dataclass(frozen=True)
+		class ConNeed(EdgeDesig):
+			def __post_init__(self):
+				pass
+			
+			def __repr__(self):
+				return f"({self.src.tile.x}, {self.src.tile.y}) {self.src.name} -> ({self.dst.tile.x}, {self.dst.tile.y}) {self.dst.name}"
+			
+			@classmethod
+			def from_lut_src(cls, src_tile, src_index, dst):
+				src = lut_out_desig(src_tile, src_index)
+				return cls(src, dst)
+		
+		all_needs = []
+		for src_tile in [mid_tile, top_tile, lft_tile, bot_tile, rgt_tile]:
+			for src_index in range(8):
+				src = lut_out_desig(src_tile, src_index)
+				for dst_index in range(8):
+					dst = VertexDesig.from_lut_index(mid_tile, dst_index)
+					all_needs.append(ConNeed(src, dst))
+		
+		all_routes = self.create_routes(all_needs, rep)
+		#for need, routes in all_routes.items():
+		#	print(f"{need}:")
+		#	for i, route in enumerate(routes):
+		#		s = "=".join(f"({e.src.tile.x}, {e.src.tile.y}) {e.src.name} -> {e.dst.name}" for e in route)
+		#		print(f"{i}: {s}")
+		
+		@dataclass
+		class RoutingTask:
+			grp_index: int
+			need_index: int
+			route_index: int
+			to_clear: List[EdgeDesig]
+			grp_routes: List[List[EdgeDesig]]
+		
+		solutions = {}
+		for c, raw_indices in enumerate(itertools.permutations(range(8), 5)):
+			print(f"{c}/{8*7*6*5*4}")
+			plmt = LUTPlacement(*raw_indices)
+			# create connection requirements
+			
+			# split in need groups; inside a need group are options,
+			# i.e. only one will be relaized, so they can share incompatible
+			# configurations, while between need groups only compatible
+			# configurations can be shared
+			need_grps = []
+			top_in = lut_out_desig(top_tile, plmt.bot_out)
+			lft_in = lut_out_desig(lft_tile, plmt.rgt_out)
+			bot_in = lut_out_desig(bot_tile, plmt.top_out)
+			rgt_in = lut_out_desig(rgt_tile, plmt.lft_out)
+			f_out = lut_out_desig(mid_tile, plmt.func)
+			# f -> all at same time -> all in own need group
+			f_desig = VertexDesig.from_lut_index(mid_tile, plmt.func)
+			need_grps.extend([[ConNeed(s, f_desig)] for s in [top_in, lft_in, bot_in, rgt_in]])
+			#for i, ng in enumerate(need_grps):
+			#	print(f"grp {i}")
+			#	for n in ng:
+			#		print(f"{n}")
+			#		for r in all_routes[n]:
+			#			print(r)
+			#return
+			
+			top_desig = VertexDesig.from_lut_index(mid_tile, plmt.top_out)
+			need_grps.append([ConNeed(s, top_desig) for s in [f_out, lft_in, bot_in, rgt_in]])
+			
+			lft_desig = VertexDesig.from_lut_index(mid_tile, plmt.lft_out)
+			need_grps.append([ConNeed(s, lft_desig) for s in [f_out, top_in, bot_in, rgt_in]])
+			
+			bot_desig = VertexDesig.from_lut_index(mid_tile, plmt.bot_out)
+			need_grps.append([ConNeed(s, bot_desig) for s in [f_out, top_in, lft_in, rgt_in]])
+			
+			rgt_desig = VertexDesig.from_lut_index(mid_tile, plmt.rgt_out)
+			need_grps.append([ConNeed(s, rgt_desig) for s in [f_out, top_in, lft_in, bot_in]])
+			
+			# estimate upper limit of combinations
+			limit = 1
+			for ng in need_grps:
+				for n in ng:
+					limit *= len(all_routes[n])
+			print(f"at most {limit}")
+			routings = []
+			
+			stack = [RoutingTask(0, 0, 0, [], [])]
+			cur_routing = []
+			#pdb.set_trace()
+			while len(stack) > 0:
+				task = stack.pop()
+				#print(len(stack))
+				#print(cur_routing)
+				# clean up
+				if task.to_clear:
+					for ed in task.to_clear:
+						edge = rep.get_edge(ed)
+						assert not edge.available
+						edge.available = True
+					cur_routing.pop()
+					continue
+				
+				if task.grp_index == len(need_grps):
+					# solution found
+					print(f"found for {plmt}")
+					routings.append(list(cur_routing))
+					break
+					#continue
+				
+				need_grp = need_grps[task.grp_index]
+				if task.need_index == len(need_grp):
+					# need grp done
+					#print(f"need grp {task.grp_index} done")
+					cur_routing.append(task.grp_routes)
+					# set bits in rep
+					set_set = set()
+					for route in task.grp_routes:
+						for ed in route:
+							edge = rep.get_edge(ed)
+							if edge.available:
+								set_set.add(ed)
+								edge.available = False
+					#enable resetting
+					stack.append(RoutingTask(
+						task.grp_index,
+						0,
+						0,
+						list(set_set),
+						[]
+					))
+					# continue with next need grp
+					stack.append(RoutingTask(
+						task.grp_index+1,
+						0,
+						0,
+						[],
+						[]
+					))
+					continue
+				
+				need = need_grp[task.need_index]
+				routes = all_routes[need]
+				route_index = task.route_index
+				# search for possible route
+				while route_index < len(routes):
+					valid = True
+					for ed in routes[route_index]:
+						edge = rep.get_edge(ed)
+						if isinstance(edge.dst, LUTVertex):
+							
+							continue
+						not_avail = [e for e in edge.dst.iter_in_edges() if not e.available]
+						# more than one edeg not available -> multi options for other need group
+						# one edge not available -> fixed connection, bad if not the dame connection is required
+						if (len(not_avail) > 1) or (len(not_avail) == 1 and not_avail[0] != edge):
+							valid = False
+							#print(f"fail for {ed}")
+							break
+					if valid:
+						break
+					
+					route_index += 1
+				
+				if route_index == len(routes):
+					# no more routes to try
+					#print(f"nothing more for grp {task.grp_index}, need {task.need_index}")
+					continue
+				
+				# continue later with next route ...
+				stack.append(RoutingTask(
+					task.grp_index,
+					task.need_index,
+					route_index+1,
+					[],
+					task.grp_routes
+				))
+				# ... but first go to next need
+				stack.append(RoutingTask(
+					task.grp_index,
+					task.need_index+1,
+					0,
+					[],
+					task.grp_routes+[routes[route_index]]
+				))
+			
+			if len(routings) > 0:
+				solutions[plmt] = routings
+		
+		self.assertTrue(solutions)
+		print(f"{len(solutions)} found:")
+		for plmt, routings in solutions.items():
+			print(f"{plmt}: {len(routings)}")
 	
