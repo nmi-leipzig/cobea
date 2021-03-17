@@ -8,42 +8,209 @@ from queue import SimpleQueue
 
 from domain.model import Gene
 from domain.request_model import RequestObject
+from adapters.icecraft.config_item import ConfigItem
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex, LUTVertex, Edge
 from adapters.icecraft.representation import IcecraftRepGen
 from adapters.icecraft.misc import TilePosition, IcecraftBitPosition, IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftGeneConstraint
 from adapters.icecraft.chip_data import get_config_items, get_net_data
 from adapters.icecraft.chip_data_utils import UNCONNECTED_NAME
 
+PartMeaning = NewType("PartMeaning", Union[Tuple[bool, ...], Tuple[str, str], None])
+AlleleMeaning = NewType("AlleleMeaning", List[PartMeaning])
+GeneMeaning = NewType("GeneMeaning", List[AlleleMeaning])
+
+@dataclass
+class TTIndex:
+	gene_index: int
+	config_pos: int
+
+@dataclass
+class SrcIndex(TTIndex):
+	allele_index: int
+
+@dataclass
+class DstIndex:
+	gene_index: int
+	config_pos_list: List[int]
+
+@dataclass
+class TileData:
+	tile: TilePosition
+	genes: List[Gene] = field(default_factory=list)
+	tile_meaning: List[GeneMeaning] = field(default_factory=list)
+	src_map: Mapping[str, List[SrcIndex]] = field(default_factory=dict)
+	dst_map: Mapping[str, DstIndex] = field(default_factory=dict)
+	tt_map: Mapping[int, TTIndex] = field(default_factory=dict)
+	gene_index_configs_map: List[List[ConfigItem]] = field(default_factory=list)
+
+class NoOutMapError(Exception):
+	pass
+
 class TestXC6200(unittest.TestCase):
+	
+	def find_configs_and_meaning(self, tile_data):
+		# requires: tile, genes
+		# sets: tile_meaning, src_map, dst_map, tt_map
+		
+		
+		# get all configs for tiles
+		config_assem = get_config_items(tile_data.tile)
+		
+		bit_config_map = {b: c for c in config_assem.connection for b in c.bits}
+		for ll in config_assem.lut:
+			for l in ll:
+				for b in l.bits:
+					bit_config_map[b] = l
+		
+		for t in config_assem.tile:
+			for b in t.bits:
+				bit_config_map[b] = t
+		
+		for gene_index, gene in enumerate(tile_data.genes):
+			# find config items and map the bits
+			bit_gene_pos_map = {b: i for i, b in enumerate(gene.bit_positions)}
+			configs = []
+			tile_data.gene_index_configs_map.append(configs)
+			gene_pos_conf_pos_map = [None]*len(gene.bit_positions)
+			
+			while len(bit_gene_pos_map) > 0:
+				bit = next(iter(bit_gene_pos_map))
+				config = bit_config_map[bit]
+				config_pos = len(configs)
+				configs.append(config)
+				
+				if config.kind == "connection":
+					dst_name = config.dst_net
+					
+					try:
+						entry = tile_data.dst_map[dst_name]
+						self.assertEqual(gene_index, entry.gene_index)
+						entry.config_pos_list.append(config_pos)
+					except KeyError:
+						tile_data.dst_map[dst_name] = DstIndex(gene_index, [config_pos])
+				elif config.kind == "TruthTable":
+					self.assertNotIn(config.index, tile_data.tt_map)
+					
+					tile_data.tt_map[config.index] = TTIndex(gene_index, config_pos)
+				
+				for i, b in enumerate(config.bits):
+					gene_pos_conf_pos_map[bit_gene_pos_map[b]] = (config_pos, i)
+					
+					del bit_gene_pos_map[b]
+					del bit_config_map[b]
+			
+			# find meaning of alleles from configs
+			gene_meaning = []
+			tile_data.tile_meaning.append(gene_meaning)
+			for allele_index, allele in enumerate(gene.alleles):
+				# extract values from allele
+				vals = [[None]*len(c.bits) for c in configs]
+				for gene_pos, (conf_index, conf_pos) in enumerate(gene_pos_conf_pos_map):
+					vals[conf_index][conf_pos] = allele.values[gene_pos]
+				
+				allele_meaning = []
+				# lookup meaning in configs
+				for config_pos, (config, allele_vals) in enumerate(zip(configs, vals)):
+					if config.kind == "connection":
+						dst_name = config.dst_net
+						
+						try:
+							src_index = config.values.index(tuple(allele_vals))
+						except ValueError:
+							self.fail(f"{allele_vals} missing for {config.bits}")
+						
+						src_name = config.src_nets[src_index]
+						
+						tile_data.src_map.setdefault(src_name, []).append(SrcIndex(gene_index, config_pos, allele_index))
+						allele_meaning.append((src_name, dst_name))
+					elif config.kind == "TruthTable":
+						allele_meaning.append(allele_vals)
+					else:
+						# ignore, but keep absolute index of meaning and configs in sync
+						allele_meaning.append(None)
+				
+				gene_meaning.append(allele_meaning)
+		
+	
+	def find_out_map(self, tile_data):
+		all_sigs = ["top", "lft", "bot", "rgt", "f"]
+		sig_index_map = {s: i for i, s in enumerate(all_sigs)}
+		# detect mapping
+		neigh_map = {}
+		for src_name in tile_data.src_map:
+			res = re.match(r"neigh_op_(?P<direction>\w+)_(?P<lut_index>\d)", src_name)
+			if res:
+				direc = res.group("direction")
+				lut_index = res.group("lut_index")
+				if direc in neigh_map:
+					raise NoOutMapError(f"found '{direc}' multiple times in {tile_data.tile}")
+				neigh_map[direc] = int(lut_index)
+		
+		out_map = {}
+		for neigh_dir, lut_index in neigh_map.items():
+			neigh_index = sig_index_map[neigh_dir]
+			loc_dir = all_sigs[(neigh_index+2)%4]
+			out_map[loc_dir] = lut_index
+		
+		# f_out
+		# every output should have one input from the function unit
+		# this should be a LUT output
+		try:
+			lut_index = next(iter(out_map.values()))
+		except StopIteration as si:
+			raise NoOutMapError(f"Empty out map for {tile_data.tile}") from si
+		
+		todo_nets = {f"lutff_{lut_index}/in_{i}" for i in range(4)}
+		# rememeber already processed nets to avoid recalculation and loops
+		done_nets = {UNCONNECTED_NAME}
+		f_indices = []
+		while len(todo_nets) > 0:
+			cur_net = todo_nets.pop()
+			if cur_net in done_nets:
+				continue
+			done_nets.add(cur_net)
+			
+			res = re.match(r"lutff_(?P<index>\d)/(c|l)?out", cur_net)
+			if res:
+				# found lut output -> assume function unit
+				f_indices.append(int(res.group("index")))
+			else:
+				# trace sources of this net
+				try:
+					dst_index = tile_data.dst_map[cur_net]
+				except KeyError:
+					# no sources specified
+					continue
+				
+				# add all possible sources to the stack
+				for allele_meaning in tile_data.tile_meaning[dst_index.gene_index]:
+					for config_pos in dst_index.config_pos_list:
+						src_net, dst_net = allele_meaning[config_pos]
+						self.assertEqual(cur_net, dst_net)
+						
+						todo_nets.add(src_net)
+				
+		if len(f_indices) < 1:
+			raise NoOutMapError(f"function unit not found in {tile_data.tile}")
+		elif len(f_indices) > 1:
+			raise NoOutMapError(f"multiple candiates for function unit found in {tile_data.tile}")
+		
+		out_map["f"] = f_indices[0]
+		
+		if len(out_map.values()) != len(set(out_map.values())):
+			raise NoOutMapError(f"Mapping inputs to outputs is not one-to-one in tile {tile_data.tile}")
+		
+		return out_map
+	
+	@staticmethod
+	def switch_direction(direction):
+		directions = ["top", "lft", "bot", "rgt"]
+		cur_index = directions.index(direction)
+		op_index = (cur_index+2)%4
+		return directions[op_index]
 	
 	def check_xc6200_representation(self, rep):
 		# out_map is map from output of XC6200 cell to (LUT) indices
-		PartMeaning = NewType("PartMeaning", Union[Tuple[bool, ...], Tuple[str, str], None])
-		AlleleMeaning = NewType("AlleleMeaning", List[PartMeaning])
-		GeneMeaning = NewType("GeneMeaning", List[AlleleMeaning])
-		
-		@dataclass
-		class TTIndex:
-			gene_index: int
-			config_pos: int
-		
-		@dataclass
-		class SrcIndex(TTIndex):
-			allele_index: int
-		
-		@dataclass
-		class DstIndex:
-			gene_index: int
-			config_pos_list: List[int]
-		
-		@dataclass
-		class TileData:
-			tile: TilePosition
-			genes: List[Gene] = field(default_factory=list)
-			tile_meaning: List[GeneMeaning] = field(default_factory=list)
-			src_map: Mapping[str, List[SrcIndex]] = field(default_factory=dict)
-			dst_map: Mapping[str, DstIndex] = field(default_factory=dict)
-			tt_map: Mapping[int, TTIndex] = field(default_factory=dict)
 		
 		# sort genes by tile
 		tile_map = {}
@@ -61,111 +228,52 @@ class TestXC6200(unittest.TestCase):
 		
 		# assume all tiles have the same out_map -> detect mapping by checking which neigh_op nets are used
 		#config_map = {t: get_config_items(t) for t in tiles}
-		out_map = None
+		all_sigs = ["top", "lft", "bot", "rgt", "f"]
+		out_map = {}
 		for tile_data in tile_map.values():
-			# get all configs for tiles
-			config_assem = get_config_items(tile_data.tile)
+			self.find_configs_and_meaning(tile_data)
+			try:
+				tmp_out_map = self.find_out_map(tile_data)
+			except NoOutMapError as nome:
+				self.fail(f"No put map for {tile_data.tile}")
 			
-			bit_config_map = {b: c for c in config_assem.connection for b in c.bits}
-			for ll in config_assem.lut:
-				for l in ll:
-					for b in l.bits:
-						bit_config_map[b] = l
-			
-			for t in config_assem.tile:
-				for b in t.bits:
-					bit_config_map[b] = t
-			
-			gene_index_configs_map = []
-			for gene_index, gene in enumerate(tile_data.genes):
-				# find config items and map the bits
-				bit_gene_pos_map = {b: i for i, b in enumerate(gene.bit_positions)}
-				configs = []
-				gene_index_configs_map.append(configs)
-				gene_pos_conf_pos_map = [None]*len(gene.bit_positions)
+			# check out map
+			for sig in all_sigs:
+				# check signal in tmp out map
+				try:
+					lut_index = tmp_out_map[sig]
+				except KeyError:
+					# only allowable at boarders
+					# detection is done by incoming signals -> detect if tile that should create the signal is there 
+					if sig == "f":
+						self.fail(f"no function unit in {tile_data.tile}")
+					elif sig == "top":
+						neigh_offset = (0, -1)
+					elif sig == "bot":
+						neigh_offset = (0, 1)
+					elif sig == "lft":
+						neigh_offset = (1, 0)
+					elif sig == "rgt":
+						neigh_offset = (-1, 0)
+					
+					neigh_pos = TilePosition(tile_data.tile.x+neigh_offset[0], tile_data.tile.y+neigh_offset[1])
+					self.assertNotIn(neigh_pos, tile_map.keys(), f"no {sig} signal in {tile_data.tile} despite neighbor available")
+					continue
 				
-				while len(bit_gene_pos_map) > 0:
-					bit = next(iter(bit_gene_pos_map))
-					config = bit_config_map[bit]
-					config_pos = len(configs)
-					configs.append(config)
-					
-					if config.kind == "connection":
-						dst_name = config.dst_net
-						
-						try:
-							entry = tile_data.dst_map[dst_name]
-							self.assertEqual(gene_index, entry.gene_index)
-							entry.config_pos_list.append(config_pos)
-						except KeyError:
-							tile_data.dst_map[dst_name] = DstIndex(gene_index, [config_pos])
-					elif config.kind == "TruthTable":
-						self.assertNotIn(config.index, tile_data.tt_map)
-						
-						tile_data.tt_map[config.index] = TTIndex(gene_index, config_pos)
-					
-					for i, b in enumerate(config.bits):
-						gene_pos_conf_pos_map[bit_gene_pos_map[b]] = (config_pos, i)
-						
-						del bit_gene_pos_map[b]
-						del bit_config_map[b]
+				# check index consistency
+				try:
+					exp_index = out_map[sig]
+				except KeyError:
+					out_map[sig] = lut_index
+					continue
 				
-				# find meaning of alleles from configs
-				gene_meaning = []
-				tile_data.tile_meaning.append(gene_meaning)
-				for allele_index, allele in enumerate(gene.alleles):
-					# extract values from allele
-					vals = [[None]*len(c.bits) for c in configs]
-					for gene_pos, (conf_index, conf_pos) in enumerate(gene_pos_conf_pos_map):
-						vals[conf_index][conf_pos] = allele.values[gene_pos]
-					
-					allele_meaning = []
-					# lookup meaning in configs
-					for config_pos, (config, allele_vals) in enumerate(zip(configs, vals)):
-						if config.kind == "connection":
-							dst_name = config.dst_net
-							
-							try:
-								src_index = config.values.index(tuple(allele_vals))
-							except ValueError:
-								self.fail(f"{allele_vals} missing for {config.bits}")
-							
-							src_name = config.src_nets[src_index]
-							
-							tile_data.src_map.setdefault(src_name, []).append(SrcIndex(gene_index, config_pos, allele_index))
-							allele_meaning.append((src_name, dst_name))
-						elif config.kind == "TruthTable":
-							allele_meaning.append(allele_vals)
-						else:
-							# ignore, but keep absolute index of meaning and configs in sync
-							allele_meaning.append(None)
-					
-					gene_meaning.append(allele_meaning)
-				
-			all_sigs = ["top", "lft", "bot", "rgt", "f"]
-			# detect mapping
-			neigh_map = {}
-			for src_name in tile_data.src_map:
-				res = re.match(r"neigh_op_(?P<direction>\w+)_(?P<lut_index>\d)", src_name)
-				if res:
-					direc = res.group("direction")
-					lut_index = res.group("lut_index")
-					self.assertNotIn(direc, neigh_map)
-					neigh_map[direc] = int(lut_index)
-			
-			if 4 != len(neigh_map):
-				print(f"not enough inputs for tile {tile_data.tile}")
-				continue
-			
-			loc_out_map = {}
-			for neigh_index, neigh_dir in enumerate(all_sigs[:4]):
-				loc_dir = all_sigs[(neigh_index+2)%4]
-				loc_out_map[loc_dir] = neigh_map[neigh_dir]
-			
-			self.assertEqual(4, len(set(loc_out_map.values())), f"couldn't match inputs to outputs in tile {tile_data.tile}")
-			out_map = loc_out_map
-			
-			f_out = None
+				self.assertEqual(exp_index, lut_index)
+			#print(f"{tile_data.tile}: {tmp_out_map}")
+		self.assertEqual(set(all_sigs), set(out_map))
+		
+		print(f"detected out map: {out_map}")
+		
+		for tile_data in tile_map.values():
 			for dir_index, direction in enumerate(all_sigs[:4]):
 				# trace back the inputs of the LUT and collect relevant genes/meanings
 				lut_index = out_map[direction]
@@ -182,14 +290,11 @@ class TestXC6200(unittest.TestCase):
 					if re.match(r"neigh_op_(\w+)_(\d)", cur_net):
 						neigh_dir = cur_net[9:12]
 						neigh_lut = int(cur_net[13])
-						self.assertIn(neigh_dir, neigh_map)
-						self.assertEqual(neigh_map[neigh_dir], neigh_lut)
+						self.assertEqual(out_map[self.switch_direction(neigh_dir)], neigh_lut)
 					elif re.match(r"lutff_(\d)/(c|l)?out", cur_net):
 						other_lut = int(cur_net[6])
 						# assume that another LUT output as input can only be the function unit
-						if f_out is None:
-							f_out = other_lut
-						self.assertEqual(f_out, other_lut, "inconsistent f LUT")
+						self.assertEqual(out_map["f"], other_lut, "inconsistent f LUT")
 					else:
 						# simple net -> find source
 						dst_index = tile_data.dst_map[cur_net]
@@ -205,8 +310,8 @@ class TestXC6200(unittest.TestCase):
 				#print([tile_meaning[i] for i in relevant_gene_indices])
 				
 				# for all allele combinations check the behaviour of the LUT output with respect to the inputs
-				src_list = [f"neigh_op_{d}_{neigh_map[d]}" for d in all_sigs[:4]]
-				src_list.append(f"lutff_{f_out}/out")
+				src_list = [f"neigh_op_{d}_{out_map[self.switch_direction(d)]}" for d in all_sigs[:4]]
+				src_list.append(f"lutff_{out_map['f']}/out")
 				out_comb_map = {}
 				for comb_index, allele_comb in enumerate(itertools.product(*[tile_data.tile_meaning[i] for i in relevant_gene_indices])):
 					assert len(allele_comb) == len(relevant_gene_indices)
@@ -214,7 +319,7 @@ class TestXC6200(unittest.TestCase):
 					tt_state = {}
 					src_state = {}
 					for allele_meaning, gene_index in zip(allele_comb, relevant_gene_indices):
-						configs = gene_index_configs_map[gene_index]
+						configs = tile_data.gene_index_configs_map[gene_index]
 						assert len(allele_meaning) == len(configs)
 						for meaning, config in zip(allele_meaning, configs):
 							if config.kind == "connection":
@@ -261,7 +366,7 @@ class TestXC6200(unittest.TestCase):
 						matches = [m and (lut_val == s) for m, s in zip(matches, src_values)]
 					self.assertEqual(1, sum(matches))
 					match_index = matches.index(True)
-					out_comb_map.setdefault(all_sigs[match_index], []).append(src_list[match_index])#comb_index)
+					out_comb_map.setdefault(all_sigs[match_index], []).append(comb_index)#src_list[match_index])
 				
 				# all inputs included, except the same direction
 				self.assertNotIn(direction, out_comb_map, f"should not be in {direction}")
@@ -270,7 +375,21 @@ class TestXC6200(unittest.TestCase):
 				for sig in all_sigs:
 					if sig == direction:
 						continue
-					self.assertIn(sig, out_comb_map)
+					if sig not in out_comb_map:
+						if sig == "f":
+							self.fail(f"no function unit input for {direction} in {tile_data.tile}")
+						elif sig == "top":
+							neigh_offset = (0, 1)
+						elif sig == "bot":
+							neigh_offset = (0, -1)
+						elif sig == "lft":
+							neigh_offset = (-1, 0)
+						elif sig == "rgt":
+							neigh_offset = (1, 0)
+						
+						neigh_pos = TilePosition(tile_data.tile.x+neigh_offset[0], tile_data.tile.y+neigh_offset[1])
+						self.assertNotIn(neigh_pos, tile_map.keys(), f"no {sig} input for {direction} in {tile_data.tile} despite neighbor available\n{out_comb_map}\n{[len(g.alleles) for g in tile_data.genes]}")
+					
 					if comb_count is None:
 						comb_count = len(out_comb_map[sig])
 					else:
