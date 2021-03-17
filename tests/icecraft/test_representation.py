@@ -1959,6 +1959,35 @@ class IcecraftRepGenTest(unittest.TestCase):
 		)
 		exception_cases.append(ec)
 		
+		tile = TilePosition(7, 20)
+		net_data_list = [
+			NetData(((*tile, "dst"), ), False, (0, )),
+			NetData(((*tile, "src"), ), True, (0, )),
+			NetData(((*tile, UNCONNECTED_NAME), ), True, (0, )),
+		]
+		con_item = ConnectionItem(
+			create_bits(*tile, [(13, 6)]),
+			"connection",
+			"dst",
+			((False, ), (True, )),
+			(UNCONNECTED_NAME, "src")
+		)
+		config_map = {tile: ConfigAssemblage(connection=(con_item, ))}
+		rep = InterRep(net_data_list, config_map)
+		# set all incoming edges of dst unavailable
+		for src, dst in [("src", "dst"), (UNCONNECTED_NAME, "dst")]:
+			ed = EdgeDesig.net_to_net(tile, src, dst)
+			edge = rep.get_edge(ed)
+			edge.available = False
+		ec = TileGenesErrorTestData(
+			"no alleles",
+			AssertionError,
+			list(rep.iter_vertices()),
+			config_map,
+			True
+		)
+		exception_cases.append(ec)
+		
 		return exception_cases
 	
 	def create_rep(self, raw_nets, config_map, lut_functions, used_function):
