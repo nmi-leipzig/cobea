@@ -256,6 +256,7 @@ class ConVertex(Vertex):
 					if edge_desig.src.name == uncon_name:
 						uncon_vals = vals
 						uncon_edge = edge_map[edge_desig]
+						# handle unconnected option explicitly, away from the other options
 						continue
 					
 					options.append((edge_map[edge_desig], vals))
