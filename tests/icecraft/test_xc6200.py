@@ -410,8 +410,18 @@ class TestXC6200(unittest.TestCase):
 		req["y_min"] = 2
 		req["x_max"] = 4
 		req["y_max"] = 4
-		req["exclude_resources"] = [IcecraftResource.from_coords(TILE_ALL, TILE_ALL, n) for n in ("NET#sp4", "NET#sp12", "NET#glb_netwk", "LUT#5", "LUT#6", "LUT#7")]
-		req["include_resources"] = []
+		req["exclude_resources"] = [IcecraftResource.from_coords(TILE_ALL, TILE_ALL, "")]
+		req["include_resources"] = [
+			IcecraftResource.from_coords(TILE_ALL, TILE_ALL, f"LUT#{l}") for l in range(5)
+		] + [
+			IcecraftResource.from_coords(TILE_ALL, TILE_ALL, f"NET#lutff_{l}/in_{i}") for l in range(5) for i in range(4)
+		] + [
+			IcecraftResource.from_coords(TILE_ALL, TILE_ALL, f"NET#{n}") for n in [
+				"neigh_op_bot_1", "neigh_op_rgt_2", "neigh_op_top_3", "neigh_op_lft_4", "lutff_0/out",
+				"local_g0_1", "local_g0_4", "local_g1_0", "local_g1_1", "local_g1_3", "local_g3_2",
+				UNCONNECTED_NAME
+			]
+		]
 		req["exclude_connections"] = [IcecraftResCon.from_coords(TILE_ALL, TILE_ALL, "", "")]
 		req["include_connections"] = [IcecraftResCon.from_coords(TILE_ALL, TILE_ALL, f"NET#{s}$", f"NET#{d}$") for s, d in [
 			("neigh_op_bot_1", "local_g0_1"), ("neigh_op_bot_1", "local_g1_1"), ("neigh_op_lft_4", "local_g0_4"),
@@ -427,6 +437,14 @@ class TestXC6200(unittest.TestCase):
 			IcecraftResCon.from_coords(TILE_ALL, TILE_ALL, f"NET#lutff_{l}/in_{i}$", f"LUT#{l}$") for l in range(5) for i in range(4)
 		] + [
 			IcecraftResCon.from_coords(TILE_ALL, TILE_ALL, f"LUT#{l}$", f"NET#lutff_{l}/out") for l in range(5)
+		] + [
+			IcecraftResCon.from_coords(x, 2, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_1") for x in range(2, 5)
+		] + [
+			IcecraftResCon.from_coords(x, 4, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_3") for x in range(2, 5)
+		] + [
+			IcecraftResCon.from_coords(2, y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_4") for y in range(2, 5)
+		] + [
+			IcecraftResCon.from_coords(4, y, f"NET#{UNCONNECTED_NAME}", "NET#local_g3_2") for y in range(2, 5)
 		]
 		req["output_lutffs"] = []
 		req["lut_functions"] = []
