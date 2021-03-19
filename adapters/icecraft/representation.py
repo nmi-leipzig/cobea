@@ -564,7 +564,7 @@ class IcecraftRepGen(RepresentationGenerator):
 			for vtx in empty_if_missing(single_tile_map, tile):
 				tmp_genes = vtx.get_genes()
 				for gene in tmp_genes:
-					assert len(gene.alleles) > 0
+					assert len(gene.alleles) > 0, f"gene {gene.bit_positions} has no alleles"
 					genes.append(gene)
 			
 		
