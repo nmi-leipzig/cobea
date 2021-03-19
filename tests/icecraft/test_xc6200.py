@@ -27,6 +27,7 @@ class TTIndex:
 @dataclass
 class SrcIndex(TTIndex):
 	allele_index: int
+	src_net_index: int
 
 @dataclass
 class DstIndex:
@@ -121,7 +122,7 @@ class TestXC6200(unittest.TestCase):
 						
 						src_name = config.src_nets[src_index]
 						
-						tile_data.src_map.setdefault(src_name, []).append(SrcIndex(gene_index, config_pos, allele_index))
+						tile_data.src_map.setdefault(src_name, []).append(SrcIndex(gene_index, config_pos, allele_index, src_index))
 						allele_meaning.append((src_name, dst_name))
 					elif config.kind == "TruthTable":
 						allele_meaning.append(allele_vals)
@@ -131,6 +132,32 @@ class TestXC6200(unittest.TestCase):
 				
 				gene_meaning.append(allele_meaning)
 		
+		self.check_dst_src_map(tile_data)
+	
+	def check_dst_src_map(self, tile_data):
+		# check dst map
+		for dst, dst_index in tile_data.dst_map.items():
+			# compare to config
+			configs = tile_data.gene_index_configs_map[dst_index.gene_index]
+			for config_pos in dst_index.config_pos_list:
+				self.assertEqual(dst, configs[config_pos].dst_net)
+				
+				# compare to meaning
+				for allele_meaning in tile_data.tile_meaning[dst_index.gene_index]:
+					meaning = allele_meaning[config_pos]
+					self.assertEqual(dst, meaning[1])
+			
+		
+		# check src map
+		for src, src_index_list in tile_data.src_map.items():
+			for src_index in src_index_list:
+				# compare to meaning
+				meaning = tile_data.tile_meaning[src_index.gene_index][src_index.allele_index][src_index.config_pos]
+				self.assertEqual(src, meaning[0])
+				
+				# compare to config
+				config = tile_data.gene_index_configs_map[src_index.gene_index][src_index.config_pos]
+				self.assertEqual(src, config.src_nets[src_index.src_net_index])
 	
 	def find_out_map(self, tile_data):
 		all_sigs = ["top", "lft", "bot", "rgt", "f"]
@@ -215,11 +242,6 @@ class TestXC6200(unittest.TestCase):
 		# sort genes by tile
 		tile_map = {}
 		for gene in itertools.chain(rep.genes, rep.constant):
-			#TODO: use true neutral value, but thats only available after finding config
-			if len(gene.alleles) == 1 and not any(gene.alleles[0].values):
-				# only neutral allele
-				continue
-			
 			tile = gene.bit_positions[0].tile
 			# genes spanning multiple tiles are not supported
 			self.assertTrue(all(b.tile==tile for b in gene.bit_positions))
@@ -227,7 +249,6 @@ class TestXC6200(unittest.TestCase):
 			tile_map.setdefault(tile, TileData(tile)).genes.append(gene)
 		
 		# assume all tiles have the same out_map -> detect mapping by checking which neigh_op nets are used
-		#config_map = {t: get_config_items(t) for t in tiles}
 		all_sigs = ["top", "lft", "bot", "rgt", "f"]
 		out_map = {}
 		for tile_data in tile_map.values():
@@ -268,10 +289,10 @@ class TestXC6200(unittest.TestCase):
 					continue
 				
 				self.assertEqual(exp_index, lut_index)
-			#print(f"{tile_data.tile}: {tmp_out_map}")
+			
 		self.assertEqual(set(all_sigs), set(out_map))
 		
-		print(f"detected out map: {out_map}")
+		#print(f"detected out map: {out_map}")
 		
 		for tile_data in tile_map.values():
 			for dir_index, direction in enumerate(all_sigs[:4]):
@@ -312,7 +333,8 @@ class TestXC6200(unittest.TestCase):
 				# for all allele combinations check the behaviour of the LUT output with respect to the inputs
 				src_list = [f"neigh_op_{d}_{out_map[self.switch_direction(d)]}" for d in all_sigs[:4]]
 				src_list.append(f"lutff_{out_map['f']}/out")
-				out_comb_map = {}
+				out_comb_map = {"INV": []}
+				
 				for comb_index, allele_comb in enumerate(itertools.product(*[tile_data.tile_meaning[i] for i in relevant_gene_indices])):
 					assert len(allele_comb) == len(relevant_gene_indices)
 					# create truth table and connection state according to the allele combination
@@ -325,6 +347,7 @@ class TestXC6200(unittest.TestCase):
 							if config.kind == "connection":
 								src, dst = meaning
 								if dst in src_state:
+									# don't overwrite with unconnected
 									if src == UNCONNECTED_NAME:
 										continue
 									# only unconnected can be overwritten
@@ -348,7 +371,7 @@ class TestXC6200(unittest.TestCase):
 							continue
 						con_state[dst] = src_src
 						todo_stack.append((dst, src_src))
-					#print(con_state)
+					
 					matches = [True]*len(src_list)
 					for src_values in itertools.product([False, True], repeat=len(src_list)):
 						src_val_map = {s: v for s, v in zip(src_list, src_values)}
@@ -358,20 +381,30 @@ class TestXC6200(unittest.TestCase):
 							dst = f"lutff_{lut_index}/in_{in_index}"
 							src = con_state[dst]
 							# KeyError from here -> source that should have no influence
-							val = src_val_map[src]
+							try:
+								val = src_val_map[src]
+							except KeyError:
+								if src == UNCONNECTED_NAME:
+									val = False
+								else:
+									raise
 							if val:
 								tt_index |= 1 << in_index
 						lut_val = tt_state[lut_index][tt_index]
 						# compare LUT output to sources
 						matches = [m and (lut_val == s) for m, s in zip(matches, src_values)]
-					self.assertEqual(1, sum(matches))
-					match_index = matches.index(True)
-					out_comb_map.setdefault(all_sigs[match_index], []).append(comb_index)#src_list[match_index])
+					self.assertGreaterEqual(1, sum(matches))
+					try:
+						match_index = matches.index(True)
+						out_comb_map.setdefault(all_sigs[match_index], []).append(comb_index)#src_list[match_index])
+					except ValueError:
+						out_comb_map["INV"].append(comb_index)
 				
 				# all inputs included, except the same direction
 				self.assertNotIn(direction, out_comb_map, f"should not be in {direction}")
 				# check number of combinations that lead to a certain state
 				comb_count = None
+				inv_count = 0
 				for sig in all_sigs:
 					if sig == direction:
 						continue
@@ -389,12 +422,15 @@ class TestXC6200(unittest.TestCase):
 						
 						neigh_pos = TilePosition(tile_data.tile.x+neigh_offset[0], tile_data.tile.y+neigh_offset[1])
 						self.assertNotIn(neigh_pos, tile_map.keys(), f"no {sig} input for {direction} in {tile_data.tile} despite neighbor available\n{out_comb_map}\n{[len(g.alleles) for g in tile_data.genes]}")
-					
-					if comb_count is None:
-						comb_count = len(out_comb_map[sig])
+						
+						inv_count += 1
 					else:
-						self.assertEqual(comb_count, len(out_comb_map[sig]))
-				
+						if comb_count is None:
+							comb_count = len(out_comb_map[sig])
+						else:
+							self.assertEqual(comb_count, len(out_comb_map[sig]))
+				# at least f should be present -> comb_count is not None
+				self.assertEqual(comb_count*inv_count, len(out_comb_map["INV"]))
 			
 			# check function unit
 			# check connection options
@@ -404,12 +440,14 @@ class TestXC6200(unittest.TestCase):
 						continue
 	
 	def test_xc6200_structure(self):
+		x_min, x_max = (2, 4)
+		y_min, y_max = (2, 4)
 		dut = IcecraftRepGen()
 		req = RequestObject()
-		req["x_min"] = 2
-		req["y_min"] = 2
-		req["x_max"] = 4
-		req["y_max"] = 4
+		req["x_min"] = x_min
+		req["y_min"] = y_min
+		req["x_max"] = x_max
+		req["y_max"] = y_max
 		req["exclude_resources"] = [IcecraftResource.from_coords(TILE_ALL, TILE_ALL, "")]
 		req["include_resources"] = [
 			IcecraftResource.from_coords(TILE_ALL, TILE_ALL, f"LUT#{l}") for l in range(5)
@@ -417,10 +455,17 @@ class TestXC6200(unittest.TestCase):
 			IcecraftResource.from_coords(TILE_ALL, TILE_ALL, f"NET#lutff_{l}/in_{i}") for l in range(5) for i in range(4)
 		] + [
 			IcecraftResource.from_coords(TILE_ALL, TILE_ALL, f"NET#{n}") for n in [
-				"neigh_op_bot_1", "neigh_op_rgt_2", "neigh_op_top_3", "neigh_op_lft_4", "lutff_0/out",
 				"local_g0_1", "local_g0_4", "local_g1_0", "local_g1_1", "local_g1_3", "local_g3_2",
-				UNCONNECTED_NAME
+				"lutff_0/out", UNCONNECTED_NAME,
 			]
+		] + [
+			IcecraftResource.from_coords(x, y, "NET#neigh_op_bot_1") for x in range(x_min, x_max+1) for y in range(y_min+1, y_max+1)
+		] + [
+			IcecraftResource.from_coords(x, y, "NET#neigh_op_rgt_2") for x in range(x_min, x_max) for y in range(y_min, y_max+1)
+		] + [
+			IcecraftResource.from_coords(x, y, "NET#neigh_op_top_3") for x in range(x_min, x_max+1) for y in range(y_min, y_max)
+		] + [
+			IcecraftResource.from_coords(x, y, "NET#neigh_op_lft_4") for x in range(x_min+1, x_max+1) for y in range(y_min, y_max+1)
 		]
 		req["exclude_connections"] = [IcecraftResCon.from_coords(TILE_ALL, TILE_ALL, "", "")]
 		req["include_connections"] = [IcecraftResCon.from_coords(TILE_ALL, TILE_ALL, f"NET#{s}$", f"NET#{d}$") for s, d in [
@@ -438,13 +483,15 @@ class TestXC6200(unittest.TestCase):
 		] + [
 			IcecraftResCon.from_coords(TILE_ALL, TILE_ALL, f"LUT#{l}$", f"NET#lutff_{l}/out") for l in range(5)
 		] + [
-			IcecraftResCon.from_coords(x, 2, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_1") for x in range(2, 5)
+			IcecraftResCon.from_coords(x, y_min, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_1") for x in range(x_min, x_max+1)
 		] + [
-			IcecraftResCon.from_coords(x, 4, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_3") for x in range(2, 5)
+			IcecraftResCon.from_coords(x, y_min, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_1") for x in range(x_min, x_max+1)
 		] + [
-			IcecraftResCon.from_coords(2, y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_4") for y in range(2, 5)
+			IcecraftResCon.from_coords(x, y_max, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_3") for x in range(x_min, x_max+1)
 		] + [
-			IcecraftResCon.from_coords(4, y, f"NET#{UNCONNECTED_NAME}", "NET#local_g3_2") for y in range(2, 5)
+			IcecraftResCon.from_coords(x_min, y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_4") for y in range(y_min, y_max+1)
+		] + [
+			IcecraftResCon.from_coords(x_max, y, f"NET#{UNCONNECTED_NAME}", "NET#local_g3_2") for y in range(y_min, y_max+1)
 		]
 		req["output_lutffs"] = []
 		req["lut_functions"] = []
