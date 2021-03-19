@@ -318,6 +318,7 @@ class LUTBits:
 	async_set_reset: Tuple[IcecraftBitPosition, ...]
 	truth_table: Tuple[IcecraftBitPosition, ...]
 	names: ClassVar[Tuple[str, ...]] = ("DffEnable", "Set_NoReset", "AsyncSetReset", "TruthTable")
+	index_name_map: ClassVar[Dict[str, int]] = {i: n for i, n in enumerate(names)}
 	
 	def __post_init__(self):
 		tile = self.dff_enable[0].tile
@@ -327,7 +328,7 @@ class LUTBits:
 		assert all(tile==b.tile for b in self.truth_table)
 	
 	def as_tuple(self) -> Tuple[Tuple[IcecraftBitPosition, ...], ...]:
-		"""return fileds as tuple
+		"""return fields as tuple
 		
 		difference to dataclasses.astuple: not recursive,
 		i.e. IcecraftBitPosition is not converted to tuple
@@ -404,14 +405,18 @@ class LUTVertex(Vertex):
 			else:
 				base_desc += " unused"
 			
-			allele_seqs = self.neutral_alleles()
+			allele_seqs = {n: a for n, a in zip(LUTBits.names, self.neutral_alleles())}
 		else:
-			allele_seqs = [AlleleAll(len(b)) for b in self.lut_bits.as_tuple()[:3]]
+			allele_seqs = {
+				"DffEnable": AlleleAll(len(self.lut_bits.dff_enable)),
+				"Set_NoReset": AlleleAll(len(self.lut_bits.set_no_reset)),
+				"AsyncSetReset": AlleleAll(len(self.lut_bits.async_set_reset))
+			}
 			
 			# truth table
 			if len(self.functions) == 0:
 				unused_inputs = [i for i, e in enumerate(self.in_edges) if not (e.available and e.used and e.src.available and e.src.used)]
-				allele_seqs.append(AllelePow(len(self.in_edges), unused_inputs))
+				allele_seqs["TruthTable"] = AllelePow(len(self.in_edges), unused_inputs)
 			else:
 				used_inputs = [i for i, e in enumerate(self.in_edges) if (e.available and e.used and e.src.available and e.src.used)]
 				values_list = []
@@ -427,9 +432,9 @@ class LUTVertex(Vertex):
 					
 				ordered = sorted(zip(values_list, desc_list), key=lambda e: e[0])
 				alleles = AlleleList([Allele(v, d) for v, d in ordered])
-				allele_seqs.append(alleles)
+				allele_seqs["TruthTable"] = alleles
 		
-		genes = [Gene(b, a, f"{base_desc} {n}{desc}") for b, a, n in zip(self.lut_bits.as_tuple(), allele_seqs, LUTBits.names)]
+		genes = [Gene(b, allele_seqs[n], f"{base_desc} {n}{desc}") for b, n in zip(self.lut_bits.as_tuple(), LUTBits.names)]
 		return genes
 	
 	def neutral_alleles(self) -> List[AlleleList]:
