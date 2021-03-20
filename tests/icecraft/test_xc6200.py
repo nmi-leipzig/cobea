@@ -229,6 +229,66 @@ class TestXC6200(unittest.TestCase):
 		
 		return out_map
 	
+	@classmethod
+	def get_lut_value(cls, lut_index, src_state, tt_state, value_map):
+		pass
+		# trace inputs
+		in_value = 0
+		for i in range(4):
+			cur_net = f"lutff_{lut_index}/in_{i}"
+			while True:
+				try:
+					part_value = value_map[cur_net]
+					break
+				except KeyError:
+					pass
+				
+				try:
+					cur_net = src_state[cur_net]
+				except KeyError:
+					res = re.match(r"lutff_(?P<lut_index>)/(l)?out", cur_net)
+					if not res:
+						raise
+					part_value = cls.get_lut_value(int(res.group("lut_index")), src_state, tt_state, value_map)
+			if part_value:
+				in_value |= 1 << i
+		
+		return tt_state[lut_index][in_value]
+	
+	#def test_meta_get_lut_value(self):
+	#	# constant 0
+	#	# constant 1
+	#	# simple and
+	#	# concatenated LUTs
+	#	pass
+	
+	@staticmethod
+	def simple_function_unit(x1: bool, x2: bool, x3: bool, y2: int, y3: int, q: bool=False):
+		"""Compute the value for a simplified function unit
+		
+		- Q is assumed as constant (default False)
+		"""
+		if y2 < 2:
+			y2_out = x2
+		else:
+			y2_out = q
+		
+		if y2 % 2 == 1:
+			y2_out = not y2_out
+		
+		if y3 < 2:
+			y3_out = x3
+		else:
+			y3_out = q
+		
+		if y3 % 2 == 1:
+			y3_out = not y3_out
+		
+		if x1:
+			return y2_out
+		else:
+			return y3_out
+	
 	@staticmethod
 	def switch_direction(direction):
 		directions = ["top", "lft", "bot", "rgt"]
@@ -433,11 +493,113 @@ class TestXC6200(unittest.TestCase):
 				self.assertEqual(comb_count*inv_count, len(out_comb_map["INV"]))
 			
 			# check function unit
-			# check connection options
-			for out_i, out_sig in enumerate(all_sigs[:4]):
-				for in_sig in all_sigs:
-					if in_sig == all_sigs[(out_i+2)%5]:
-						continue
+			avail_in = []
+			for neigh, x_off, y_off in [("top", 0, 1), ("lft", -1, 0), ("bot", 0, -1), ("rgt", 1, 0)]:
+				if TilePosition(tile_data.tile.x+x_off, tile_data.tile.y+y_off) in tile_map:
+					avail_in.append(neigh)
+			#print(avail_in)
+			# map inputs
+			ice40_map = {d: f"neigh_op_{d}_{out_map[self.switch_direction(d)]}" for d in all_sigs[:4]}
+			xc6200_map = {
+				"north": f"neigh_op_bot_{out_map['top']}",
+				"south": f"neigh_op_top_{out_map['bot']}",
+				"east": f"neigh_op_lft_{out_map['rgt']}",
+				"west": f"neigh_op_rgt_{out_map['lft']}",
+			}
+			
+			# find relevant genes
+			lut_index = out_map["f"]
+			relevant_gene_indices = list()
+			
+			net_stack = [f"lutff_{lut_index}/out"]
+			done_nets = {f"neigh_op_{d}_{out_map[self.switch_direction(d)]}" for d in avail_in}
+			done_nets.add(UNCONNECTED_NAME)
+			while len(net_stack) > 0:
+				cur_net = net_stack.pop()
+				if cur_net in done_nets:
+					continue
+				done_nets.add(cur_net)
+				
+				if re.match(r"lutff_(\d)/(c|l)?out", cur_net):
+					other_lut = int(cur_net[6])
+					relevant_gene_indices.append(tile_data.tt_map[other_lut].gene_index)
+					net_stack.extend(f"lutff_{other_lut}/in_{i}" for i in range(4))
+				else:
+					# simple net -> find source
+					dst_index = tile_data.dst_map[cur_net]
+					
+					relevant_gene_indices.append(dst_index.gene_index)
+					# add all possible sources to the stack
+					for allele_meaning in tile_data.tile_meaning[dst_index.gene_index]:
+						for config_pos in dst_index.config_pos_list:
+							src_net, dst_net = allele_meaning[config_pos]
+							self.assertEqual(cur_net, dst_net)
+							
+							net_stack.append(src_net)
+			#print(relevant_gene_indices)
+			
+			# compute output of representational function unit dependent on the input signals for every allele combination
+			output_comb_map = {}
+			for comb_index, allele_comb in enumerate(itertools.product(*[tile_data.tile_meaning[i] for i in relevant_gene_indices])):
+				# get current state
+				tt_state = {}
+				src_state = {}
+				for allele_meaning, gene_index in zip(allele_comb, relevant_gene_indices):
+					configs = tile_data.gene_index_configs_map[gene_index]
+					assert len(allele_meaning) == len(configs)
+					for meaning, config in zip(allele_meaning, configs):
+						if config.kind == "connection":
+							src, dst = meaning
+							if dst in src_state:
+								# don't overwrite with unconnected
+								if src == UNCONNECTED_NAME:
+									continue
+								# only unconnected can be overwritten
+								self.assertEqual(UNCONNECTED_NAME, src_state[dst])
+							
+							src_state[dst] = src
+							
+						elif config.kind == "TruthTable":
+							self.assertNotIn(config.index, tt_state)
+							tt_state[config.index] = meaning
+						else:
+							pass
+				
+				output_list = []
+				for values in itertools.product((False, True), repeat=len(avail_in)):
+					value_map = {f"neigh_op_{d}_{out_map[self.switch_direction(d)]}": v for d, v in zip(avail_in, values)}
+					value_map[UNCONNECTED_NAME] = False
+					
+					output = self.get_lut_value(out_map["f"], src_state, tt_state, value_map)
+					
+					output_list.append(output)
+				
+				output_comb_map.setdefault(tuple(output_list), []).append(comb_index)
+			#print(output_comb_map)
+			
+			output_xc_map = {o: [] for o in output_comb_map}
+			# compute output of XC6200 function unit dependent on the input for every mux combination and match to representation
+			for comb_index, (x1_mux, x2_mux, x3_mux, y2, y3) in enumerate(itertools.product(range(4), repeat=5)):
+				values = [None]*16
+				output_list = []
+				for values in itertools.product((False, True), repeat=len(avail_in)):
+					# unavailable inputs are set to False by default
+					mux = [False]*4
+					for sig, val in zip(avail_in, values):
+						mux[all_sigs.index(sig)] = val
+					
+					output = self.simple_function_unit(*[mux[i] for i in (x1_mux, x2_mux, x3_mux)], y2, y3)
+					
+					output_list.append(output)
+				
+				output_tuple = tuple(output_list)
+				self.assertIn(output_tuple, output_xc_map)
+				output_xc_map[output_tuple].append(comb_index)
+			
+			#print(output_xc_map)
+			for output, comb_list in output_xc_map.items():
+				self.assertNotEqual(0, len(comb_list), f"unrequired output pattern {output}")
+			
 	
 	def test_xc6200_structure(self):
 		x_min, x_max = (2, 4)
