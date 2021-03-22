@@ -9,6 +9,9 @@ from domain.model import TargetConfiguration, Gene, Chromosome
 from domain.request_model import RequestObject, Parameter
 from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 
+from domain.use_cases import CreatePosTrans
+from .position_transformation import IcecraftPosTransLibrary
+
 from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, \
 	IcecraftNetPosition, LUTFunction, IcecraftBitPosition, \
 	IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, \
@@ -78,7 +81,11 @@ class IcecraftRepGen(RepresentationGenerator):
 		return self._parameters
 	
 	def __call__(self, request: RequestObject) -> IcecraftRep:
-		tiles = self.tiles_from_rectangle(request.x_min, request.y_min, request.x_max, request.y_max)
+		ptl = IcecraftPosTransLibrary()
+		uc = CreatePosTrans(ptl)
+		exp_req = RequestObject(identifier="expand_rectangle", description="")
+		expand_rect = uc(exp_req)
+		tiles = expand_rect([TilePosition(request.x_min, request.y_min), TilePosition(request.x_max, request.y_max)])
 		
 		config_map = {t: get_config_items(t) for t in tiles}
 		
@@ -229,10 +236,6 @@ class IcecraftRepGen(RepresentationGenerator):
 	def set_lut_functions(rep: InterRep, lut_functions: Iterable[LUTFunction]) -> None:
 		for vtx in rep.iter_lut_vertices():
 			vtx.functions = list(lut_functions)
-	
-	@staticmethod
-	def tiles_from_rectangle(x_min: int, y_min: int, x_max: int, y_max: int) -> List[TilePosition]:
-		return [TilePosition(x, y) for x in range(x_min, x_max+1) for y in range(y_min, y_max+1)]
 	
 	@staticmethod
 	def set_available_vertex(vertex_iter: Iterable[Vertex], cond: Callable[[Vertex], bool], value: bool = False) -> None:

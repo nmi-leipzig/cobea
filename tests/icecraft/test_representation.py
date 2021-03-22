@@ -17,6 +17,7 @@ from adapters.icecraft.chip_data_utils import NetData, ElementInterface, SegEntr
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigItem
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex
 from adapters.icecraft.misc import IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftInputError, IcecraftGeneConstraint
+from adapters.icecraft.position_transformation import IcecraftPosTransLibrary
 
 from ..test_request_model import check_parameter_user
 
@@ -139,25 +140,6 @@ class IcecraftRepGenTest(unittest.TestCase):
 	def test_parameter_user(self):
 		rep_gen = icecraft.IcecraftRepGen()
 		check_parameter_user(self, rep_gen)
-	
-	def test_tiles_from_rectangle(self):
-		test_data = (
-			((2, 2, 2, 2), [(2, 2)]), # single tile
-			((3, 5, 7, 5), [(3, 5), (4, 5), (5, 5), (6, 5), (7, 5)]), # row
-			((7, 9, 7, 13), [(7, 9), (7, 10), (7, 11), (7, 12), (7, 13)]), # colum
-			((4, 6, 5, 7), [(4, 6), (4, 7), (5, 6), (5, 7)]), # no inner tile
-			((5, 8, 7, 10), [(5, 8), (5, 9), (5, 10), (6, 8), (6, 9), (6, 10), (7, 8), (7, 9), (7, 10)]), # inner tile
-		)
-		
-		for rect, exp in test_data:
-			res = icecraft.IcecraftRepGen.tiles_from_rectangle(*rect)
-			res_set = set(res)
-			
-			# no duplicates
-			self.assertEqual(len(res), len(res_set))
-			
-			# correct tiles
-			self.assertEqual(set(exp), res_set)
 	
 	def check_available(self, rep, exp_dict):
 		for seg, exp_value in exp_dict.items():
@@ -1120,7 +1102,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		for i, mc in enumerate(data):#[1:2]):
 			with self.subTest(desc=f"mapping case {i}"):
-				tiles = icecraft.IcecraftRepGen.tiles_from_rectangle(mc.x_min, mc.y_min, mc.x_max, mc.y_max)
+				tiles = IcecraftPosTransLibrary.expand_rectangle([TilePosition(mc.x_min, mc.y_min), TilePosition(mc.x_max, mc.y_max)])
 				
 				config_map = {t: get_config_items(t) for t in tiles}
 				
