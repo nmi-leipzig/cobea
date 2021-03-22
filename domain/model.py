@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Callable, Tuple, TypeVar, Generic, Union, Any
+from typing import Callable, Tuple, TypeVar, Generic, Union, Any, Sequence
 
 from domain.allele_sequence import Allele, AlleleSequence, AlleleList, AlleleAll
 
@@ -58,3 +58,17 @@ class Chromosome:
 	def __getitem__(self, key):
 		return self.allele_indices[key]
 
+class ElementPosition(ABC):
+	pass
+
+PosTransImpl = Callable[[Sequence[ElementPosition]], Sequence[ElementPosition]]
+
+@dataclass(frozen=True)
+class PosTrans:
+	# transformation of element positions
+	identifier: str
+	description: str
+	implementation: PosTransImpl
+	
+	def __call__(self, in_positions: Sequence[ElementPosition]) -> Sequence[ElementPosition]:
+		return self.implementation(in_positions)

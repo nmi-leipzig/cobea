@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod, abstractproperty
 from typing import Any, Callable, Union, Mapping, Iterable
 
-from domain.model import FitnessFunctionImpl, PreprocessingImpl, TargetConfiguration, OutputData, Chromosome
+from domain.model import FitnessFunctionImpl, PreprocessingImpl, TargetConfiguration, OutputData, Chromosome, PosTransImpl
 from domain.request_model import RequestObject, ParameterValues, ParameterUser, Parameter
 
 class TargetDevice(ABC):
@@ -83,4 +83,11 @@ class RepresentationGenerator(ParameterUser):
 	
 	@abstractmethod
 	def __call__(self, request: RequestObject) -> Representation:
+		raise NotImplementedError()
+
+class PosTransLibrary(ABC):
+	"""Interface for a library of position transformations"""
+	
+	@abstractmethod
+	def get_implementation(self, request: RequestObject) -> PosTransImpl:
 		raise NotImplementedError()
