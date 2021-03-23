@@ -1,11 +1,27 @@
 import unittest
 
-import adapters.icecraft as icecraft
+from adapters.icecraft import IcecraftPosition, IcecraftBitPosition, IcecraftLUTPosition,\
+IcecraftColBufCtrl, IcecraftNetPosition, IcecraftConnection
 
+class IcecraftPositionTest(unittest.TestCase):
+	def test_creation(self):
+		dut = IcecraftPosition(12, 4)
+	
+	def test_tile(self):
+		dut = IcecraftPosition(12, 4)
+		self.assertEqual(dut, dut.tile)
+	
+	def test_from_tile(self):
+		x = 3
+		y = 4
+		
+		dut = IcecraftPosition.from_tile(IcecraftPosition(x, y))
+		self.assertEqual(x, dut.x)
+		self.assertEqual(y, dut.y)
 
 class IcecraftBitPositionTest(unittest.TestCase):
 	def test_creation(self):
-		dut = icecraft.IcecraftBitPosition(icecraft.TilePosition(1, 2), 3, 4)
+		dut = IcecraftBitPosition(1, 2, 3, 4)
 	
 	def check_values(self, dut, x, y, group, index):
 		self.assertEqual(x, dut.tile.x)
@@ -21,24 +37,23 @@ class IcecraftBitPositionTest(unittest.TestCase):
 		group = 5
 		index = 6
 		
-		dut = icecraft.IcecraftBitPosition(icecraft.TilePosition(x, y), group, index)
+		dut = IcecraftBitPosition(x, y, group, index)
 		self.check_values(dut, x, y, group, index)
 	
-	def test_from_coords(self):
+	def test_from_tile(self):
 		x = 3
 		y = 4
 		group = 5
 		index = 6
 		
-		dut = icecraft.IcecraftBitPosition.from_coords(x, y, group, index)
+		dut = IcecraftBitPosition.from_tile(IcecraftPosition(x, y), group, index)
 		self.check_values(dut, x, y, group, index)
-		
 
 class IcecraftLUTPositionTest(unittest.TestCase):
-	dut_cls = icecraft.IcecraftLUTPosition
+	dut_cls = IcecraftLUTPosition
 	
 	def test_creation(self):
-		dut = self.dut_cls(icecraft.TilePosition(1, 2), 3)
+		dut = self.dut_cls(1, 2, 3)
 	
 	def check_values(self, dut, x, y, z):
 		self.assertEqual(x, dut.tile.x)
@@ -52,25 +67,23 @@ class IcecraftLUTPositionTest(unittest.TestCase):
 		y = 4
 		z = 5
 		
-		dut = self.dut_cls(icecraft.TilePosition(x, y), z)
+		dut = self.dut_cls(x, y, z)
 		self.check_values(dut, x, y, z)
 	
-	def test_from_coords(self):
+	def test_from_tile(self):
 		x = 3
 		y = 4
 		z = 5
 		
-		dut = self.dut_cls.from_coords(x, y, z)
+		dut = self.dut_cls.from_tile(IcecraftPosition(x, y), z)
 		self.check_values(dut, x, y, z)
-	
-
 
 class IcecraftColBufCtrlTest(IcecraftLUTPositionTest):
-	dut_cls = icecraft.IcecraftColBufCtrl
+	dut_cls = IcecraftColBufCtrl
 
 class IcecraftNetPositionTest(unittest.TestCase):
 	def test_creation(self):
-		dut = icecraft.IcecraftNetPosition(icecraft.TilePosition(1, 2), "test_net")
+		dut = IcecraftNetPosition(1, 2, "test_net")
 	
 	def check_values(self, dut, x, y, name):
 		self.assertEqual(x, dut.tile.x)
@@ -84,21 +97,20 @@ class IcecraftNetPositionTest(unittest.TestCase):
 		y = 4
 		name = "test_net"
 		
-		dut = icecraft.IcecraftNetPosition(icecraft.TilePosition(x, y), name)
+		dut = IcecraftNetPosition(x, y, name)
 		self.check_values(dut, x, y, name)
 	
-	def test_from_coords(self):
+	def test_from_tile(self):
 		x = 3
 		y = 4
 		name = "test_net"
 		
-		dut = icecraft.IcecraftNetPosition.from_coords(x, y, name)
+		dut = IcecraftNetPosition.from_tile(IcecraftPosition(x, y), name)
 		self.check_values(dut, x, y, name)
-		
 
 class IcecraftConnectionTest(unittest.TestCase):
 	def test_creation(self):
-		dut = icecraft.IcecraftConnection(icecraft.TilePosition(5, 1), "net_a", "net_b")
+		dut = IcecraftConnection(5, 1, "net_a", "net_b")
 	
 	def check_values(self, dut, x, y, src_name, dst_name):
 		self.assertEqual(x, dut.tile.x)
@@ -107,8 +119,8 @@ class IcecraftConnectionTest(unittest.TestCase):
 		self.assertEqual(y, dut.y)
 		self.assertEqual(src_name, dut.src_name)
 		self.assertEqual(dst_name, dut.dst_name)
-		self.assertEqual(icecraft.IcecraftNetPosition(dut.tile, src_name), dut.src)
-		self.assertEqual(icecraft.IcecraftNetPosition(dut.tile, dst_name), dut.dst)
+		self.assertEqual(IcecraftNetPosition(dut.x, dut.y, src_name), dut.src)
+		self.assertEqual(IcecraftNetPosition(dut.x, dut.y, dst_name), dut.dst)
 	
 	def test_values(self):
 		x = 9
@@ -116,14 +128,14 @@ class IcecraftConnectionTest(unittest.TestCase):
 		src_name = "source_name"
 		dst_name = "destination_name"
 		
-		dut = icecraft.IcecraftConnection(icecraft.TilePosition(x, y), src_name, dst_name)
+		dut = IcecraftConnection(x, y, src_name, dst_name)
 		self.check_values(dut, x, y, src_name, dst_name)
 	
-	def test_from_coords(self):
+	def test_from_tile(self):
 		x = 9
 		y = 2
 		src_name = "source_name"
 		dst_name = "destination_name"
 		
-		dut = icecraft.IcecraftConnection.from_coords(x, y, src_name, dst_name)
+		dut = IcecraftConnection.from_tile(IcecraftPosition(x, y), src_name, dst_name)
 		self.check_values(dut, x, y, src_name, dst_name)

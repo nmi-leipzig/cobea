@@ -5,10 +5,10 @@ import itertools
 import pdb
 from typing import NamedTuple, Iterable, List, Mapping, Callable, Tuple, Union, Dict, NewType
 from enum import Enum, auto
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, astuple
 
 import adapters.icecraft as icecraft
-from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftColBufCtrl, LUTFunction
+from adapters.icecraft import IcecraftPosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftColBufCtrl, LUTFunction
 from domain.request_model import RequestObject
 from domain.model import Gene
 from domain.allele_sequence import AlleleList, AlleleAll, AllelePow, Allele
@@ -55,29 +55,29 @@ class IcecraftRepGenTest(unittest.TestCase):
 		dut = icecraft.IcecraftRepGen()
 	
 	def test_call(self):
-		ice_res = IcecraftResource.from_coords
+		ice_res = IcecraftResource
 		dut = icecraft.IcecraftRepGen()
 		req = RequestObject()
 		req["x_min"] = 2
 		req["y_min"] = 2
 		req["x_max"] = 2
 		req["y_max"] = 2
-		req["exclude_resources"] = [IcecraftResource.from_coords(TILE_ALL, TILE_ALL, n) for n in ("NET#sp4", "NET#sp12", "NET#glb_netwk")]
+		req["exclude_resources"] = [IcecraftResource(TILE_ALL, TILE_ALL, n) for n in ("NET#sp4", "NET#sp12", "NET#glb_netwk")]
 		req["include_resources"] = []
 		req["exclude_connections"] = []
 		req["include_connections"] = []
-		req["output_lutffs"] = [icecraft.IcecraftLUTPosition.from_coords(2, 2, 2)]
+		req["output_lutffs"] = [icecraft.IcecraftLUTPosition(2, 2, 2)]
 		req["lut_functions"] = [icecraft.LUTFunction.NAND, icecraft.LUTFunction.AND]
 		req["gene_constraints"] = []
 		
 		dut(req)
 	
 	def parse_gene(self, raw_gene, desc=""):
-		tile = icecraft.TilePosition(*raw_gene[0])
+		tile = IcecraftPosition(*raw_gene[0])
 		
 		bit_pos = []
 		for raw_bit in raw_gene[1]:
-			bit_pos.append(icecraft.IcecraftBitPosition(tile, *raw_bit))
+			bit_pos.append(icecraft.IcecraftBitPosition.from_tile(tile, *raw_bit))
 		
 		raw_alleles = raw_gene[2]
 		if raw_alleles == []:
@@ -107,7 +107,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 				req["y_max"] = raw_test[3]
 				req["exclude_nets"] = [v for v, d in raw_test[4]]
 				req["include_nets"] = [v for v, d in raw_test[5]]
-				output = [icecraft.IcecraftLUTPosition.from_coords(*c) for c in raw_test[6]]
+				output = [icecraft.IcecraftLUTPosition(*c) for c in raw_test[6]]
 				req["output_lutffs"] = list(output)
 				req["joint_input_nets"] = raw_test[7]
 				req["lone_input_nets"] = raw_test[8]
@@ -124,7 +124,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 				
 				used_colbufctrl = []
 				for raw_ctrl in raw_test[12]:
-					used_colbufctrl.append(icecraft.IcecraftColBufCtrl.from_coords(*raw_ctrl))
+					used_colbufctrl.append(icecraft.IcecraftColBufCtrl(*raw_ctrl))
 				
 				# call DUT
 				rep = dut(req)
@@ -170,7 +170,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			# reset
 			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: True, True)
 			
-			tile = TilePosition(2, 3)
+			tile = IcecraftPosition(2, 3)
 			vtx_list = [v for v in rep.iter_vertices() if any(d.tile==tile for d in v.desigs)]
 			excluded = [
 				(2, 3, "internal"), (2, 3, "internal_2"), (2, 3, "lut_out"),
@@ -207,7 +207,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			icecraft.IcecraftRepGen.set_available_vertex(rep.iter_vertices(), lambda x: True, True)
 			# set ext_src
 			for vtx in rep.iter_vertices():
-				vtx.ext_src = any(vtx.desigs[i].tile in [(1, 3), (7, 0)] for i in vtx.drivers)
+				vtx.ext_src = any(vtx.desigs[i].tile in [IcecraftPosition(1, 3), IcecraftPosition(7, 0)] for i in vtx.drivers)
 			
 			excluded = [
 				(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"),
@@ -252,8 +252,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 			icecraft.IcecraftRepGen.set_available_edge(rep.iter_edges(), lambda e: True, True)
 			
 			excluded = [
-				EdgeDesig.net_to_net(TilePosition(2, 3), "wire_out", "internal"),
-				EdgeDesig.net_to_net(TilePosition(1, 3), "out", "wire_in_2"),
+				EdgeDesig.net_to_net(IcecraftPosition(2, 3), "wire_out", "internal"),
+				EdgeDesig.net_to_net(IcecraftPosition(1, 3), "out", "wire_in_2"),
 			]
 			edge_list = [e for e in rep.iter_edges() if e.desig in excluded]
 			exp_dict = {e.desig: True if e.desig not in excluded else False for e in rep.iter_edges()}
@@ -274,12 +274,12 @@ class IcecraftRepGenTest(unittest.TestCase):
 			icecraft.IcecraftRepGen.set_available_edge(rep.iter_edges(), lambda e: any(re.match(r".*span", d.name) for d in e.src.desigs), False)
 			
 			excluded = [
-				EdgeDesig.net_to_net(TilePosition(4, 2), "short_span_2", "short_span_1"),
-				EdgeDesig.net_to_net(TilePosition(4, 2), "short_span_1", "short_span_2"),
-				EdgeDesig.net_to_net(TilePosition(5, 3), "long_span_2", "long_span_1"),
-				EdgeDesig.net_to_net(TilePosition(8, 3), "long_span_3", "long_span_2"),
-				EdgeDesig.net_to_net(TilePosition(8, 0), "long_span_4", "long_span_3"),
-				EdgeDesig.net_to_net(TilePosition(5, 0), "long_span_1", "long_span_4"),
+				EdgeDesig.net_to_net(IcecraftPosition(4, 2), "short_span_2", "short_span_1"),
+				EdgeDesig.net_to_net(IcecraftPosition(4, 2), "short_span_1", "short_span_2"),
+				EdgeDesig.net_to_net(IcecraftPosition(5, 3), "long_span_2", "long_span_1"),
+				EdgeDesig.net_to_net(IcecraftPosition(8, 3), "long_span_3", "long_span_2"),
+				EdgeDesig.net_to_net(IcecraftPosition(8, 0), "long_span_4", "long_span_3"),
+				EdgeDesig.net_to_net(IcecraftPosition(5, 0), "long_span_1", "long_span_4"),
 			]
 			exp_dict = {e.desig: True if e.desig not in excluded else False for e in rep.iter_edges()}
 			self.check_available_edge(rep, exp_dict)
@@ -296,18 +296,18 @@ class IcecraftRepGenTest(unittest.TestCase):
 			icecraft.IcecraftRepGen.set_available_edge(rep.iter_edges(), lambda e: e.dst.ext_src, False)
 			
 			excluded = [
-				EdgeDesig.net_to_net(TilePosition(2, 3), "left",  "internal"),
-				EdgeDesig.net_to_net(TilePosition(2, 3), "wire_out",  "internal"),
-				EdgeDesig.net_to_net(TilePosition(2, 3), UNCONNECTED_NAME,  "internal"),
-				EdgeDesig.net_to_net(TilePosition(5, 3), "long_span_2", "long_span_1"),
-				EdgeDesig.net_to_net(TilePosition(5, 3), UNCONNECTED_NAME, "long_span_1"),
+				EdgeDesig.net_to_net(IcecraftPosition(2, 3), "left",  "internal"),
+				EdgeDesig.net_to_net(IcecraftPosition(2, 3), "wire_out",  "internal"),
+				EdgeDesig.net_to_net(IcecraftPosition(2, 3), UNCONNECTED_NAME,  "internal"),
+				EdgeDesig.net_to_net(IcecraftPosition(5, 3), "long_span_2", "long_span_1"),
+				EdgeDesig.net_to_net(IcecraftPosition(5, 3), UNCONNECTED_NAME, "long_span_1"),
 			]
 			exp_dict = {e.desig: True if e.desig not in excluded else False for e in rep.iter_edges()}
 			self.check_available_edge(rep, exp_dict)
 		
 	def test_tiles_from_resource_tile(self):
-		tile = TilePosition(2, 3)
-		all_tiles = [TilePosition(0, 3), TilePosition(1, 2), tile]
+		tile = IcecraftPosition(2, 3)
+		all_tiles = [IcecraftPosition(0, 3), IcecraftPosition(1, 2), tile]
 		special_map = {-1: all_tiles, -2: [tile]}
 		
 		with self.subTest(desc="normal value"):
@@ -315,24 +315,24 @@ class IcecraftRepGenTest(unittest.TestCase):
 			self.assertEqual([tile], res)
 		
 		with self.subTest(desc="special value"):
-			res = icecraft.IcecraftRepGen.tiles_from_resource_tile(TilePosition(-1, -1), special_map)
+			res = icecraft.IcecraftRepGen.tiles_from_resource_tile(IcecraftPosition(-1, -1), special_map)
 			self.assertEqual(all_tiles, res)
 		
 		with self.subTest(desc="special value, different"):
 			with self.assertRaises(IcecraftInputError):
-				res = icecraft.IcecraftRepGen.tiles_from_resource_tile(TilePosition(-1, -2), special_map)
+				res = icecraft.IcecraftRepGen.tiles_from_resource_tile(IcecraftPosition(-1, -2), special_map)
 		
 	
 	def test_set_external_source(self):
 		all_segs = [n.segment[0] for n in NET_DATA]
 		test_data = (
 			([], {s: True if s!=(2, 3, "empty_out") else False for s in all_segs}, "no tiles"),
-			(list(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment)), {s: False for s in all_segs}, "all tiles"),
-			([TilePosition(2, 3)], {s: True if s not in [
+			(list(set(IcecraftPosition(*s[:2]) for n in NET_DATA for s in n.segment)), {s: False for s in all_segs}, "all tiles"),
+			([IcecraftPosition(2, 3)], {s: True if s not in [
 				(2, 3, "internal"), (2, 3, "internal_2"),
 				(2, 3, "lut_out"), (2, 3, "empty_out"), (2, 3, UNCONNECTED_NAME)
 			] else False for s in all_segs}, "single driver in"),
-			([TilePosition(1, 3)], {s: True if s not in [
+			([IcecraftPosition(1, 3)], {s: True if s not in [
 				(0, 3, "right"), (2, 3, "empty_out"), (1, 3, UNCONNECTED_NAME)
 			] else False for s in all_segs}, "multiple driver one in, one out"),
 		)
@@ -347,7 +347,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 	
 	def test_create_regex_condition_vertex(self):
 		all_segs = [n.segment[0] for n in NET_DATA]
-		all_tiles = sorted(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment))
+		all_tiles = sorted(set(IcecraftPosition(*s[:2]) for n in NET_DATA for s in n.segment))
 		test_data = (
 			(r"", all_tiles, {s: True for s in all_segs}),
 			(r"never_seen", all_tiles, {s: False for s in all_segs}),
@@ -356,7 +356,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 				(4, 2, "short_span_1"), (4, 1, "short_span_2"), (5, 0, "long_span_1"),
 				(5, 3, "long_span_2"), (8, 0, "long_span_3"), (5, 0, "long_span_4")
 			] else False for s in all_segs}),
-			(r"NET#out$", [TilePosition(2, 3)], {s: False for s in all_segs}),
+			(r"NET#out$", [IcecraftPosition(2, 3)], {s: False for s in all_segs}),
 		)
 		
 		rep = InterRep(NET_DATA, {})
@@ -375,19 +375,19 @@ class IcecraftRepGenTest(unittest.TestCase):
 			desc: str
 			src_regex: str
 			dst_regex: str
-			tiles: List[TilePosition]
+			tiles: List[IcecraftPosition]
 			exp_true: List[EdgeDesig]
 		
 		rep = InterRep(NET_DATA, self.add_con_config())
-		all_tiles = sorted(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment))
+		all_tiles = sorted(set(IcecraftPosition(*s[:2]) for n in NET_DATA for s in n.segment))
 		all_desigs = list(e.desig for e in rep.iter_edges())
 		test_data = [
 			EdgeCondData("match all", r"", r"", all_tiles, all_desigs),
 			EdgeCondData("match none src", r"can't match", r"", all_tiles, []),
 			EdgeCondData("match none dst", r"", r"can't match", all_tiles, []),
-			EdgeCondData("match none tile", r"", r"", [TilePosition(13, 4)], []),
-			EdgeCondData("simple match", "NET#out$", r"NET#short_span_2$", [TilePosition(4, 2)], [
-				EdgeDesig.net_to_net(TilePosition(4, 2), "out", "short_span_2")
+			EdgeCondData("match none tile", r"", r"", [IcecraftPosition(13, 4)], []),
+			EdgeCondData("simple match", "NET#out$", r"NET#short_span_2$", [IcecraftPosition(4, 2)], [
+				EdgeDesig.net_to_net(IcecraftPosition(4, 2), "out", "short_span_2")
 			]),
 		]
 		
@@ -405,20 +405,20 @@ class IcecraftRepGenTest(unittest.TestCase):
 		class VtxRescData(NamedTuple):
 			desc: str
 			resources: List[IcecraftResource]
-			special_map: Mapping[int, List[TilePosition]]
+			special_map: Mapping[int, List[IcecraftPosition]]
 			value: bool
 			exp_false: List[SegEntryType]
 		
-		ice_res = IcecraftResource.from_coords
-		all_tiles = sorted(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment))
+		ice_res = IcecraftResource
+		all_tiles = sorted(set(IcecraftPosition(*s[:2]) for n in NET_DATA for s in n.segment))
 		test_data = [
 			VtxRescData(
 				"RegEx matches, but not for special tile",
-				[ice_res(-1, -1, r"NET#wire_out$")], {-1: [TilePosition(0, 3)]}, False, []
+				[ice_res(-1, -1, r"NET#wire_out$")], {-1: [IcecraftPosition(0, 3)]}, False, []
 			),
 			VtxRescData(
 				"RegEx matches, but not for requested tile",
-				[ice_res(1, 3, r"NET#wire_out$")], {-1: [TilePosition(0, 3)]}, False, []
+				[ice_res(1, 3, r"NET#wire_out$")], {-1: [IcecraftPosition(0, 3)]}, False, []
 				
 			),
 			VtxRescData(
@@ -451,15 +451,15 @@ class IcecraftRepGenTest(unittest.TestCase):
 		class EdgeRescData(NamedTuple):
 			desc: str
 			resccons: List[IcecraftResCon]
-			special_map: Mapping[int, List[TilePosition]]
+			special_map: Mapping[int, List[IcecraftPosition]]
 			value: bool
 			exp_false: List[EdgeDesig]
 		
-		ice_rc = IcecraftResCon.from_coords
+		ice_rc = IcecraftResCon
 		crt_dsg = EdgeDesig.net_to_net
 		rep = InterRep(NET_DATA, self.add_con_config())
 		all_desigs = list(e.desig for e in rep.iter_edges())
-		all_tiles = sorted(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment))
+		all_tiles = sorted(set(IcecraftPosition(*s[:2]) for n in NET_DATA for s in n.segment))
 		test_data = [
 			EdgeRescData("match all set to True", [ice_rc(-1, -1, r"", r"")], {-1: all_tiles}, True, []),
 			EdgeRescData("match all set to False", [ice_rc(-1, -1, r"", r"")], {-1: all_tiles}, False, all_desigs),
@@ -473,10 +473,10 @@ class IcecraftRepGenTest(unittest.TestCase):
 				ice_rc(8, 3, r"", r"NET#long_span_2$"),
 				ice_rc(1, 3, r"NET#out$", r"NET#wire_in_2$"),
 			], {-1: all_tiles}, False, [
-				crt_dsg(TilePosition(8, 0), "long_span_4", "long_span_3"),
-				crt_dsg(TilePosition(8, 3), "long_span_3", "long_span_2"),
-				crt_dsg(TilePosition(8, 3), UNCONNECTED_NAME, "long_span_2"),
-				crt_dsg(TilePosition(1, 3), "out", "wire_in_2"),
+				crt_dsg(IcecraftPosition(8, 0), "long_span_4", "long_span_3"),
+				crt_dsg(IcecraftPosition(8, 3), "long_span_3", "long_span_2"),
+				crt_dsg(IcecraftPosition(8, 3), UNCONNECTED_NAME, "long_span_2"),
+				crt_dsg(IcecraftPosition(1, 3), "out", "wire_in_2"),
 			])
 		]
 		
@@ -497,7 +497,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		ext_uncon = [(x, y, UNCONNECTED_NAME) for x,y in [(1, 3), (4, 2), (5, 3), (8, 3), (8, 0), (5, 0), (7, 0)]]
 		ext_drv = {s: True if s in [(0, 3, "right"), (0, 3, "wire_in_1"), (5, 0, "long_span_4"), (7, 0, "out")]+ext_uncon else False for s in all_segs}
 		
-		ice_res = IcecraftResource.from_coords
+		ice_res = IcecraftResource
 		
 		test_data = (
 			("empty parameters, only external driven unavailable", (
@@ -529,7 +529,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			rep = InterRep(NET_DATA, {})
 			self.check_available(rep, {s: True for s in all_segs})
 		
-		tiles = [TilePosition(x, y) for n in NET_DATA for x, y, _ in n.segment]
+		tiles = [IcecraftPosition(x, y) for n in NET_DATA for x, y, _ in n.segment]
 		special_map = icecraft.IcecraftRepGen.create_special_map(tiles)
 		
 		for desc, in_data, exp_dict in test_data:
@@ -552,20 +552,20 @@ class IcecraftRepGenTest(unittest.TestCase):
 		class ChooConData(NamedTuple):
 			desc: str
 			req_data: Tuple[List[IcecraftResCon], List[IcecraftResCon]]
-			special_map: Mapping[int, List[TilePosition]]
+			special_map: Mapping[int, List[IcecraftPosition]]
 			exp_false: List[EdgeDesig]
 		
-		ice_rc = IcecraftResCon.from_coords
+		ice_rc = IcecraftResCon
 		crt_dsg = EdgeDesig.net_to_net
 		rep = InterRep(NET_DATA, self.add_con_config())
 		all_desigs = list(e.desig for e in rep.iter_edges())
-		all_tiles = sorted(set(TilePosition(*s[:2]) for n in NET_DATA for s in n.segment))
+		all_tiles = sorted(set(IcecraftPosition(*s[:2]) for n in NET_DATA for s in n.segment))
 		test_data = [
 			ChooConData("empty, no change", ([], []), {}, []),
 			ChooConData("all but one", (
 				[ice_rc(-1, -1, r"", r"")],
 				[ice_rc(2, 3, "NET#left$", "NET#internal$")]
-			), {-1: all_tiles}, [d for d in all_desigs if d != crt_dsg(TilePosition(2, 3), "left", "internal")]),
+			), {-1: all_tiles}, [d for d in all_desigs if d != crt_dsg(IcecraftPosition(2, 3), "left", "internal")]),
 		]
 		
 		for td in test_data:
@@ -752,14 +752,14 @@ class IcecraftRepGenTest(unittest.TestCase):
 					DstData(16, 17, "net_a", True, {0: False, 2: True, 3: False, 5: True}),
 					DstData(18, 17, "net_a", False, {0: False, 2: True, 3: False, 5: True}),
 				],
-				[IcecraftColBufCtrl.from_coords(16, 24, 5)]
+				[IcecraftColBufCtrl(16, 24, 5)]
 			),
 			CBCData(
 				"RAM tiles",
 				[DstData(*t, "net_a", True, {0: False, 2: True, 3: False, 5: True}) for t in ((8, 3), (8, 29), (25, 16), (25, 17))],
 				[
-					IcecraftColBufCtrl.from_coords(8, 8, 5), IcecraftColBufCtrl.from_coords(8, 25, 5),
-					IcecraftColBufCtrl.from_coords(25, 9, 5), IcecraftColBufCtrl.from_coords(25, 24, 5),
+					IcecraftColBufCtrl(8, 8, 5), IcecraftColBufCtrl(8, 25, 5),
+					IcecraftColBufCtrl(25, 9, 5), IcecraftColBufCtrl(25, 24, 5),
 				]
 			),
 			CBCData(
@@ -771,7 +771,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 				"column",
 				[DstData(6, y, "net_a", True, {0: False, 2: True, 3: False, 5: True}) for y in range(10, 17)]
 				+[DstData(8, y, "net_a", False, {0: False, 2: True, 3: False, 5: True}) for y in range(10, 17)],
-				[IcecraftColBufCtrl.from_coords(6, 9, 5)]
+				[IcecraftColBufCtrl(6, 9, 5)]
 			),
 		)
 		
@@ -789,7 +789,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 				
 				for dst_data in tc.dsts:
 					for glb_index, edge_avail in dst_data.con.items():
-						tile = TilePosition(dst_data.x, dst_data.y)
+						tile = IcecraftPosition(dst_data.x, dst_data.y)
 						src_desig = VertexDesig.from_net_name(tile, f"glb_netwk_{glb_index}")
 						dst_desig = VertexDesig.from_net_name(tile, dst_data.name)
 						edge = rep.add_edge(EdgeDesig(src_desig, dst_desig))
@@ -803,17 +803,17 @@ class IcecraftRepGenTest(unittest.TestCase):
 	def test_get_colbufctrl_config(self):
 		test_data = (
 			(
-				[IcecraftColBufCtrl.from_coords(1, 8, 0), IcecraftColBufCtrl.from_coords(13, 9, 4)],
+				[IcecraftColBufCtrl(1, 8, 0), IcecraftColBufCtrl(13, 9, 4)],
 				[
-					IndexedItem((IcecraftBitPosition.from_coords(1, 8, 9, 7), ), "ColBufCtrl", 0), 
-					IndexedItem((IcecraftBitPosition.from_coords(13, 9, 13, 7), ), "ColBufCtrl", 4), 
+					IndexedItem((IcecraftBitPosition(1, 8, 9, 7), ), "ColBufCtrl", 0), 
+					IndexedItem((IcecraftBitPosition(13, 9, 13, 7), ), "ColBufCtrl", 4), 
 				]
 			),
 			(
-				[IcecraftColBufCtrl.from_coords(8, 8, 0), IcecraftColBufCtrl.from_coords(25, 24, 4)],
+				[IcecraftColBufCtrl(8, 8, 0), IcecraftColBufCtrl(25, 24, 4)],
 				[
-					IndexedItem((IcecraftBitPosition.from_coords(8, 8, 9, 7), ), "ColBufCtrl", 0), 
-					IndexedItem((IcecraftBitPosition.from_coords(25, 24, 13, 7), ), "ColBufCtrl", 4), 
+					IndexedItem((IcecraftBitPosition(8, 8, 9, 7), ), "ColBufCtrl", 0), 
+					IndexedItem((IcecraftBitPosition(25, 24, 13, 7), ), "ColBufCtrl", 4), 
 				]
 			),
 		)
@@ -843,13 +843,13 @@ class IcecraftRepGenTest(unittest.TestCase):
 			tile_configs = in_map.setdefault(con_item.bits[0].tile, ConfigAssemblage())
 			tile_configs.connection += (con_item, )
 		for x, y in (one_cis_pos, no_cis_pos):
-			in_map[(x, y)].tile = (ConfigItem((IcecraftBitPosition.from_coords(x, y, 0, 2), ), "NegClk"), )
+			in_map[IcecraftPosition(x, y)].tile = (ConfigItem((IcecraftBitPosition(x, y, 0, 2), ), "NegClk"), )
 		
 		exp_map = copy.deepcopy(in_map)
-		in_map[one_cis_pos].tile += (ConfigItem((IcecraftBitPosition.from_coords(*one_cis_pos, 1, 50), ), "CarryInSet"), )
+		in_map[IcecraftPosition(*one_cis_pos)].tile += (ConfigItem((IcecraftBitPosition(*one_cis_pos, 1, 50), ), "CarryInSet"), )
 		
-		exp_map[one_cis_pos].connection += (ConnectionItem(
-			(IcecraftBitPosition.from_coords(*one_cis_pos, 1, 50), ),
+		exp_map[IcecraftPosition(*one_cis_pos)].connection += (ConnectionItem(
+			(IcecraftBitPosition(*one_cis_pos, 1, 50), ),
 			"connection", "carry_in_mux", ((False, ), (True, )), (UNCONNECTED_NAME, icecraft.representation.CARRY_ONE_IN)
 		), )
 		
@@ -860,7 +860,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			self.generic_carry_in_net_test(exp_map, exp_nets, in_map, in_nets)
 		
 		with self.subTest(desc="two CarryInSet items"):
-			in_map[one_cis_pos].tile += (ConfigItem((IcecraftBitPosition.from_coords(*one_cis_pos, 1, 51), ), "CarryInSet"), )
+			in_map[IcecraftPosition(*one_cis_pos)].tile += (ConfigItem((IcecraftBitPosition(*one_cis_pos, 1, 51), ), "CarryInSet"), )
 			with self.assertRaises(ValueError):
 				self.generic_carry_in_net_test(exp_map, exp_nets, in_map, in_nets)
 	
@@ -1102,7 +1102,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		
 		for i, mc in enumerate(data):#[1:2]):
 			with self.subTest(desc=f"mapping case {i}"):
-				tiles = IcecraftPosTransLibrary.expand_rectangle([TilePosition(mc.x_min, mc.y_min), TilePosition(mc.x_max, mc.y_max)])
+				tiles = IcecraftPosTransLibrary.expand_rectangle([IcecraftPosition(mc.x_min, mc.y_min), IcecraftPosition(mc.x_max, mc.y_max)])
 				
 				config_map = {t: get_config_items(t) for t in tiles}
 				
@@ -1118,9 +1118,9 @@ class IcecraftRepGenTest(unittest.TestCase):
 				req["y_max"] = mc.y_max
 				req["exclude_nets"] = [n for n, _ in mc.exclude_nets]
 				req["include_nets"] = [n for n, _ in mc.include_nets]
-				req["output_lutffs"] = [icecraft.IcecraftLUTPosition.from_coords(*c) for c in mc.output_lutffs]
+				req["output_lutffs"] = [icecraft.IcecraftLUTPosition(*c) for c in mc.output_lutffs]
 				req["joint_input_nets"] = mc.joint_input_nets
-				req["lone_input_nets"] = [IcecraftNetPosition.from_coords(*c) for c in mc.lone_input_nets]
+				req["lone_input_nets"] = [IcecraftNetPosition(*c) for c in mc.lone_input_nets]
 				req["lut_functions"] = [icecraft.LUTFunction[n] for n in mc.lut_functions]
 				icecraft.IcecraftRepGen._choose_nets(rep, req)
 				
@@ -1190,14 +1190,14 @@ class IcecraftRepGenTest(unittest.TestCase):
 			exp_sec_len: List[int]
 		
 		def fix_tile_bits(tile, raw_bits):
-			return tuple(IcecraftBitPosition(tile, *r) for r in raw_bits)
+			return tuple(IcecraftBitPosition.from_tile(tile, *r) for r in raw_bits)
 		
 		def const_allele(count, val=False):
 			return AlleleList([Allele((val, )*count, "")])
 		
 		test_data = []
-		tile_1 = TilePosition(5, 1)
-		tile_2 = TilePosition(21, 17)
+		tile_1 = IcecraftPosition(5, 1)
+		tile_2 = IcecraftPosition(21, 17)
 		all_genes = [
 			Gene(fix_tile_bits(tile_1, [(12, 46)])+fix_tile_bits(tile_2, [(13, 45)]), const_allele(2), "multitile const"), # 0
 			Gene(fix_tile_bits(tile_1, [(5, 4)])+fix_tile_bits(tile_2, [(1, 2)]), AlleleAll(2), "multitile"), # 1
@@ -1243,7 +1243,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		class GeneTestCase(NamedTuple):
 			desc: str
 			rep: InterRep
-			config_map: Mapping[TilePosition, ConfigAssemblage] = {}
+			config_map: Mapping[IcecraftPosition, ConfigAssemblage] = {}
 			exp_const: List[Gene] = []
 			exp_genes: List[Gene] = []
 			exp_sec: List[int] = []
@@ -1252,15 +1252,15 @@ class IcecraftRepGenTest(unittest.TestCase):
 		test_cases = []
 		
 		# carry in set and carry mux
-		tile = TilePosition(26, 19)
+		tile = IcecraftPosition(26, 19)
 		net_data = [
-			NetData(((*tile, "carry_in_mux"),), False, (0, )),
-			NetData(((tile.x, tile.y-1, "lutff_7/cout"), (*tile, "carry_in")), True, (0, )),
-			NetData(((*tile, icecraft.representation.CARRY_ONE_IN),), True, (0, )),
-			NetData(((*tile, UNCONNECTED_NAME), ), True, (0, )),
+			NetData(((tile.x, tile.y, "carry_in_mux"),), False, (0, )),
+			NetData(((tile.x, tile.y-1, "lutff_7/cout"), (tile.x, tile.y, "carry_in")), True, (0, )),
+			NetData(((tile.x, tile.y, icecraft.representation.CARRY_ONE_IN),), True, (0, )),
+			NetData(((tile.x, tile.y, UNCONNECTED_NAME), ), True, (0, )),
 		]
-		ci_bits = create_bits(*tile, [(1, 49)])
-		one_bits = create_bits(*tile, [(1, 50)])
+		ci_bits = create_bits(tile.x, tile.y, [(1, 49)])
+		one_bits = create_bits(tile.x, tile.y, [(1, 50)])
 		con_items = [
 			ConnectionItem(ci_bits, "connection", "carry_in_mux", ((False, ), (True, )), (UNCONNECTED_NAME, "carry_in")),
 			ConnectionItem(one_bits, "connection", "carry_in_mux", ((False, ), (True, )), (UNCONNECTED_NAME, icecraft.representation.CARRY_ONE_IN)),
@@ -1281,11 +1281,11 @@ class IcecraftRepGenTest(unittest.TestCase):
 		# glb2local_1 -> local_g0_5
 		(((2, 15), (2, 16), (2, 17), (2, 18), (3, 18)), [], [(False, False, True, False, False)]),
 		net_data = [
-			NetData(((*tile, "glb2local_1"), ), False, (0, )),
-			NetData(((*tile, "local_g0_5"), ), False, (0, )),
-			NetData(((*tile, UNCONNECTED_NAME), ), True, (0, )),
+			NetData(((tile.x, tile.y, "glb2local_1"), ), False, (0, )),
+			NetData(((tile.x, tile.y, "local_g0_5"), ), False, (0, )),
+			NetData(((tile.x, tile.y, UNCONNECTED_NAME), ), True, (0, )),
 		]
-		bits = create_bits(*tile, [(2, 15), (2, 16), (2, 17), (2, 18), (3, 18)])
+		bits = create_bits(tile.x, tile.y, [(2, 15), (2, 16), (2, 17), (2, 18), (3, 18)])
 		con_items = [ConnectionItem(bits, "connection", "local_g0_5", ((False, False, False, False, False), (False, False, True, False, False)), (UNCONNECTED_NAME, "glb2local_1")),]
 		config_map = {tile: ConfigAssemblage(connection=tuple(con_items))}
 		rep = InterRep(net_data, config_map)
@@ -1352,7 +1352,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		class TileGenesTestData(NamedTuple):
 			desc: str
 			single_tile_vertices: List[Vertex] = []
-			config_map: Mapping[TilePosition, ConfigAssemblage] = {}
+			config_map: Mapping[IcecraftPosition, ConfigAssemblage] = {}
 			exp_const: List[Gene] = []
 			exp_genes: List[Gene] = []
 			exp_sec: List[int] = []
@@ -1362,10 +1362,10 @@ class IcecraftRepGenTest(unittest.TestCase):
 		ec = TileGenesTestData(
 			"NegClk",
 			config_map = {
-				TilePosition(4, 2): ConfigAssemblage(tile=(ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), "NegClk"), )),
-				TilePosition(4, 3): ConfigAssemblage(),
+				IcecraftPosition(4, 2): ConfigAssemblage(tile=(ConfigItem((IcecraftBitPosition(4, 2, 0, 2), ), "NegClk"), )),
+				IcecraftPosition(4, 3): ConfigAssemblage(),
 			},
-			exp_genes = [Gene((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), AlleleAll(1), "")],
+			exp_genes = [Gene((IcecraftBitPosition(4, 2, 0, 2), ), AlleleAll(1), "")],
 			exp_sec = [1]
 		)
 		test_cases.append(ec)
@@ -1487,8 +1487,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		]
 		lut_io = tuple(ElementInterface(tuple((2, 3, f"lutff_{l}/in_{i}") for i in range(4)), tuple()) for l in range(8))
 		config_map = {
-			TilePosition(2, 3): ConfigAssemblage(lut=tuple(lut_conf), lut_io=lut_io),
-			TilePosition(4, 3): ConfigAssemblage(),
+			IcecraftPosition(2, 3): ConfigAssemblage(lut=tuple(lut_conf), lut_io=lut_io),
+			IcecraftPosition(4, 3): ConfigAssemblage(),
 		}
 		
 		rep = InterRep(single_tile_nets, config_map)
@@ -1522,7 +1522,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		test_cases.append(ec)
 		
 		
-		org_tile = TilePosition(2, 3)
+		org_tile = IcecraftPosition(2, 3)
 		def org_name(n):
 			# find name of net in org_tile
 			for x, y, name in n.segment:
@@ -1533,20 +1533,20 @@ class IcecraftRepGenTest(unittest.TestCase):
 		net_data_list = []
 		net_names = ("unavail", "no_src_grps", "one_src", "one_src_grp", "two_src_grps", "unused")
 		for i in range(2):
-			net_data_list.extend(NetData(((*org_tile, f"{n}_{i}"), ), False, (0, )) for n in net_names[:3])
-			net_data_list.extend(NetData(((1, 1, f"other_{n}_{i}"), (*org_tile, f"{n}_{i}")), False, (1, )) for n in net_names[3:4])
-			net_data_list.extend(NetData(((*org_tile, f"{n}_{i}"), ), False, (0, )) for n in net_names[4:])
+			net_data_list.extend(NetData(((*astuple(org_tile), f"{n}_{i}"), ), False, (0, )) for n in net_names[:3])
+			net_data_list.extend(NetData(((1, 1, f"other_{n}_{i}"), (*astuple(org_tile), f"{n}_{i}")), False, (1, )) for n in net_names[3:4])
+			net_data_list.extend(NetData(((*astuple(org_tile), f"{n}_{i}"), ), False, (0, )) for n in net_names[4:])
 			# external
-			net_data_list.append(NetData(((*org_tile, f"external_{i}"), (3, 4, f"external_{i}")), False, (0, 1)))
+			net_data_list.append(NetData(((*astuple(org_tile), f"external_{i}"), (3, 4, f"external_{i}")), False, (0, 1)))
 			# hard driven
-			net_data_list.append(NetData(((*org_tile, f"hard_driven_{i}"), ), True, (0, )))
+			net_data_list.append(NetData(((*astuple(org_tile), f"hard_driven_{i}"), ), True, (0, )))
 		
 		offset = len(net_data_list)//2
 		dst_nets = {org_name(n)[:-2]: n for n in net_data_list[:offset]}
 		src_nets = {org_name(n)[:-2]: n for n in net_data_list[offset:]}
 		# unconnected
 		uncon_index = len(net_data_list)
-		net_data_list.append(NetData(((*org_tile, UNCONNECTED_NAME), ), True, (0, )))
+		net_data_list.append(NetData(((*astuple(org_tile), UNCONNECTED_NAME), ), True, (0, )))
 		
 		gene_data = []
 		# bits, dst_name, srcs, del_indices, conf_lengths
@@ -1585,7 +1585,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		exp_const = []
 		exp_genes = []
 		for gd in gene_data:
-			all_bits = create_bits(*org_tile, gd.raw_bits)
+			all_bits = create_bits(*astuple(org_tile), gd.raw_bits)
 			if gd.create_gene:
 				alleles = [Allele((False, )*len(all_bits), "")]
 				alleles.extend([Allele(v, "") for i, (v, _) in enumerate(gd.src_list) if i not in gd.del_indices])
@@ -1655,7 +1655,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			desc: str
 			excep: Exception
 			single_tile_vertices: Iterable[Vertex] = []
-			config_map: Mapping[TilePosition, ConfigAssemblage] = {}
+			config_map: Mapping[IcecraftPosition, ConfigAssemblage] = {}
 			general: bool = True # general error case, i.e. also for create_genes
 		
 		exception_cases = []
@@ -1664,32 +1664,32 @@ class IcecraftRepGenTest(unittest.TestCase):
 			"CarryInSet",
 			ValueError,
 			config_map = {
-				TilePosition(4, 2): ConfigAssemblage(tile=(
-					ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 2), ), "NegClk"),
-					ConfigItem((IcecraftBitPosition.from_coords(4, 2, 0, 3), ), "CarryInSet"),
+				IcecraftPosition(4, 2): ConfigAssemblage(tile=(
+					ConfigItem((IcecraftBitPosition(4, 2, 0, 2), ), "NegClk"),
+					ConfigItem((IcecraftBitPosition(4, 2, 0, 3), ), "CarryInSet"),
 				))
 			},
 		)
 		exception_cases.append(ec)
 		
-		org_tile = TilePosition(4, 2)
-		other_tile = TilePosition(3, 1)
+		org_pos = (4, 2)
+		other_pos = (3, 1)
 		net_data_list = [
-			NetData(((*other_tile, "dst"), (*org_tile, "dst")), False, (0, 1)),
-			NetData(((*other_tile, f"src_1"), ), True, (0, )),
-			NetData(((*other_tile, UNCONNECTED_NAME), ), True, (0, )),
-			NetData(((*org_tile, f"src_2"), ), True, (0, )),
-			NetData(((*org_tile, UNCONNECTED_NAME), ), True, (0, )),
+			NetData(((*other_pos, "dst"), (*org_pos, "dst")), False, (0, 1)),
+			NetData(((*other_pos, f"src_1"), ), True, (0, )),
+			NetData(((*other_pos, UNCONNECTED_NAME), ), True, (0, )),
+			NetData(((*org_pos, f"src_2"), ), True, (0, )),
+			NetData(((*org_pos, UNCONNECTED_NAME), ), True, (0, )),
 		]
 		org_con = ConnectionItem(
-			create_bits(*other_tile, [(9, 7), (9, 8)]),
+			create_bits(*other_pos, [(9, 7), (9, 8)]),
 			"connection",
 			"dst",
 			((False, False), (True, True)),
 			(UNCONNECTED_NAME, "src_1")
 		)
 		other_con = ConnectionItem(
-			create_bits(*org_tile, [(4, 5), (4, 6)]),
+			create_bits(*org_pos, [(4, 5), (4, 6)]),
 			"connection",
 			"dst",
 			((False, False), (True, True)),
@@ -1697,8 +1697,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 		)
 		
 		config_map = {
-			org_tile: ConfigAssemblage(connection=(org_con, )),
-			other_tile: ConfigAssemblage(connection=(other_con, ))
+			IcecraftPosition(*org_pos): ConfigAssemblage(connection=(org_con, )),
+			IcecraftPosition(*other_pos): ConfigAssemblage(connection=(other_con, ))
 		}
 		rep = InterRep(net_data_list, config_map)
 		ec = TileGenesErrorTestData(
@@ -1710,14 +1710,14 @@ class IcecraftRepGenTest(unittest.TestCase):
 		)
 		exception_cases.append(ec)
 		
-		tile = TilePosition(7, 20)
+		tile = IcecraftPosition(7, 20)
 		net_data_list = [
-			NetData(((*tile, "dst"), ), False, (0, )),
-			NetData(((*tile, "src"), ), True, (0, )),
-			NetData(((*tile, UNCONNECTED_NAME), ), True, (0, )),
+			NetData(((tile.x, tile.y, "dst"), ), False, (0, )),
+			NetData(((tile.x, tile.y, "src"), ), True, (0, )),
+			NetData(((tile.x, tile.y, UNCONNECTED_NAME), ), True, (0, )),
 		]
 		con_item = ConnectionItem(
-			create_bits(*tile, [(13, 6)]),
+			create_bits(tile.x, tile.y, [(13, 6)]),
 			"connection",
 			"dst",
 			((False, ), (True, )),

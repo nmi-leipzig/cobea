@@ -8,7 +8,7 @@ import pdb
 from typing import NamedTuple, Iterable, Mapping, Union, Callable, List, Tuple, Optional
 from dataclasses import fields, dataclass
 
-from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftLUTPosition
+from adapters.icecraft import IcecraftPosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftLUTPosition
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Edge, SourceGroup, Vertex, ConVertex, LUTVertex, LUTBits
 from adapters.icecraft.chip_data import ConfigAssemblage
 from adapters.icecraft.chip_data_utils import NetData, ElementInterface, UNCONNECTED_NAME
@@ -23,17 +23,17 @@ from .data.lut_data import TRUTH_TABLE
 
 class TestDesignation(unittest.TestCase):
 	class VDData(NamedTuple):
-		tile: TilePosition
+		tile: IcecraftPosition
 		net_name: Union[str, None]
 		lut_index: Union[int, None]
 		name: str
 		order: int
 	
 	VERTEX_DESIG_DATA = (
-		VDData(TilePosition(4, 1), "net_a", None, "NET#net_a", 2),
-		VDData(TilePosition(4, 1), None, 2, "LUT#2", 0),
-		VDData(TilePosition(4, 1), "net_b", None, "NET#net_b", 3),
-		VDData(TilePosition(4, 1), None, 5, "LUT#5", 1),
+		VDData(IcecraftPosition(4, 1), "net_a", None, "NET#net_a", 2),
+		VDData(IcecraftPosition(4, 1), None, 2, "LUT#2", 0),
+		VDData(IcecraftPosition(4, 1), "net_b", None, "NET#net_b", 3),
+		VDData(IcecraftPosition(4, 1), None, 5, "LUT#5", 1),
 	)
 	NET_DESIG_DATA = (VERTEX_DESIG_DATA[0], VERTEX_DESIG_DATA[2])
 	LUT_DESIG_DATA = (VERTEX_DESIG_DATA[1], VERTEX_DESIG_DATA[3])
@@ -92,7 +92,7 @@ class TestDesignation(unittest.TestCase):
 			if vdd.net_name is None:
 				continue
 			with self.subTest(test_data=vdd):
-				net_pos = IcecraftNetPosition(vdd.tile, vdd.net_name)
+				net_pos = IcecraftNetPosition.from_tile(vdd.tile, vdd.net_name)
 				dut = VertexDesig.from_net_position(net_pos)
 				
 				self.check_vertex_desig(dut, vdd.tile, vdd.name)
@@ -102,7 +102,7 @@ class TestDesignation(unittest.TestCase):
 			if vdd.lut_index is None:
 				continue
 			with self.subTest(test_data=vdd):
-				lut_pos = IcecraftLUTPosition(vdd.tile, vdd.lut_index)
+				lut_pos = IcecraftLUTPosition.from_tile(vdd.tile, vdd.lut_index)
 				dut = VertexDesig.from_lut_position(lut_pos)
 				
 				self.check_vertex_desig(dut, vdd.tile, vdd.name)
@@ -111,9 +111,9 @@ class TestDesignation(unittest.TestCase):
 		for vdd in self.VERTEX_DESIG_DATA:
 			with self.subTest(test_data=vdd):
 				if vdd.net_name is not None:
-					pos = IcecraftNetPosition(vdd.tile, vdd.net_name)
+					pos = IcecraftNetPosition.from_tile(vdd.tile, vdd.net_name)
 				elif vdd.lut_index is not None:
-					pos = IcecraftLUTPosition(vdd.tile, vdd.lut_index)
+					pos = IcecraftLUTPosition.from_tile(vdd.tile, vdd.lut_index)
 				else:
 					raise ValueError("Invalid test data")
 				
@@ -125,7 +125,7 @@ class TestDesignation(unittest.TestCase):
 		for vdd in self.VERTEX_DESIG_DATA:
 			if vdd.net_name is None:
 				continue
-			seg = (*vdd.tile, vdd.net_name)
+			seg = (vdd.tile.x, vdd.tile.y, vdd.net_name)
 			with self.subTest(seg=seg):
 				dut = VertexDesig.from_seg_entry(seg)
 				
@@ -191,17 +191,17 @@ class TestDesignation(unittest.TestCase):
 
 class TestSourceGroup(unittest.TestCase):
 	def test_creation(self):
-		tile = TilePosition(2, 34)
-		bits = (IcecraftBitPosition(tile, 4, 5), )
+		tile = IcecraftPosition(2, 34)
+		bits = (IcecraftBitPosition.from_tile(tile, 4, 5), )
 		dst_desig = VertexDesig.from_net_name(tile, "net_a")
 		src_desig = VertexDesig.from_net_name(tile, "net_b")
 		edge_desig = EdgeDesig(src_desig, dst_desig)
 		dut = SourceGroup(bits, dst_desig, {edge_desig: (True, )})
 	
 	def test_post_init_checks(self):
-		tile = TilePosition(2, 34)
-		other_tile = TilePosition(3, 45)
-		bits = (IcecraftBitPosition(tile, 4, 5), IcecraftBitPosition(tile, 6, 5))
+		tile = IcecraftPosition(2, 34)
+		other_tile = IcecraftPosition(3, 45)
+		bits = (IcecraftBitPosition.from_tile(tile, 4, 5), IcecraftBitPosition.from_tile(tile, 6, 5))
 		dst_desig = VertexDesig.from_net_name(tile, "net_a")
 		src_desig_1 = VertexDesig.from_net_name(tile, "net_b")
 		src_desig_2 = VertexDesig.from_net_name(tile, "net_c")
@@ -225,7 +225,7 @@ class TestSourceGroup(unittest.TestCase):
 				dut = SourceGroup(bits, dst_desig, {other_edge_desig_1: (False, True), other_edge_desig_2: (True, True)})
 		
 		with self.subTest(desc="wrong tile in bits"):
-			other_bits = (IcecraftBitPosition(other_tile, 4, 5), IcecraftBitPosition(other_tile, 6, 5))
+			other_bits = (IcecraftBitPosition.from_tile(other_tile, 4, 5), IcecraftBitPosition.from_tile(other_tile, 6, 5))
 			
 			with self.assertRaises(AssertionError):
 				dut = SourceGroup(other_bits, dst_desig, edge_map)
@@ -255,7 +255,7 @@ class TestInterRep(unittest.TestCase):
 		class InterRepCreation(NamedTuple):
 			desc: str
 			net_data: Iterable[NetData]
-			config_map: Mapping[TilePosition, ConfigAssemblage]
+			config_map: Mapping[IcecraftPosition, ConfigAssemblage]
 		
 		test_cases = (
 			InterRepCreation("no input", [], {}),
@@ -297,16 +297,16 @@ class TestInterRep(unittest.TestCase):
 				desig = VertexDesig.from_lut_index(tile, lut_index)
 				vertex = rep.get_vertex(desig)
 				
-				in_net_data = set((*e.desig.src.tile, e.desig.src.name[4:]) for e in vertex.iter_in_edges())
+				in_net_data = set((e.desig.src.tile.x, e.desig.src.tile.y, e.desig.src.name[4:]) for e in vertex.iter_in_edges())
 				self.assertEqual(set(single_lut.in_nets), in_net_data)
 				
-				out_net_data = set((*e.desig.dst.tile, e.desig.dst.name[4:]) for e in vertex.iter_out_edges())
+				out_net_data = set((e.desig.dst.tile.x, e.desig.dst.tile.y, e.desig.dst.name[4:]) for e in vertex.iter_out_edges())
 				self.assertEqual(set(single_lut.out_nets), out_net_data)
 			#TODO: fixed connections
 	
 	def check_con_vertex(self, rep, raw_net, desig, vertex):
 		self.assertIn(desig, vertex.desigs)
-		self.assertEqual(set(raw_net.segment), set((*d.tile, d.name[4:]) for d in vertex.desigs))
+		self.assertEqual(set(raw_net.segment), set((d.tile.x, d.tile.y, d.name[4:]) for d in vertex.desigs))
 		self.assertEqual(raw_net.hard_driven, not vertex.configurable)
 		self.assertEqual(raw_net.drivers, vertex.drivers)
 		self.assertEqual(rep, vertex.rep)
@@ -443,15 +443,15 @@ class TestInterRep(unittest.TestCase):
 					dut._add_lut_vertex(lut_items)
 	
 	def test_carry_in(self):
-		tile = TilePosition(26, 19)
+		tile = IcecraftPosition(26, 19)
 		config_map = {}
 		net_data_list  = [
-			NetData(((*tile, "carry_in_mux"),), False, (0, )),
-			NetData(((tile.x, tile.y-1, "lutff_7/cout"), (*tile, "carry_in")), True, (0, )),
-			NetData(((*tile, CARRY_ONE_IN),), True, (0, )),
+			NetData(((tile.x, tile.y, "carry_in_mux"),), False, (0, )),
+			NetData(((tile.x, tile.y-1, "lutff_7/cout"), (tile.x, tile.y, "carry_in")), True, (0, )),
+			NetData(((tile.x, tile.y, CARRY_ONE_IN),), True, (0, )),
 		]
-		ci_bits = create_bits(*tile, [(1, 49)])
-		one_bits = create_bits(*tile, [(1, 50)])
+		ci_bits = create_bits(tile.x, tile.y, [(1, 49)])
+		one_bits = create_bits(tile.x, tile.y, [(1, 50)])
 		config_assem =  config_map.setdefault(tile, ConfigAssemblage())
 		config_assem.connection = (
 			ConnectionItem(ci_bits, "connection", "carry_in_mux", ((True, ), ), ("carry_in", )),
@@ -471,7 +471,7 @@ class TestInterRep(unittest.TestCase):
 		self.assertIn(mux_desig, out_edges[0].dst.desigs)
 	
 	def test_add_edge(self):
-		tile = TilePosition(4, 2)
+		tile = IcecraftPosition(4, 2)
 		dut = InterRep(NET_DATA, {})
 		vertices = [Vertex(dut, (VertexDesig.from_net_name(tile, f"net_{i}"), ), True, (0, )) for i in range(2)]
 		dut._add_vertex(vertices[0])
@@ -521,7 +521,7 @@ class TestInterRep(unittest.TestCase):
 		tile_names_map = {}
 		for raw_net in NET_DATA:
 			for x, y, raw_name in raw_net.segment:
-				name_set = tile_names_map.setdefault(TilePosition(x, y), set())
+				name_set = tile_names_map.setdefault(IcecraftPosition(x, y), set())
 				name = f"NET#{raw_name}"
 				assert name not in name_set
 				name_set.add(name)
@@ -558,12 +558,12 @@ class TestInterRep(unittest.TestCase):
 		
 		for lut_index, lut_io in enumerate(LUT_CON):
 			for lut_in in lut_io.in_nets:
-				tile = TilePosition(*lut_in[:2])
+				tile = IcecraftPosition(*lut_in[:2])
 				in_name = lut_in[2]
 				tile_names_map.setdefault(tile, set()).add(EdgeDesig.net_to_lut(tile, in_name, lut_index))
 			
 			for lut_out in lut_io.out_nets:
-				tile = TilePosition(*lut_out[:2])
+				tile = IcecraftPosition(*lut_out[:2])
 				out_name = lut_out[2]
 				tile_names_map.setdefault(tile, set()).add(EdgeDesig.lut_to_net(tile, lut_index, out_name))
 		
@@ -608,7 +608,7 @@ class TestInterRep(unittest.TestCase):
 class TestEdge(unittest.TestCase):
 	def test_creation(self):
 		rep = InterRep([], {})
-		tile = TilePosition(3, 6)
+		tile = IcecraftPosition(3, 6)
 		src_desig = VertexDesig.from_lut_index(tile, 2)
 		dst_desig = VertexDesig.from_net_name(tile, "net")
 		edge_desig = EdgeDesig(src_desig, dst_desig)
@@ -618,7 +618,7 @@ class TestEdge(unittest.TestCase):
 class TestVertex(unittest.TestCase):
 	def create_vertex_and_tile(self):
 		rep = InterRep([], {})
-		tile = TilePosition(6, 1)
+		tile = IcecraftPosition(6, 1)
 		desig = VertexDesig.from_net_name(tile, "my_net")
 		return Vertex(rep, (desig, ), False, (0, )), tile
 	
@@ -692,7 +692,7 @@ class TestVertex(unittest.TestCase):
 			self.assertEqual(exp, res)
 	
 	def test_driver_tiles(self):
-		tiles = [ TilePosition(*d) for d in [
+		tiles = [ IcecraftPosition(*d) for d in [
 			(1, 6), (1, 7), (2, 1), (14, 0)
 		]]
 		desigs = tuple(VertexDesig.from_net_name(t, f"net_{j}") for j, t in enumerate(tiles))
@@ -743,7 +743,7 @@ class TestConVertex(unittest.TestCase):
 				self.assertEqual(rep, dut.rep)
 				self.assertEqual(not raw_net.hard_driven, dut.configurable)
 				self.assertEqual(raw_net.drivers, dut.drivers)
-				self.assertEqual(set(raw_net.segment), set((*d.tile, d.name[4:]) for d in dut.desigs))
+				self.assertEqual(set(raw_net.segment), set((d.tile.x, d.tile.y, d.name[4:]) for d in dut.desigs))
 	
 	def check_registered_bits(self, rep, bits, vertex):
 		for bit in bits:
@@ -1060,7 +1060,7 @@ class TestConVertex(unittest.TestCase):
 			(8, 0, UNCONNECTED_NAME, "long_span_3"),
 		]
 		edge_list = []
-		for edge_desig in [EdgeDesig.net_to_net(TilePosition(*d[:2]), *d[2:]) for d in unavail_data]:
+		for edge_desig in [EdgeDesig.net_to_net(IcecraftPosition(*d[:2]), *d[2:]) for d in unavail_data]:
 			bits, vals = ed_to_bit_vals[edge_desig]
 			btv_edge[bits].remove(vals)
 			
@@ -1086,7 +1086,7 @@ class TestConVertex(unittest.TestCase):
 			(7, 0, "out", "long_span_4"),
 		]
 		edge_list = []
-		for edge_desig in [EdgeDesig.net_to_net(TilePosition(*d[:2]), *d[2:]) for d in unused_data]:
+		for edge_desig in [EdgeDesig.net_to_net(IcecraftPosition(*d[:2]), *d[2:]) for d in unused_data]:
 			bits, vals = ed_to_bit_vals[edge_desig]
 			btv_edge[bits].remove(vals)
 			
@@ -1117,7 +1117,7 @@ class TestConVertex(unittest.TestCase):
 			# all false
 			self.assertFalse(any(seq[0].values))
 		
-		bits = (IcecraftBitPosition.from_coords(2, 3, 5, 1), )
+		bits = (IcecraftBitPosition(2, 3, 5, 1), )
 		config_item = ConnectionItem(
 			bits,
 			"connection", seg[2], ((True, ), ), ("lut_out", )
@@ -1137,7 +1137,7 @@ class TestConVertex(unittest.TestCase):
 			exp_allele_values: Tuple[Tuple[bool, ...], ...] = tuple() # expected allele values
 			exp_excep: Union[Exception, None] = None # expected exception
 		
-		bit_pos = IcecraftBitPosition.from_coords
+		bit_pos = IcecraftBitPosition
 		
 		net_data_list = [NetData(((x, y, f"src_{i}"), ), True, (0,)) for i in range(4)]
 		net_data_list.extend([NetData(((x+i, y, UNCONNECTED_NAME), ), True, (0,)) for i in range(2)])
@@ -1265,11 +1265,11 @@ class TestConVertex(unittest.TestCase):
 
 class TestLUTBits(unittest.TestCase):
 	def test_creation(self):
-		tile = TilePosition(9, 1)
-		dff_bits = (IcecraftBitPosition(tile, 3, 45), )
-		snr_bits = (IcecraftBitPosition(tile, 7, 32), )
-		asr_bits = (IcecraftBitPosition(tile, 9, 54), )
-		tt_bits = tuple(IcecraftBitPosition(tile, 0, 2+i) for i in range(16))
+		tile = IcecraftPosition(9, 1)
+		dff_bits = (IcecraftBitPosition.from_tile(tile, 3, 45), )
+		snr_bits = (IcecraftBitPosition.from_tile(tile, 7, 32), )
+		asr_bits = (IcecraftBitPosition.from_tile(tile, 9, 54), )
+		tt_bits = tuple(IcecraftBitPosition.from_tile(tile, 0, 2+i) for i in range(16))
 		
 		dut = LUTBits(dff_bits, snr_bits, asr_bits, tt_bits)
 		
@@ -1293,12 +1293,12 @@ class TestLUTBits(unittest.TestCase):
 	def test_post_init_checks(self):
 		arg_sets = []
 		for k in range(2):
-			tile = TilePosition(9, 1+k)
+			tile = IcecraftPosition(9, 1+k)
 			arg_sets.append((
-				(IcecraftBitPosition(tile, 3, 45), ),
-				(IcecraftBitPosition(tile, 7, 32), ),
-				(IcecraftBitPosition(tile, 9, 54), ),
-				tuple(IcecraftBitPosition(tile, 0, 2+i) for i in range(16))
+				(IcecraftBitPosition.from_tile(tile, 3, 45), ),
+				(IcecraftBitPosition.from_tile(tile, 7, 32), ),
+				(IcecraftBitPosition.from_tile(tile, 9, 54), ),
+				tuple(IcecraftBitPosition.from_tile(tile, 0, 2+i) for i in range(16))
 			))
 		
 		for l in range(len(arg_sets[0])):
@@ -1332,14 +1332,14 @@ class TestLUTVertex(unittest.TestCase):
 			self.assertEqual(lut_vertex, res)
 	
 	def test_creation(self):
-		tile = TilePosition(4, 21)
+		tile = IcecraftPosition(4, 21)
 		index = 4
 		rep = InterRep([], {})
 		bits = LUTBits(
-			(IcecraftBitPosition(tile, 4, 5), ),
-			(IcecraftBitPosition(tile, 6, 5), ),
-			(IcecraftBitPosition(tile, 6, 6), ),
-			(IcecraftBitPosition(tile, 7, 8), IcecraftBitPosition(tile, 7, 9))
+			(IcecraftBitPosition.from_tile(tile, 4, 5), ),
+			(IcecraftBitPosition.from_tile(tile, 6, 5), ),
+			(IcecraftBitPosition.from_tile(tile, 6, 6), ),
+			(IcecraftBitPosition.from_tile(tile, 7, 8), IcecraftBitPosition.from_tile(tile, 7, 9))
 		)
 		desig = VertexDesig.from_lut_index(tile, index)
 		
@@ -1401,14 +1401,14 @@ class TestLUTVertex(unittest.TestCase):
 		
 	
 	def test_post_init_checks(self):
-		tile = TilePosition(4, 21)
-		other_tile = TilePosition(5, 21)
+		tile = IcecraftPosition(4, 21)
+		other_tile = IcecraftPosition(5, 21)
 		rep = InterRep([], {})
 		bits = LUTBits(
-			(IcecraftBitPosition(tile, 4, 5), ),
-			(IcecraftBitPosition(tile, 6, 5), ),
-			(IcecraftBitPosition(tile, 6, 6), ),
-			(IcecraftBitPosition(tile, 7, 8), IcecraftBitPosition(tile, 7, 9))
+			(IcecraftBitPosition.from_tile(tile, 4, 5), ),
+			(IcecraftBitPosition.from_tile(tile, 6, 5), ),
+			(IcecraftBitPosition.from_tile(tile, 6, 6), ),
+			(IcecraftBitPosition.from_tile(tile, 7, 8), IcecraftBitPosition.from_tile(tile, 7, 9))
 		)
 		desig = VertexDesig.from_lut_index(tile, 5)
 		
@@ -1423,7 +1423,7 @@ class TestLUTVertex(unittest.TestCase):
 				dut = LUTVertex(rep, (other_desig, ), bits)
 		
 		#with self.subTest(desc="inconsistent bits"):
-		#	other_bits = (IcecraftBitPosition(tile, 4, 5), IcecraftBitPosition(other_tile, 6, 5))
+		#	other_bits = (IcecraftBitPosition.from_tile(tile, 4, 5), IcecraftBitPosition.from_tile(other_tile, 6, 5))
 		#	
 		#	with self.assertRaises(AssertionError):
 		#		dut = LUTVertex(rep, (desig, ), other_bits)
@@ -1458,7 +1458,7 @@ class TestLUTVertex(unittest.TestCase):
 					self.assertEqual(dut.desig, out_edge.desig.src)
 					self.assertEqual(dut, out_edge.src)
 					dst_desig = out_edge.desig.dst
-					self.assertIn((*dst_desig.tile, dst_desig.name[4:]), out_net_set)
+					self.assertIn((dst_desig.tile.x, dst_desig.tile.y, dst_desig.name[4:]), out_net_set)
 				
 				TestInterRep.check_consistency(self, rep)
 	
@@ -1472,24 +1472,24 @@ class TestLUTVertex(unittest.TestCase):
 	
 	def test_get_genes(self):
 		# test with made up names to check for hard coded name references
-		tile = TilePosition(5, 20)
+		tile = IcecraftPosition(5, 20)
 		for i, test_data in enumerate(TRUTH_TABLE):
 			with self.subTest(test_data=test_data):
 				net_names = [f"lut_in_{l}" for l in range(test_data.input_count)]
-				net_data = [NetData(((*tile, n), ), False, (0,)) for n in net_names]
+				net_data = [NetData(((tile.x, tile.y, n), ), False, (0,)) for n in net_names]
 				rep = InterRep(net_data, {})
 				tt_width = pow(2, test_data.input_count)
 				bits = LUTBits(
-					(IcecraftBitPosition(tile, 4, 5), ),
-					(IcecraftBitPosition(tile, 6, 5), ),
-					(IcecraftBitPosition(tile, 6, 6), ),
-					tuple(IcecraftBitPosition(tile, 7, j) for j in range(tt_width))
+					(IcecraftBitPosition.from_tile(tile, 4, 5), ),
+					(IcecraftBitPosition.from_tile(tile, 6, 5), ),
+					(IcecraftBitPosition.from_tile(tile, 6, 6), ),
+					tuple(IcecraftBitPosition.from_tile(tile, 7, j) for j in range(tt_width))
 				)
 				lut_desig = VertexDesig.from_lut_index(tile, 5)
 				
 				dut = LUTVertex(rep, (lut_desig, ), bits)
 				rep._add_vertex(dut)
-				dut.connect(ElementInterface(tuple((*tile, n) for n in net_names), tuple()))
+				dut.connect(ElementInterface(tuple((tile.x, tile.y, n) for n in net_names), tuple()))
 				
 				dut.functions = test_data.lut_functions
 				

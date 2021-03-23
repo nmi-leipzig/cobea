@@ -29,7 +29,7 @@ from domain.model import Gene
 from .chip_data import ConfigAssemblage
 from .chip_data_utils import NetData, ElementInterface, SegEntryType, UNCONNECTED_NAME
 from .config_item import ConnectionItem, IndexedItem
-from .misc import IcecraftNetPosition, IcecraftLUTPosition, TilePosition, IcecraftBitPosition, LUTFunction, IcecraftSatisfiabilityError
+from .misc import IcecraftNetPosition, IcecraftLUTPosition, IcecraftPosition, IcecraftBitPosition, LUTFunction, IcecraftSatisfiabilityError
 
 VertexPosition = NewType("VertexPosition", Union[IcecraftNetPosition, IcecraftLUTPosition])
 
@@ -38,7 +38,7 @@ SEPARATOR = "#"
 @dataclass(frozen=True, order=True)
 class VertexDesig:
 	"""Wrapper to make IcecraftNetPosition and IcecraftLUTPosition comparable"""
-	tile: TilePosition
+	tile: IcecraftPosition
 	name: str
 	
 	@staticmethod
@@ -50,11 +50,11 @@ class VertexDesig:
 		return f"LUT{SEPARATOR}{lut_index}"
 	
 	@classmethod
-	def from_net_name(cls, tile: TilePosition, net_name: str) -> "VertexDesig":
+	def from_net_name(cls, tile: IcecraftPosition, net_name: str) -> "VertexDesig":
 		return cls(tile, cls.canonical_net_name(net_name))
 	
 	@classmethod
-	def from_lut_index(cls, tile: TilePosition, lut_index: int) -> "VertexDesig":
+	def from_lut_index(cls, tile: IcecraftPosition, lut_index: int) -> "VertexDesig":
 		return cls(tile, cls.canonical_lut_name(lut_index))
 	
 	@classmethod
@@ -76,7 +76,7 @@ class VertexDesig:
 	
 	@classmethod
 	def from_seg_entry(cls, seg: SegEntryType) -> "VertexDesig":
-		return cls.from_net_name(TilePosition(*seg[:2]), seg[2])
+		return cls.from_net_name(IcecraftPosition(*seg[:2]), seg[2])
 
 @dataclass(frozen=True, order=True)
 class EdgeDesig:
@@ -87,19 +87,19 @@ class EdgeDesig:
 		assert self.src.tile == self.dst.tile, "src and dst are not in the same tile"
 	
 	@classmethod
-	def net_to_net(cls, tile: TilePosition, src_name: str, dst_name: str) -> "EdgeDesig":
+	def net_to_net(cls, tile: IcecraftPosition, src_name: str, dst_name: str) -> "EdgeDesig":
 		src = VertexDesig.from_net_name(tile, src_name)
 		dst = VertexDesig.from_net_name(tile, dst_name)
 		return cls(src, dst)
 	
 	@classmethod
-	def net_to_lut(cls, tile: TilePosition, src_name: str, dst_index: int) -> "EdgeDesig":
+	def net_to_lut(cls, tile: IcecraftPosition, src_name: str, dst_index: int) -> "EdgeDesig":
 		src = VertexDesig.from_net_name(tile, src_name)
 		dst = VertexDesig.from_lut_index(tile, dst_index)
 		return cls(src, dst)
 	
 	@classmethod
-	def lut_to_net(cls, tile: TilePosition, src_index: int, dst_name: str) -> "EdgeDesig":
+	def lut_to_net(cls, tile: IcecraftPosition, src_index: int, dst_name: str) -> "EdgeDesig":
 		src = VertexDesig.from_lut_index(tile, src_index)
 		dst = VertexDesig.from_net_name(tile, dst_name)
 		return cls(src, dst)
@@ -159,7 +159,7 @@ class Vertex(InterElement):
 		yield from self.out_edges
 	
 	@property
-	def driver_tiles(self) -> Tuple[TilePosition, ...]:
+	def driver_tiles(self) -> Tuple[IcecraftPosition, ...]:
 		return tuple(sorted(set(self.desigs[i].tile for i in self.drivers)))
 	
 	@property
@@ -482,7 +482,7 @@ class LUTVertex(Vertex):
 		return cls(rep, (desig, ), lut_bits)
 
 class InterRep:
-	def __init__(self, net_data_iter: Iterable[NetData], config_map: Mapping[TilePosition, ConfigAssemblage]) -> None:
+	def __init__(self, net_data_iter: Iterable[NetData], config_map: Mapping[IcecraftPosition, ConfigAssemblage]) -> None:
 		self._vertices = []
 		self._vertex_map = {}
 		self._tile_vertex_map = {}
@@ -560,14 +560,14 @@ class InterRep:
 	def get_vertex_for_bit(self, bit: IcecraftBitPosition) -> Vertex:
 		return self._bit_map[bit]
 	
-	def get_vertices_of_tile(self, tile: TilePosition) -> List[Vertex]:
+	def get_vertices_of_tile(self, tile: IcecraftPosition) -> List[Vertex]:
 		try:
 			return self._tile_vertex_map[tile]
 		except KeyError:
 			# no vertices for this tile -> no entry
 			return []
 	
-	def get_edges_of_tile(self, tile: TilePosition) -> List[Edge]:
+	def get_edges_of_tile(self, tile: IcecraftPosition) -> List[Edge]:
 		try:
 			return self._tile_edge_map[tile]
 		except KeyError:

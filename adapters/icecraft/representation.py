@@ -12,7 +12,7 @@ from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 from domain.use_cases import CreatePosTrans
 from .position_transformation import IcecraftPosTransLibrary
 
-from .misc import TilePosition, IcecraftLUTPosition, IcecraftColBufCtrl, \
+from .misc import IcecraftPosition, IcecraftLUTPosition, IcecraftColBufCtrl, \
 	IcecraftNetPosition, LUTFunction, IcecraftBitPosition, \
 	IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, \
 	IcecraftInputError, IcecraftGeneConstraint
@@ -85,7 +85,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		uc = CreatePosTrans(ptl)
 		exp_req = RequestObject(identifier="expand_rectangle", description="")
 		expand_rect = uc(exp_req)
-		tiles = expand_rect([TilePosition(request.x_min, request.y_min), TilePosition(request.x_max, request.y_max)])
+		tiles = expand_rect([IcecraftPosition(request.x_min, request.y_min), IcecraftPosition(request.x_max, request.y_max)])
 		
 		config_map = {t: get_config_items(t) for t in tiles}
 		
@@ -115,7 +115,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		return IcecraftRep(genes, const_genes, cbc_conf, tuple(sorted(request.output_lutffs)))
 	
 	@staticmethod
-	def carry_in_set_net(config_map: Mapping[TilePosition, ConfigAssemblage], raw_nets: List[NetData]) -> None:
+	def carry_in_set_net(config_map: Mapping[IcecraftPosition, ConfigAssemblage], raw_nets: List[NetData]) -> None:
 		"""Replace CarryInSet tile ConfigItem with a dummy net that can be connected to carry_in_mux"""
 		for tile, conf in config_map.items():
 			index_list = [i for i, c in enumerate(conf.tile) if c.kind == "CarryInSet"]
@@ -133,7 +133,7 @@ class IcecraftRepGen(RepresentationGenerator):
 			conf.tile = conf.tile[:index] + conf.tile[index+1:]
 			
 			raw_nets.append(NetData(
-				((*tile, CARRY_ONE_IN), ),
+				((tile.x, tile.y, CARRY_ONE_IN), ),
 				True,
 				(0, )
 			))
@@ -148,13 +148,13 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 	
 	@staticmethod
-	def set_external_source(rep: InterRep, tiles: List[TilePosition]) -> None:
+	def set_external_source(rep: InterRep, tiles: List[IcecraftPosition]) -> None:
 		for vtx in rep.iter_vertices():
 			drv_tiles = [vtx.desigs[i].tile for i in vtx.drivers]
 			vtx.ext_src = any(t not in tiles for t in drv_tiles)
 	
 	@staticmethod
-	def tiles_from_resource_tile(resc_tile: TilePosition, special_map: Mapping[int, List[TilePosition]]) -> List[TilePosition]:
+	def tiles_from_resource_tile(resc_tile: IcecraftPosition, special_map: Mapping[int, List[IcecraftPosition]]) -> List[IcecraftPosition]:
 		"""Get tiles that match the tile of a resource
 		
 		The resource tile may include special values while the returned tiles don't.
@@ -173,7 +173,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		cls,
 		rep: InterRep,
 		resources: Iterable[IcecraftResource],
-		special_map: Mapping[int, List[TilePosition]],
+		special_map: Mapping[int, List[IcecraftPosition]],
 		value: bool
 	) -> None:
 		for resc in resources:
@@ -188,7 +188,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		cls,
 		rep: InterRep,
 		resccons: Iterable[IcecraftResCon],
-		special_map: Mapping[int, List[TilePosition]],
+		special_map: Mapping[int, List[IcecraftPosition]],
 		value: bool
 	) -> None:
 		for resccon in resccons:
@@ -199,7 +199,7 @@ class IcecraftRepGen(RepresentationGenerator):
 				cls.set_available_edge(rep.get_edges_of_tile(tile), cond_func, value)
 	
 	@staticmethod
-	def create_special_map(tiles: Iterable[TilePosition]) -> Mapping[int, List[TilePosition]]:
+	def create_special_map(tiles: Iterable[IcecraftPosition]) -> Mapping[int, List[IcecraftPosition]]:
 		# sort by special values for tile coordinates
 		special_map = {}
 		special_map[TILE_ALL] = list(tiles)
@@ -209,7 +209,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		return special_map
 	
 	@classmethod
-	def _choose_resources(cls, rep: InterRep, request: RequestObject, special_map: Mapping[int, List[TilePosition]]) -> None:
+	def _choose_resources(cls, rep: InterRep, request: RequestObject, special_map: Mapping[int, List[IcecraftPosition]]) -> None:
 		"""Set available flag of resources according to a request
 		
 		tiles specifies which tiles the wildcars TILE_ALL and TILE_ALL_LOGIC are applied to
@@ -224,7 +224,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		cls.set_vertex_resources(rep, request.include_resources, special_map, True)
 	
 	@classmethod
-	def _choose_connections(cls, rep: InterRep, request: RequestObject, special_map: Mapping[int, List[TilePosition]]) -> None:
+	def _choose_connections(cls, rep: InterRep, request: RequestObject, special_map: Mapping[int, List[IcecraftPosition]]) -> None:
 		"""Set available flag of connections between resources according to a request"""
 		# exclude exclude connections
 		cls.set_edge_resources(rep, request.exclude_connections, special_map, False)
@@ -256,7 +256,7 @@ class IcecraftRepGen(RepresentationGenerator):
 				edge.available = value
 	
 	@staticmethod
-	def create_regex_condition_vertex(regex_str: str, tiles: Iterable[TilePosition]) -> Callable[[Vertex], bool]:
+	def create_regex_condition_vertex(regex_str: str, tiles: Iterable[IcecraftPosition]) -> Callable[[Vertex], bool]:
 		pat = re.compile(regex_str)
 		tile_set = set(tiles)
 		
@@ -269,7 +269,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		return func
 	
 	@staticmethod
-	def create_regex_condition_edge(src_regex: str, dst_regex: str, tiles: Iterable[TilePosition]) -> Callable[[Edge], bool]:
+	def create_regex_condition_edge(src_regex: str, dst_regex: str, tiles: Iterable[IcecraftPosition]) -> Callable[[Edge], bool]:
 		src_pat = re.compile(src_regex)
 		dst_pat = re.compile(dst_regex)
 		tile_set = set(tiles)
@@ -281,7 +281,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		return func
 	
 	@classmethod
-	def apply_gene_constraints(cls, genes: List[Gene], constraint_iter: Iterable[IcecraftGeneConstraint], special_map: Mapping[int, List[TilePosition]]) -> int:
+	def apply_gene_constraints(cls, genes: List[Gene], constraint_iter: Iterable[IcecraftGeneConstraint], special_map: Mapping[int, List[IcecraftPosition]]) -> int:
 		"""
 		
 		Every bit can only be defined once, even if the multiple definition are compatible.
@@ -311,7 +311,7 @@ class IcecraftRepGen(RepresentationGenerator):
 					raise IcecraftInputError(f"Inconsistent special value: {cstr.bits}")
 				
 				constraints.extend([IcecraftGeneConstraint(
-					tuple(IcecraftBitPosition(t, b.group, b.index) for b in cstr.bits),
+					tuple(IcecraftBitPosition.from_tile(t, b.group, b.index) for b in cstr.bits),
 					cstr.values
 				) for t in special_map[special_val]])
 			else:
@@ -425,7 +425,7 @@ class IcecraftRepGen(RepresentationGenerator):
 			glb_tiles = set(e.desig.src.tile for e in glb_vtx.iter_out_edges() if e.available and e.dst.available)
 			
 			cbc_tiles = get_colbufctrl(glb_tiles)
-			coords.update([IcecraftColBufCtrl(t, index) for t in cbc_tiles])
+			coords.update([IcecraftColBufCtrl.from_tile(t, index) for t in cbc_tiles])
 		
 		return sorted(coords)
 	
@@ -472,7 +472,7 @@ class IcecraftRepGen(RepresentationGenerator):
 	def create_genes(
 		cls,
 		rep: InterRep,
-		config_map: Mapping[TilePosition, ConfigAssemblage]
+		config_map: Mapping[IcecraftPosition, ConfigAssemblage]
 	) -> List[Gene]:
 		"""returns genes"""
 		
@@ -530,7 +530,7 @@ class IcecraftRepGen(RepresentationGenerator):
 	def create_tile_genes(
 		cls,
 		single_tile_vertices: Iterable[Vertex],
-		config_map: Mapping[TilePosition, ConfigAssemblage]
+		config_map: Mapping[IcecraftPosition, ConfigAssemblage]
 	) -> List[Gene]:
 		"""returns genes"""
 		genes = []

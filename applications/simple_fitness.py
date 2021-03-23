@@ -18,7 +18,7 @@ sys.path.append(
 from domain.model import InputData
 from domain.use_cases import Measure, CreateFitnessFunction
 from domain.request_model import RequestObject
-from adapters.icecraft import IcecraftManager, IcecraftEmbedMeter, IcecraftStormConfig, TilePosition
+from adapters.icecraft import IcecraftManager, IcecraftEmbedMeter, IcecraftStormConfig, IcecraftPosition
 from adapters.scipy_functions import SciPyFunctions
 
 def create_arg_parser():
@@ -46,7 +46,7 @@ def main():
 	req["serial_number"] = None
 	req["configuration"] = IcecraftStormConfig.create_from_file(args.asc)
 	req["ram_mode"] = "512x8"
-	req["ram_blocks"] = [TilePosition(8, 27)]
+	req["ram_blocks"] = [IcecraftPosition(8, 27)]
 	req["input_data"] = in_data
 	req["prefix"] = None
 	req["output_count"] = len(in_data)

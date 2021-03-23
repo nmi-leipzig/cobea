@@ -2,6 +2,7 @@ import unittest
 import sys
 import re
 import functools
+from dataclasses import astuple
 from multiprocessing import Pool
 
 sys.path.append("/usr/local/bin")
@@ -9,6 +10,7 @@ import icebox
 
 import adapters.icecraft.chip_data as chip_data
 from adapters.icecraft.chip_data_utils import UNCONNECTED_NAME
+from adapters.icecraft.misc import IcecraftPosition
 
 def get_names(segs):
 	return tuple(n for x, y, n in segs)
@@ -236,7 +238,7 @@ class ChipDataTest(unittest.TestCase):
 				self.assertTrue(len(net.drivers) == 1)
 	
 	def generic_get_net_data_test(self, tiles, ic, exp_segs):
-		res = chip_data.get_net_data(tiles)
+		res = chip_data.get_net_data([IcecraftPosition(*t) for t in tiles])
 		res_set = set(res)
 		segs = tuple(s.segment for s in res)
 		
@@ -321,7 +323,7 @@ class ChipDataTest(unittest.TestCase):
 		
 		for tile in self.representative_tiles:
 			with self.subTest(tiles=tile):
-				res = chip_data.get_raw_config_data(tile)
+				res = chip_data.get_raw_config_data(IcecraftPosition(*tile))
 				res_set = set()
 				# prepare results for comparison
 				for kind, config in res.items():
@@ -360,7 +362,7 @@ class ChipDataTest(unittest.TestCase):
 	def test_get_lut_io(self):
 		for tile in self.representative_tiles:
 			with self.subTest(tiles=tile):
-				res = chip_data.get_lut_io(tile)
+				res = chip_data.get_lut_io(IcecraftPosition(*tile))
 				
 				if tile[0] in list(range(1, 8))+list(range(9, 25))+list(range(26, 33)) and tile[1] in range(1, 33):
 					self.assertEqual(8, len(res))
@@ -423,7 +425,7 @@ class ChipDataTest(unittest.TestCase):
 		return raw_set
 	
 	def generic_get_config_items_test(self, ic, tile):
-		res = chip_data.get_config_items(tile)
+		res = chip_data.get_config_items(IcecraftPosition(*tile))
 		
 		# check unconnected net as it is not included in iceconfig output
 		for con_item in res.connection:
@@ -458,15 +460,15 @@ class ChipDataTest(unittest.TestCase):
 		
 		for tiles in test_sets:
 			with self.subTest(desc=f"tiles {str(tiles)[:40]}"):
-				res = chip_data.get_colbufctrl(tiles)
+				res = chip_data.get_colbufctrl(tuple(IcecraftPosition(*t) for t in tiles))
 				
 				self.check_uniqueness(res)
 				
-				exp_set = set(tile_cbc_map[t] for t in tiles)
+				exp_set = set(IcecraftPosition(*tile_cbc_map[t]) for t in tiles)
 				
 				self.assertEqual(exp_set, set(res))
 				for r in res:
-					self.assertIsInstance(r, chip_data.TilePosition)
+					self.assertIsInstance(r, IcecraftPosition)
 	
 	def test_hard_driven(self):
 		exp_names = {

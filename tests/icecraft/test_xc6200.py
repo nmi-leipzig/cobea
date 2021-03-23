@@ -11,7 +11,8 @@ from domain.request_model import RequestObject
 from adapters.icecraft.config_item import ConfigItem
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex, LUTVertex, Edge
 from adapters.icecraft.representation import IcecraftRepGen
-from adapters.icecraft.misc import TilePosition, IcecraftBitPosition, IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftGeneConstraint
+from adapters.icecraft.misc import IcecraftPosition, IcecraftBitPosition, IcecraftResource,\
+IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftGeneConstraint
 from adapters.icecraft.chip_data import get_config_items, get_net_data
 from adapters.icecraft.chip_data_utils import UNCONNECTED_NAME
 
@@ -36,7 +37,7 @@ class DstIndex:
 
 @dataclass
 class TileData:
-	tile: TilePosition
+	tile: IcecraftPosition
 	genes: List[Gene] = field(default_factory=list)
 	tile_meaning: List[GeneMeaning] = field(default_factory=list)
 	src_map: Mapping[str, List[SrcIndex]] = field(default_factory=dict)
@@ -337,7 +338,7 @@ class TestXC6200(unittest.TestCase):
 					elif sig == "rgt":
 						neigh_offset = (-1, 0)
 					
-					neigh_pos = TilePosition(tile_data.tile.x+neigh_offset[0], tile_data.tile.y+neigh_offset[1])
+					neigh_pos = IcecraftPosition(tile_data.tile.x+neigh_offset[0], tile_data.tile.y+neigh_offset[1])
 					self.assertNotIn(neigh_pos, tile_map.keys(), f"no {sig} signal in {tile_data.tile} despite neighbor available")
 					continue
 				
@@ -480,7 +481,7 @@ class TestXC6200(unittest.TestCase):
 						elif sig == "rgt":
 							neigh_offset = (1, 0)
 						
-						neigh_pos = TilePosition(tile_data.tile.x+neigh_offset[0], tile_data.tile.y+neigh_offset[1])
+						neigh_pos = IcecraftPosition(tile_data.tile.x+neigh_offset[0], tile_data.tile.y+neigh_offset[1])
 						self.assertNotIn(neigh_pos, tile_map.keys(), f"no {sig} input for {direction} in {tile_data.tile} despite neighbor available\n{out_comb_map}\n{[len(g.alleles) for g in tile_data.genes]}")
 						
 						inv_count += 1
@@ -495,7 +496,7 @@ class TestXC6200(unittest.TestCase):
 			# check function unit
 			avail_in = []
 			for neigh, x_off, y_off in [("top", 0, 1), ("lft", -1, 0), ("bot", 0, -1), ("rgt", 1, 0)]:
-				if TilePosition(tile_data.tile.x+x_off, tile_data.tile.y+y_off) in tile_map:
+				if IcecraftPosition(tile_data.tile.x+x_off, tile_data.tile.y+y_off) in tile_map:
 					avail_in.append(neigh)
 			#print(avail_in)
 			# map inputs
@@ -610,27 +611,27 @@ class TestXC6200(unittest.TestCase):
 		req["y_min"] = y_min
 		req["x_max"] = x_max
 		req["y_max"] = y_max
-		req["exclude_resources"] = [IcecraftResource.from_coords(TILE_ALL, TILE_ALL, "")]
+		req["exclude_resources"] = [IcecraftResource(TILE_ALL, TILE_ALL, "")]
 		req["include_resources"] = [
-			IcecraftResource.from_coords(TILE_ALL, TILE_ALL, f"LUT#{l}") for l in range(5)
+			IcecraftResource(TILE_ALL, TILE_ALL, f"LUT#{l}") for l in range(5)
 		] + [
-			IcecraftResource.from_coords(TILE_ALL, TILE_ALL, f"NET#lutff_{l}/in_{i}") for l in range(5) for i in range(4)
+			IcecraftResource(TILE_ALL, TILE_ALL, f"NET#lutff_{l}/in_{i}") for l in range(5) for i in range(4)
 		] + [
-			IcecraftResource.from_coords(TILE_ALL, TILE_ALL, f"NET#{n}") for n in [
+			IcecraftResource(TILE_ALL, TILE_ALL, f"NET#{n}") for n in [
 				"local_g0_1", "local_g0_4", "local_g1_0", "local_g1_1", "local_g1_3", "local_g3_2",
 				"lutff_0/out", UNCONNECTED_NAME,
 			]
 		] + [
-			IcecraftResource.from_coords(x, y, "NET#neigh_op_bot_1") for x in range(x_min, x_max+1) for y in range(y_min+1, y_max+1)
+			IcecraftResource(x, y, "NET#neigh_op_bot_1") for x in range(x_min, x_max+1) for y in range(y_min+1, y_max+1)
 		] + [
-			IcecraftResource.from_coords(x, y, "NET#neigh_op_rgt_2") for x in range(x_min, x_max) for y in range(y_min, y_max+1)
+			IcecraftResource(x, y, "NET#neigh_op_rgt_2") for x in range(x_min, x_max) for y in range(y_min, y_max+1)
 		] + [
-			IcecraftResource.from_coords(x, y, "NET#neigh_op_top_3") for x in range(x_min, x_max+1) for y in range(y_min, y_max)
+			IcecraftResource(x, y, "NET#neigh_op_top_3") for x in range(x_min, x_max+1) for y in range(y_min, y_max)
 		] + [
-			IcecraftResource.from_coords(x, y, "NET#neigh_op_lft_4") for x in range(x_min+1, x_max+1) for y in range(y_min, y_max+1)
+			IcecraftResource(x, y, "NET#neigh_op_lft_4") for x in range(x_min+1, x_max+1) for y in range(y_min, y_max+1)
 		]
-		req["exclude_connections"] = [IcecraftResCon.from_coords(TILE_ALL, TILE_ALL, "", "")]
-		req["include_connections"] = [IcecraftResCon.from_coords(TILE_ALL, TILE_ALL, f"NET#{s}$", f"NET#{d}$") for s, d in [
+		req["exclude_connections"] = [IcecraftResCon(TILE_ALL, TILE_ALL, "", "")]
+		req["include_connections"] = [IcecraftResCon(TILE_ALL, TILE_ALL, f"NET#{s}$", f"NET#{d}$") for s, d in [
 			("neigh_op_bot_1", "local_g0_1"), ("neigh_op_bot_1", "local_g1_1"), ("neigh_op_lft_4", "local_g0_4"),
 			("neigh_op_rgt_2", "local_g3_2"), ("neigh_op_top_3", "local_g1_3"), ("lutff_0/out", "local_g1_0"),
 			("local_g0_1", "lutff_0/in_1"), ("local_g0_1", "lutff_4/in_1"), ("local_g0_4", "lutff_0/in_0"),
@@ -641,25 +642,25 @@ class TestXC6200(unittest.TestCase):
 			("local_g1_3", "lutff_4/in_2"), ("local_g3_2", "lutff_0/in_3"), ("local_g3_2", "lutff_1/in_2"),
 			("local_g3_2", "lutff_2/in_3"), ("local_g3_2", "lutff_3/in_2")
 		]] + [
-			IcecraftResCon.from_coords(TILE_ALL, TILE_ALL, f"NET#lutff_{l}/in_{i}$", f"LUT#{l}$") for l in range(5) for i in range(4)
+			IcecraftResCon(TILE_ALL, TILE_ALL, f"NET#lutff_{l}/in_{i}$", f"LUT#{l}$") for l in range(5) for i in range(4)
 		] + [
-			IcecraftResCon.from_coords(TILE_ALL, TILE_ALL, f"LUT#{l}$", f"NET#lutff_{l}/out") for l in range(5)
+			IcecraftResCon(TILE_ALL, TILE_ALL, f"LUT#{l}$", f"NET#lutff_{l}/out") for l in range(5)
 		] + [
-			IcecraftResCon.from_coords(x, y_min, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_1") for x in range(x_min, x_max+1)
+			IcecraftResCon(x, y_min, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_1") for x in range(x_min, x_max+1)
 		] + [
-			IcecraftResCon.from_coords(x, y_min, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_1") for x in range(x_min, x_max+1)
+			IcecraftResCon(x, y_min, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_1") for x in range(x_min, x_max+1)
 		] + [
-			IcecraftResCon.from_coords(x, y_max, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_3") for x in range(x_min, x_max+1)
+			IcecraftResCon(x, y_max, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_3") for x in range(x_min, x_max+1)
 		] + [
-			IcecraftResCon.from_coords(x_min, y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_4") for y in range(y_min, y_max+1)
+			IcecraftResCon(x_min, y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_4") for y in range(y_min, y_max+1)
 		] + [
-			IcecraftResCon.from_coords(x_max, y, f"NET#{UNCONNECTED_NAME}", "NET#local_g3_2") for y in range(y_min, y_max+1)
+			IcecraftResCon(x_max, y, f"NET#{UNCONNECTED_NAME}", "NET#local_g3_2") for y in range(y_min, y_max+1)
 		]
 		req["output_lutffs"] = []
 		req["lut_functions"] = []
 		req["gene_constraints"] = [
 			IcecraftGeneConstraint(
-				tuple(IcecraftBitPosition.from_coords(TILE_ALL_LOGIC, TILE_ALL_LOGIC, *c) for c in b),
+				tuple(IcecraftBitPosition(TILE_ALL_LOGIC, TILE_ALL_LOGIC, *c) for c in b),
 				tuple(
 					tuple((s & (1<<i)) > 0 for s in range(16)) for i in range(4)
 				)
@@ -683,7 +684,7 @@ class TestXC6200(unittest.TestCase):
 			]
 		] + [# truth table LUT 0
 			IcecraftGeneConstraint(
-				tuple(IcecraftBitPosition.from_coords(TILE_ALL_LOGIC, TILE_ALL_LOGIC, *c) for c in [
+				tuple(IcecraftBitPosition(TILE_ALL_LOGIC, TILE_ALL_LOGIC, *c) for c in [
 					(0, 40), (1, 40), (1, 41), (0, 41), (0, 42), (1, 42), (1, 43), (0, 43),
 					(0, 39), (1, 39), (1, 38), (0, 38), (0, 37), (1, 37), (1, 36), (0, 36)
 				]),
@@ -913,11 +914,11 @@ class TestXC6200(unittest.TestCase):
 	def test_simple_xc6200(self):
 		x = 16
 		y = 17
-		mid_tile = TilePosition(x, y)
-		top_tile = TilePosition(x, y+1)
-		lft_tile = TilePosition(x-1, y)
-		bot_tile = TilePosition(x, y-1)
-		rgt_tile = TilePosition(x+1, y)
+		mid_tile = IcecraftPosition(x, y)
+		top_tile = IcecraftPosition(x, y+1)
+		lft_tile = IcecraftPosition(x-1, y)
+		bot_tile = IcecraftPosition(x, y-1)
+		rgt_tile = IcecraftPosition(x+1, y)
 		tiles = [mid_tile, lft_tile, rgt_tile, top_tile, bot_tile]
 		
 		config_map = {t: get_config_items(t) for t in tiles}

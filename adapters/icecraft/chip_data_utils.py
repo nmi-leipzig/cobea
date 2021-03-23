@@ -1,4 +1,5 @@
 # basic functions used for handling the chip data
+# does not depend on other data classes (e.g. IcecraftPosition)
 
 from typing import Iterable, Set, Tuple, List, Iterable, Mapping, Any, NewType, TextIO, Dict
 from dataclasses import dataclass

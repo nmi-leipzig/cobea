@@ -5,7 +5,7 @@ from domain.interfaces import TargetDevice, Meter
 from domain.model import TargetConfiguration, InputData, OutputData
 from domain.request_model import RequestObject, Parameter
 
-from .misc import TilePosition
+from .misc import IcecraftPosition
 
 class IcecraftEmbedMeter(Meter):
 	"""Measure icecraft target by embedding the input data in ram"""
@@ -15,7 +15,7 @@ class IcecraftEmbedMeter(Meter):
 			Parameter("configuration", TargetConfiguration),
 			Parameter("ram_mode", str),
 			Parameter("input_data", InputData),
-			Parameter("ram_blocks", TilePosition),
+			Parameter("ram_blocks", IcecraftPosition),
 			Parameter("prefix", bytes, default=None),
 			Parameter("output_count", int),
 			Parameter("output_format", str),

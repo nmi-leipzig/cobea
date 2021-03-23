@@ -6,11 +6,11 @@ from typing import Iterable, List, Tuple, Sequence
 sys.path.append("/usr/local/bin")
 import icebox
 
-from .ice_board import Configuration, FPGABoard
+from .ice_board import Configuration, FPGABoard, TilePosition
 
 from domain.model import TargetConfiguration
 
-from .misc import BRAMMode, TilePosition
+from .misc import BRAMMode, IcecraftPosition
 
 class IcecraftRawConfig(TargetConfiguration):
 	mode_map = {
@@ -38,13 +38,13 @@ class IcecraftRawConfig(TargetConfiguration):
 		FPGABoard.pack_bitstream(asc_name, bitstream_name)
 		os.remove(asc_name)
 	
-	def set_ram_values(self, ram_block: TilePosition, address: int, values: Iterable[int], mode: str="512x8") -> None:
+	def set_ram_values(self, ram_block: IcecraftPosition, address: int, values: Iterable[int], mode: str="512x8") -> None:
 		raw_mode = self.mode_map[mode]
-		self._raw_config.set_bram_values(ram_block, values, address, raw_mode)
+		self._raw_config.set_bram_values(TilePosition(ram_block.x, ram_block.y), values, address, raw_mode)
 	
-	def get_ram_values(self, ram_block: TilePosition, address: int, count: int=1, mode: str="512x8") -> List[int]:
+	def get_ram_values(self, ram_block: IcecraftPosition, address: int, count: int=1, mode: str="512x8") -> List[int]:
 		raw_mode = self.mode_map[mode]
-		return self._raw_config.get_bram_values(ram_block, address, count, raw_mode)
+		return self._raw_config.get_bram_values(TilePosition(ram_block.x, ram_block.y), address, count, raw_mode)
 	
 	@classmethod
 	def create_from_file(cls, asc_filename: str) -> "IcecraftRawConfig":
@@ -85,14 +85,14 @@ class IcecraftStormConfig(TargetConfiguration):
 		FPGABoard.pack_bitstream(asc_name, bitstream_name)
 		os.remove(asc_name)
 	
-	def set_ram_values(self, ram_block: TilePosition, address: int, values: Iterable[int], mode: str="512x8") -> None:
-		ram_strings = self._ice_conf.ram_data.setdefault(ram_block, ["0"*64]*16)
+	def set_ram_values(self, ram_block: IcecraftPosition, address: int, values: Iterable[int], mode: str="512x8") -> None:
+		ram_strings = self._ice_conf.ram_data.setdefault((ram_block.x, ram_block.y), ["0"*64]*16)
 		for value in values:
 			self.set_in_ram_strings(ram_strings, address, value, mode)
 			address += 1
 	
-	def get_ram_values(self, ram_block: TilePosition, address: int, count: int=1, mode: str="512x8") -> List[int]:
-		ram_strings = self._ice_conf.ram_data.setdefault(ram_block, ["0"*64]*16)
+	def get_ram_values(self, ram_block: IcecraftPosition, address: int, count: int=1, mode: str="512x8") -> List[int]:
+		ram_strings = self._ice_conf.ram_data.setdefault((ram_block.x, ram_block.y), ["0"*64]*16)
 		values = []
 		for tmp_address in range(address, address+count):
 			value = self.get_from_ram_strings(ram_strings, tmp_address, mode)

@@ -1,4 +1,4 @@
-from adapters.icecraft import TilePosition, IcecraftBitPosition, IcecraftNetPosition, IcecraftLUTPosition
+from adapters.icecraft import IcecraftBitPosition, IcecraftNetPosition, IcecraftLUTPosition
 from adapters.icecraft.chip_data_utils import NetData, ElementInterface, UNCONNECTED_NAME
 from adapters.icecraft.config_item import ConnectionItem, IndexedItem
 from ..common import create_bits
@@ -49,7 +49,7 @@ CON_DATA = (
 		"connection", "wire_in_2", ((False, False), (True, False)), (UNCONNECTED_NAME, "out")
 	), # 2
 	ConnectionItem(
-		(IcecraftBitPosition.from_coords(4, 2, 11, 30), ),
+		(IcecraftBitPosition(4, 2, 11, 30), ),
 		"connection", "short_span_1", ((False, ), (True, )), (UNCONNECTED_NAME, "short_span_2")
 	), # 3
 	ConnectionItem(
@@ -57,23 +57,23 @@ CON_DATA = (
 		"connection", "short_span_2", ((False, False), (False, True), (True, False)), (UNCONNECTED_NAME, "short_span_1", "out")
 	), # 4
 	ConnectionItem(
-		(IcecraftBitPosition.from_coords(5, 3, 5, 1), ),
+		(IcecraftBitPosition(5, 3, 5, 1), ),
 		"connection", "long_span_1", ((False, ), (True, )), (UNCONNECTED_NAME, "long_span_2")
 	), # 5
 	ConnectionItem(
-		(IcecraftBitPosition.from_coords(8, 3, 5, 1), ),
+		(IcecraftBitPosition(8, 3, 5, 1), ),
 		"connection", "long_span_2", ((False, ), (True, )), (UNCONNECTED_NAME, "long_span_3")
 	), # 6
 	ConnectionItem(
-		(IcecraftBitPosition.from_coords(8, 0, 5, 1), ),
+		(IcecraftBitPosition(8, 0, 5, 1), ),
 		"connection", "long_span_3", ((False, ), (True, )), (UNCONNECTED_NAME, "long_span_4")
 	), # 7
 	ConnectionItem(
-		(IcecraftBitPosition.from_coords(5, 0, 5, 1), ),
+		(IcecraftBitPosition(5, 0, 5, 1), ),
 		"connection", "long_span_4", ((False, ), (True, )), (UNCONNECTED_NAME, "long_span_1")
 	), # 8
 	ConnectionItem(
-		(IcecraftBitPosition.from_coords(7, 0, 5, 3), ),
+		(IcecraftBitPosition(7, 0, 5, 3), ),
 		"connection", "long_span_4", ((False, ), (True, )), (UNCONNECTED_NAME, "out")
 	), # 9
 )

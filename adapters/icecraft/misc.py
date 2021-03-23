@@ -2,9 +2,9 @@ from enum import Enum, auto
 from dataclasses import dataclass
 from typing import Tuple, Iterable
 
-from .ice_board.device_data import BRAMMode, TilePosition
+from .ice_board.device_data import BRAMMode
 
-from domain.model import BitPosition, Gene
+from domain.model import BitPosition, Gene, ElementPosition
 
 TILE_EXTERNAL_BITS = -1
 TILE_ALL = -2
@@ -19,22 +19,18 @@ class LUTFunction(Enum):
 	NOR = auto()
 	PARITY = auto()
 
-@dataclass(frozen=True)
-class IcecraftPosition:
-	tile: TilePosition
+@dataclass(frozen=True, order=True)
+class IcecraftPosition(ElementPosition):
+	x: int
+	y: int
 	
 	@property
-	def x(self):
-		return self.tile.x
-	
-	@property
-	def y(self):
-		return self.tile.y
+	def tile(self) -> "IcecraftPosition":
+		return IcecraftPosition(self.x, self.y)
 	
 	@classmethod
-	def from_coords(cls, x: int, y: int, *args, **kwargs):
-		return cls(TilePosition(x, y), *args, **kwargs)
-	
+	def from_tile(cls, tile: "IcecraftPosition", *args, **kwargs):
+		return cls(tile.x, tile.y, *args, **kwargs)
 
 @dataclass(frozen=True, order=True)
 class IcecraftBitPosition(BitPosition, IcecraftPosition):
@@ -67,11 +63,11 @@ class IcecraftConnection(IcecraftPosition):
 	
 	@property
 	def src(self):
-		return IcecraftNetPosition(self.tile, self.src_name)
+		return IcecraftNetPosition(self.x, self.y, self.src_name)
 	
 	@property
 	def dst(self):
-		return IcecraftNetPosition(self.tile, self.dst_name)
+		return IcecraftNetPosition(self.x, self.y, self.dst_name)
 
 class IcecraftResCon(IcecraftConnection):
 	"""Connection between ressources"""

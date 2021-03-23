@@ -3,7 +3,7 @@ import unittest
 from domain.request_model import RequestObject
 from domain.use_cases import CreatePosTrans
 from adapters.icecraft.position_transformation import IcecraftPosTransLibrary
-from adapters.icecraft.misc import TilePosition
+from adapters.icecraft.misc import IcecraftPosition
 
 class TestIcecraftPosTransLibrary(unittest.TestCase):
 	def test_creation(self):
@@ -49,8 +49,8 @@ class TestIcecraftPosTransLibrary(unittest.TestCase):
 		)
 		
 		for rect, raw_exp in test_data:
-			exp = [TilePosition(*t) for t in raw_exp]
-			res = dut([TilePosition(*rect[:2]), TilePosition(*rect[2:4])])
+			exp = [IcecraftPosition(*t) for t in raw_exp]
+			res = dut([IcecraftPosition(*rect[:2]), IcecraftPosition(*rect[2:4])])
 			res_set = set(res)
 			
 			# no duplicates

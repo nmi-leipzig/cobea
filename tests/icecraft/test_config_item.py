@@ -8,8 +8,8 @@ from adapters.icecraft import IcecraftBitPosition
 class ConfigItemTest(unittest.TestCase):
 	dut_class = config_item.ConfigItem
 	test_data = (
-		((IcecraftBitPosition.from_coords(3, 4, 6, 7), ), "config_kind"),
-		((IcecraftBitPosition.from_coords(3, 4, 6, 8), ), "other_kind"),
+		((IcecraftBitPosition(3, 4, 6, 7), ), "config_kind"),
+		((IcecraftBitPosition(3, 4, 6, 8), ), "other_kind"),
 	)
 	
 	def create(self, data):
@@ -43,8 +43,8 @@ class ConfigItemTest(unittest.TestCase):
 class IndexedItemTest(ConfigItemTest):
 	dut_class = config_item.IndexedItem
 	test_data = (
-		((IcecraftBitPosition.from_coords(3, 4, 6, 7), ), "indexed_kind", 6),
-		((IcecraftBitPosition.from_coords(3, 4, 6, 8), ), "other_kind", 1),
+		((IcecraftBitPosition(3, 4, 6, 7), ), "indexed_kind", 6),
+		((IcecraftBitPosition(3, 4, 6, 8), ), "other_kind", 1),
 	)
 	
 	def test_values(self):
@@ -60,14 +60,14 @@ class ConnectionItemTest(ConfigItemTest):
 	dut_class = config_item.ConnectionItem
 	test_data = (
 		(
-			(IcecraftBitPosition.from_coords(3, 4, 6, 7), IcecraftBitPosition.from_coords(3, 4, 6, 8)),
+			(IcecraftBitPosition(3, 4, 6, 7), IcecraftBitPosition(3, 4, 6, 8)),
 			"connection",
 			"one_net",
 			((True, False), (True, True)),
 			("src_net_one", "src_net_two")
 		),
 		(
-			(IcecraftBitPosition.from_coords(3, 4, 7, 7), IcecraftBitPosition.from_coords(3, 4, 7, 8)),
+			(IcecraftBitPosition(3, 4, 7, 7), IcecraftBitPosition(3, 4, 7, 8)),
 			"connection",
 			"two_net",
 			((True, False), (True, True)),
@@ -103,12 +103,12 @@ class NamedItemTest(ConfigItemTest):
 	dut_class = config_item.NamedItem
 	test_data = (
 		(
-			(IcecraftBitPosition.from_coords(3, 4, 6, 7), ),
+			(IcecraftBitPosition(3, 4, 6, 7), ),
 			"NamedKind",
 			"KIND_NAME"
 		),
 		(
-			(IcecraftBitPosition.from_coords(3, 4, 6, 8), ),
+			(IcecraftBitPosition(3, 4, 6, 8), ),
 			"NamedKind",
 			"OTHER_NAME"
 		),
