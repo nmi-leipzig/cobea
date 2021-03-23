@@ -15,7 +15,7 @@ class IcecraftEmbedMeter(Meter):
 			Parameter("configuration", TargetConfiguration),
 			Parameter("ram_mode", str),
 			Parameter("input_data", InputData),
-			Parameter("ram_blocks", IcecraftPosition),
+			Parameter("ram_blocks", IcecraftPosition, multiple=True),
 			Parameter("prefix", bytes, default=None),
 			Parameter("output_count", int),
 			Parameter("output_format", str),
