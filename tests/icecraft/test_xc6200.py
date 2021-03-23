@@ -15,6 +15,7 @@ from adapters.icecraft.misc import IcecraftPosition, IcecraftBitPosition, Icecra
 IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftGeneConstraint
 from adapters.icecraft.chip_data import get_config_items, get_net_data
 from adapters.icecraft.chip_data_utils import UNCONNECTED_NAME
+from adapters.icecraft.position_transformation import IcecraftPosTransLibrary
 
 PartMeaning = NewType("PartMeaning", Union[Tuple[bool, ...], Tuple[str, str], None])
 AlleleMeaning = NewType("AlleleMeaning", List[PartMeaning])
@@ -607,10 +608,7 @@ class TestXC6200(unittest.TestCase):
 		y_min, y_max = (2, 4)
 		dut = IcecraftRepGen()
 		req = RequestObject()
-		req["x_min"] = x_min
-		req["y_min"] = y_min
-		req["x_max"] = x_max
-		req["y_max"] = y_max
+		req["tiles"] = IcecraftPosTransLibrary.expand_rectangle([IcecraftPosition(x_min, y_min), IcecraftPosition(x_max, y_max)])
 		req["exclude_resources"] = [IcecraftResource(TILE_ALL, TILE_ALL, "")]
 		req["include_resources"] = [
 			IcecraftResource(TILE_ALL, TILE_ALL, f"LUT#{l}") for l in range(5)

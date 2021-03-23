@@ -62,10 +62,7 @@ class IcecraftRepGen(RepresentationGenerator):
 	"""
 	def __init__(self) -> None:
 		self._parameters = {"__call__": [
-			Parameter("x_min", int),
-			Parameter("y_min", int),
-			Parameter("x_max", int),
-			Parameter("y_max", int),
+			Parameter("tiles", IcecraftPosition, multiple=True),
 			Parameter("exclude_resources", IcecraftResource, default=[], multiple=True),
 			Parameter("include_resources", IcecraftResource, default=[], multiple=True),
 			Parameter("exclude_connections", IcecraftResCon, default=[], multiple=True),
@@ -81,11 +78,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		return self._parameters
 	
 	def __call__(self, request: RequestObject) -> IcecraftRep:
-		ptl = IcecraftPosTransLibrary()
-		uc = CreatePosTrans(ptl)
-		exp_req = RequestObject(identifier="expand_rectangle", description="")
-		expand_rect = uc(exp_req)
-		tiles = expand_rect([IcecraftPosition(request.x_min, request.y_min), IcecraftPosition(request.x_max, request.y_max)])
+		tiles = request.tiles
 		
 		config_map = {t: get_config_items(t) for t in tiles}
 		

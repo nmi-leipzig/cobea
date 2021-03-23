@@ -58,10 +58,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		ice_res = IcecraftResource
 		dut = icecraft.IcecraftRepGen()
 		req = RequestObject()
-		req["x_min"] = 2
-		req["y_min"] = 2
-		req["x_max"] = 2
-		req["y_max"] = 2
+		req["tiles"] = [IcecraftPosition(2, 2)]
 		req["exclude_resources"] = [IcecraftResource(TILE_ALL, TILE_ALL, n) for n in ("NET#sp4", "NET#sp12", "NET#glb_netwk")]
 		req["include_resources"] = []
 		req["exclude_connections"] = []
@@ -101,10 +98,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 			with self.subTest():
 				# read test data and create request
 				req = RequestObject()
-				req["x_min"] = raw_test[0]
-				req["y_min"] = raw_test[1]
-				req["x_max"] = raw_test[2]
-				req["y_max"] = raw_test[3]
+				req["tiles"] = IcecraftPosTransLibrary.expand_rectangle(IcecraftPosition(*raw_test[:2]), IcecraftPosition(*raw_test[2:4]))
 				req["exclude_nets"] = [v for v, d in raw_test[4]]
 				req["include_nets"] = [v for v, d in raw_test[5]]
 				output = [icecraft.IcecraftLUTPosition(*c) for c in raw_test[6]]
