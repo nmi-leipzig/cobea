@@ -1,7 +1,6 @@
 import re
 from typing import Sequence, Mapping, List, Tuple, Iterable, Callable, Union, Set, NamedTuple
 from dataclasses import dataclass
-from contextlib import contextmanager
 from collections import defaultdict
 
 from domain.interfaces import Representation, RepresentationGenerator
