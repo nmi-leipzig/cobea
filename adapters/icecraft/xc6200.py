@@ -12,11 +12,7 @@ from .chip_data_utils import UNCONNECTED_NAME
 class XC6200RepGen(RepresentationGenerator):
 	def __init__(self) -> None:
 		self._parameters = {"__call__": [
-			Parameter("x_min", int),
-			Parameter("y_min", int),
-			Parameter("x_max", int),
-			Parameter("y_max", int),
-			#Parameter("tiles", IcecraftPosition, multiple=True),
+			Parameter("tiles", IcecraftPosition, multiple=True),
 			#Parameter("include_resources", IcecraftResource, default=[], multiple=True),
 			#Parameter("include_connections", IcecraftResCon, default=[], multiple=True),
 			#Parameter("output_lutffs", IcecraftLUTPosition, multiple=True),
@@ -27,14 +23,11 @@ class XC6200RepGen(RepresentationGenerator):
 		return self._parameters
 	
 	def __call__(self, request: RequestObject) -> IcecraftRep:
-		x_min = request.x_min
-		x_max = request.x_max
-		y_min = request.y_min
-		y_max = request.y_max
-		
-		dut = IcecraftRepGen()
+		rep_gen = IcecraftRepGen()
+		#TODO: check all tile are logic tiles
+		tile_set = set(request.tiles)
 		req = RequestObject()
-		req["tiles"] = IcecraftPosTransLibrary.expand_rectangle([IcecraftPosition(x_min, y_min), IcecraftPosition(x_max, y_max)])
+		req["tiles"] = request.tiles
 		req["exclude_resources"] = [IcecraftResource(TILE_ALL, TILE_ALL, "")]
 		req["include_resources"] = [
 			IcecraftResource(TILE_ALL, TILE_ALL, f"LUT#{l}") for l in range(5)
@@ -46,13 +39,13 @@ class XC6200RepGen(RepresentationGenerator):
 				"lutff_0/out", UNCONNECTED_NAME,
 			]
 		] + [
-			IcecraftResource(x, y, "NET#neigh_op_bot_1") for x in range(x_min, x_max+1) for y in range(y_min+1, y_max+1)
+			IcecraftResource(t.x, t.y, "NET#neigh_op_bot_1") for t in tile_set if IcecraftPosition(t.x, t.y-1) in tile_set
 		] + [
-			IcecraftResource(x, y, "NET#neigh_op_rgt_2") for x in range(x_min, x_max) for y in range(y_min, y_max+1)
+			IcecraftResource(t.x, t.y, "NET#neigh_op_rgt_2") for t in tile_set if IcecraftPosition(t.x+1, t.y) in tile_set
 		] + [
-			IcecraftResource(x, y, "NET#neigh_op_top_3") for x in range(x_min, x_max+1) for y in range(y_min, y_max)
+			IcecraftResource(t.x, t.y, "NET#neigh_op_top_3") for t in tile_set if IcecraftPosition(t.x, t.y+1) in tile_set
 		] + [
-			IcecraftResource(x, y, "NET#neigh_op_lft_4") for x in range(x_min+1, x_max+1) for y in range(y_min, y_max+1)
+			IcecraftResource(t.x, t.y, "NET#neigh_op_lft_4") for t in tile_set if IcecraftPosition(t.x-1, t.y) in tile_set
 		]
 		req["exclude_connections"] = [IcecraftResCon(TILE_ALL, TILE_ALL, "", "")]
 		req["include_connections"] = [IcecraftResCon(TILE_ALL, TILE_ALL, f"NET#{s}$", f"NET#{d}$") for s, d in [
@@ -70,15 +63,15 @@ class XC6200RepGen(RepresentationGenerator):
 		] + [
 			IcecraftResCon(TILE_ALL, TILE_ALL, f"LUT#{l}$", f"NET#lutff_{l}/out") for l in range(5)
 		] + [
-			IcecraftResCon(x, y_min, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_1") for x in range(x_min, x_max+1)
+			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_1") for t in tile_set if IcecraftPosition(t.x, t.y-1) not in tile_set
 		] + [
-			IcecraftResCon(x, y_min, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_1") for x in range(x_min, x_max+1)
+			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_1") for t in tile_set if IcecraftPosition(t.x, t.y-1) not in tile_set
 		] + [
-			IcecraftResCon(x, y_max, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_3") for x in range(x_min, x_max+1)
+			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_3") for t in tile_set if IcecraftPosition(t.x, t.y+1) not in tile_set
 		] + [
-			IcecraftResCon(x_min, y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_4") for y in range(y_min, y_max+1)
+			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_4") for t in tile_set if IcecraftPosition(t.x-1, t.y) not in tile_set
 		] + [
-			IcecraftResCon(x_max, y, f"NET#{UNCONNECTED_NAME}", "NET#local_g3_2") for y in range(y_min, y_max+1)
+			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g3_2") for t in tile_set if IcecraftPosition(t.x+1, t.y) not in tile_set
 		]
 		req["output_lutffs"] = []
 		req["lut_functions"] = []
@@ -283,6 +276,6 @@ class XC6200RepGen(RepresentationGenerator):
 			)
 		]
 		
-		res = dut(req)
+		res = rep_gen(req)
 		
 		return res

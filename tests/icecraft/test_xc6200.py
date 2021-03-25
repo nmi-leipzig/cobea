@@ -608,8 +608,8 @@ class TestXC6200(unittest.TestCase):
 		y_min, y_max = (2, 4)
 		
 		dut = XC6200RepGen()
-		req = RequestObject(x_min=x_min, y_min=y_min, x_max=x_max, y_max=y_max)
-		#req["tiles"] = IcecraftPosTransLibrary.expand_rectangle([IcecraftPosition(x_min, y_min), IcecraftPosition(x_max, y_max)])
+		req = RequestObject()
+		req["tiles"] = IcecraftPosTransLibrary.expand_rectangle([IcecraftPosition(x_min, y_min), IcecraftPosition(x_max, y_max)])
 		
 		res = dut(req)
 		
