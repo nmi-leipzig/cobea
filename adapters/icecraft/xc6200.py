@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from enum import IntEnum
 from typing import Mapping
 
 from domain.interfaces import RepresentationGenerator
@@ -9,10 +11,29 @@ from .misc import IcecraftPosition, IcecraftBitPosition, IcecraftResource,\
 IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftGeneConstraint
 from .chip_data_utils import UNCONNECTED_NAME
 
+class XC6200Direction(IntEnum):
+	top = 0
+	lft = 1
+	bot = 2
+	rgt = 3
+	f = 4
+	
+	def opposite(self):
+		if self.value == self.f.value:
+			raise ValueError("f has no opposite")
+		return self.__class__((self + 2) % 4)
+	
+
+@dataclass(frozen=True, order=True)
+class XC6200Port:
+	tile: IcecraftPosition
+	direction: XC6200Direction
+
 class XC6200RepGen(RepresentationGenerator):
 	def __init__(self) -> None:
 		self._parameters = {"__call__": [
 			Parameter("tiles", IcecraftPosition, multiple=True),
+			Parameter("in_ports", XC6200Port, default=[], multiple=True),
 			#Parameter("include_resources", IcecraftResource, default=[], multiple=True),
 			#Parameter("include_connections", IcecraftResCon, default=[], multiple=True),
 			#Parameter("output_lutffs", IcecraftLUTPosition, multiple=True),
@@ -26,6 +47,11 @@ class XC6200RepGen(RepresentationGenerator):
 		rep_gen = IcecraftRepGen()
 		#TODO: check all tile are logic tiles
 		tile_set = set(request.tiles)
+		
+		# check consistency of in ports
+		for ip in request.in_ports:
+			assert ip.tile in tile_set
+		
 		req = RequestObject()
 		req["tiles"] = request.tiles
 		req["exclude_resources"] = [IcecraftResource(TILE_ALL, TILE_ALL, "")]
@@ -279,3 +305,10 @@ class XC6200RepGen(RepresentationGenerator):
 		res = rep_gen(req)
 		
 		return res
+	
+	@staticmethod
+	def get_neighbor(tile: IcecraftPosition, direction: XC6200Direction) -> IcecraftPosition:
+		x_off = [0, -1, 0, 1][direction]
+		y_off = [1, 0, -1, 0][direction]
+		
+		return IcecraftPosition(tile.x+x_off, tile.y+y_off)

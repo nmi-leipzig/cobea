@@ -10,7 +10,7 @@ from domain.model import Gene
 from domain.request_model import RequestObject
 from adapters.icecraft.config_item import ConfigItem
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex, LUTVertex, Edge
-from adapters.icecraft.xc6200 import XC6200RepGen
+from adapters.icecraft.xc6200 import XC6200Direction, XC6200RepGen
 from adapters.icecraft.misc import IcecraftPosition, IcecraftBitPosition, IcecraftResource,\
 IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftGeneConstraint
 from adapters.icecraft.chip_data import get_config_items, get_net_data
@@ -48,6 +48,15 @@ class TileData:
 
 class NoOutMapError(Exception):
 	pass
+
+class TestXC6200Direction(unittest.TestCase):
+	def test_opposite_consistency(self):
+		for dut in XC6200Direction:
+			if dut == XC6200Direction.f:
+				continue
+			
+			with self.subTest(desc=f"{dut}"):
+				self.assertEqual(dut, dut.opposite().opposite())
 
 class TestXC6200(unittest.TestCase):
 	
@@ -608,7 +617,7 @@ class TestXC6200(unittest.TestCase):
 		y_min, y_max = (2, 4)
 		
 		dut = XC6200RepGen()
-		req = RequestObject()
+		req = RequestObject(in_ports=[])
 		req["tiles"] = IcecraftPosTransLibrary.expand_rectangle([IcecraftPosition(x_min, y_min), IcecraftPosition(x_max, y_max)])
 		
 		res = dut(req)
