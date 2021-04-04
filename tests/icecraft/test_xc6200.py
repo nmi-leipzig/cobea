@@ -887,3 +887,16 @@ class TestXC6200(unittest.TestCase):
 		for plmt, routings in solutions.items():
 			print(f"{plmt}: {len(routings)}")
 	
+	def test_get_neighbor(self):
+		tile = IcecraftPosition(2, 2)
+		test_cases = {
+			XC6200Direction.top: IcecraftPosition(2, 3),
+			XC6200Direction.lft: IcecraftPosition(1, 2),
+			XC6200Direction.bot: IcecraftPosition(2, 1),
+			XC6200Direction.rgt: IcecraftPosition(3, 2),
+		}
+		
+		for direction, exp in test_cases.items():
+			res = XC6200RepGen.get_neighbor(tile, direction)
+			
+			self.assertEqual(exp, res)
