@@ -10,7 +10,7 @@ from domain.model import Gene
 from domain.request_model import RequestObject
 from adapters.icecraft.config_item import ConfigItem
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex, LUTVertex, Edge
-from adapters.icecraft.xc6200 import XC6200Direction, XC6200RepGen
+from adapters.icecraft.xc6200 import XC6200Direction, XC6200Port, XC6200RepGen
 from adapters.icecraft.misc import IcecraftPosition, IcecraftBitPosition, IcecraftResource,\
 IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftGeneConstraint
 from adapters.icecraft.chip_data import get_config_items, get_net_data
@@ -504,10 +504,11 @@ class TestXC6200(unittest.TestCase):
 				self.assertEqual(comb_count*inv_count, len(out_comb_map["INV"]))
 			
 			# check function unit
-			avail_in = []
-			for neigh, x_off, y_off in [("top", 0, 1), ("lft", -1, 0), ("bot", 0, -1), ("rgt", 1, 0)]:
-				if IcecraftPosition(tile_data.tile.x+x_off, tile_data.tile.y+y_off) in tile_map:
-					avail_in.append(neigh)
+			avail_in = [d for d in all_sigs[:4] if f"neigh_op_{d}_{out_map[self.switch_direction(d)]}" in tile_data.src_map]
+			#for neigh, x_off, y_off in [("top", 0, 1), ("lft", -1, 0), ("bot", 0, -1), ("rgt", 1, 0)]:
+			#	if IcecraftPosition(tile_data.tile.x+x_off, tile_data.tile.y+y_off) in tile_map:
+			#		avail_in.append(neigh)
+			
 			#print(avail_in)
 			# map inputs
 			ice40_map = {d: f"neigh_op_{d}_{out_map[self.switch_direction(d)]}" for d in all_sigs[:4]}
@@ -617,12 +618,20 @@ class TestXC6200(unittest.TestCase):
 		y_min, y_max = (2, 4)
 		
 		dut = XC6200RepGen()
-		req = RequestObject(in_ports=[])
-		req["tiles"] = IcecraftPosTransLibrary.expand_rectangle([IcecraftPosition(x_min, y_min), IcecraftPosition(x_max, y_max)])
+		with self.subTest(desc="no in ports"):
+			req = RequestObject(in_ports=[])
+			req["tiles"] = IcecraftPosTransLibrary.expand_rectangle([IcecraftPosition(x_min, y_min), IcecraftPosition(x_max, y_max)])
+			
+			res = dut(req)
+			
+			self.check_xc6200_representation(res)
 		
-		res = dut(req)
-		
-		self.check_xc6200_representation(res)
+		with self.subTest(desc="in port"):
+			req.in_ports.append(XC6200Port(IcecraftPosition(2, 3), XC6200Direction["lft"]))
+			
+			res = dut(req)
+			
+			self.check_xc6200_representation(res)
 	
 	@staticmethod
 	def find_routes(need, rep):

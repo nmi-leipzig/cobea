@@ -60,6 +60,9 @@ class XC6200RepGen(RepresentationGenerator):
 			assert ip.tile in tile_set
 			# neighbor tile not included
 			assert ip.tile in border[ip.direction]
+			
+			# treat port as if they were not at the border
+			border[ip.direction].remove(ip.tile)
 		
 		req = RequestObject()
 		req["tiles"] = request.tiles
