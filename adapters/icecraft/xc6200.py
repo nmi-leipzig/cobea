@@ -68,11 +68,11 @@ class XC6200RepGen(RepresentationGenerator):
 		req["tiles"] = request.tiles
 		req["exclude_resources"] = [IcecraftResource(TILE_ALL, TILE_ALL, "")]
 		req["include_resources"] = [
-			IcecraftResource(TILE_ALL, TILE_ALL, f"LUT#{l}") for l in range(5)
+			IcecraftResource(TILE_ALL_LOGIC, TILE_ALL_LOGIC, f"LUT#{l}") for l in range(5)
 		] + [
-			IcecraftResource(TILE_ALL, TILE_ALL, f"NET#lutff_{l}/in_{i}") for l in range(5) for i in range(4)
+			IcecraftResource(TILE_ALL_LOGIC, TILE_ALL_LOGIC, f"NET#lutff_{l}/in_{i}") for l in range(5) for i in range(4)
 		] + [
-			IcecraftResource(TILE_ALL, TILE_ALL, f"NET#{n}") for n in [
+			IcecraftResource(TILE_ALL_LOGIC, TILE_ALL_LOGIC, f"NET#{n}") for n in [
 				"local_g0_1", "local_g0_4", "local_g1_0", "local_g1_1", "local_g1_3", "local_g3_2",
 				"lutff_0/out", UNCONNECTED_NAME,
 			]
@@ -86,7 +86,7 @@ class XC6200RepGen(RepresentationGenerator):
 			IcecraftResource(t.x, t.y, "NET#neigh_op_lft_4") for t in tile_set if t not in border[XC6200Direction["lft"]]
 		]
 		req["exclude_connections"] = [IcecraftResCon(TILE_ALL, TILE_ALL, "", "")]
-		req["include_connections"] = [IcecraftResCon(TILE_ALL, TILE_ALL, f"NET#{s}$", f"NET#{d}$") for s, d in [
+		req["include_connections"] = [IcecraftResCon(TILE_ALL_LOGIC, TILE_ALL_LOGIC, f"NET#{s}$", f"NET#{d}$") for s, d in [
 			("neigh_op_bot_1", "local_g0_1"), ("neigh_op_bot_1", "local_g1_1"), ("neigh_op_lft_4", "local_g0_4"),
 			("neigh_op_rgt_2", "local_g3_2"), ("neigh_op_top_3", "local_g1_3"), ("lutff_0/out", "local_g1_0"),
 			("local_g0_1", "lutff_0/in_1"), ("local_g0_1", "lutff_4/in_1"), ("local_g0_4", "lutff_0/in_0"),
@@ -97,9 +97,9 @@ class XC6200RepGen(RepresentationGenerator):
 			("local_g1_3", "lutff_4/in_2"), ("local_g3_2", "lutff_0/in_3"), ("local_g3_2", "lutff_1/in_2"),
 			("local_g3_2", "lutff_2/in_3"), ("local_g3_2", "lutff_3/in_2")
 		]] + [
-			IcecraftResCon(TILE_ALL, TILE_ALL, f"NET#lutff_{l}/in_{i}$", f"LUT#{l}$") for l in range(5) for i in range(4)
+			IcecraftResCon(TILE_ALL_LOGIC, TILE_ALL_LOGIC, f"NET#lutff_{l}/in_{i}$", f"LUT#{l}$") for l in range(5) for i in range(4)
 		] + [
-			IcecraftResCon(TILE_ALL, TILE_ALL, f"LUT#{l}$", f"NET#lutff_{l}/out") for l in range(5)
+			IcecraftResCon(TILE_ALL_LOGIC, TILE_ALL_LOGIC, f"LUT#{l}$", f"NET#lutff_{l}/out") for l in range(5)
 		] + [
 			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_1") for t in border[XC6200Direction["bot"]]
 		] + [
