@@ -48,9 +48,18 @@ class XC6200RepGen(RepresentationGenerator):
 		#TODO: check all tile are logic tiles
 		tile_set = set(request.tiles)
 		
+		border = {d: set() for d in XC6200Direction if d.name != "f"}
+		for tile in tile_set:
+			for direction, dir_set in border.items():
+				if self.get_neighbor(tile, direction) not in tile_set:
+					dir_set.add(tile)
+		
 		# check consistency of in ports
 		for ip in request.in_ports:
+			# tile included
 			assert ip.tile in tile_set
+			# neighbor tile not included
+			assert ip.tile in border[ip.direction]
 		
 		req = RequestObject()
 		req["tiles"] = request.tiles
@@ -65,13 +74,13 @@ class XC6200RepGen(RepresentationGenerator):
 				"lutff_0/out", UNCONNECTED_NAME,
 			]
 		] + [
-			IcecraftResource(t.x, t.y, "NET#neigh_op_bot_1") for t in tile_set if IcecraftPosition(t.x, t.y-1) in tile_set
+			IcecraftResource(t.x, t.y, "NET#neigh_op_bot_1") for t in tile_set if t not in border[XC6200Direction["bot"]]
 		] + [
-			IcecraftResource(t.x, t.y, "NET#neigh_op_rgt_2") for t in tile_set if IcecraftPosition(t.x+1, t.y) in tile_set
+			IcecraftResource(t.x, t.y, "NET#neigh_op_rgt_2") for t in tile_set if t not in border[XC6200Direction["rgt"]]
 		] + [
-			IcecraftResource(t.x, t.y, "NET#neigh_op_top_3") for t in tile_set if IcecraftPosition(t.x, t.y+1) in tile_set
+			IcecraftResource(t.x, t.y, "NET#neigh_op_top_3") for t in tile_set if t not in border[XC6200Direction["top"]]
 		] + [
-			IcecraftResource(t.x, t.y, "NET#neigh_op_lft_4") for t in tile_set if IcecraftPosition(t.x-1, t.y) in tile_set
+			IcecraftResource(t.x, t.y, "NET#neigh_op_lft_4") for t in tile_set if t not in border[XC6200Direction["lft"]]
 		]
 		req["exclude_connections"] = [IcecraftResCon(TILE_ALL, TILE_ALL, "", "")]
 		req["include_connections"] = [IcecraftResCon(TILE_ALL, TILE_ALL, f"NET#{s}$", f"NET#{d}$") for s, d in [
@@ -89,15 +98,15 @@ class XC6200RepGen(RepresentationGenerator):
 		] + [
 			IcecraftResCon(TILE_ALL, TILE_ALL, f"LUT#{l}$", f"NET#lutff_{l}/out") for l in range(5)
 		] + [
-			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_1") for t in tile_set if IcecraftPosition(t.x, t.y-1) not in tile_set
+			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_1") for t in border[XC6200Direction["bot"]]
 		] + [
-			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_1") for t in tile_set if IcecraftPosition(t.x, t.y-1) not in tile_set
+			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_1") for t in border[XC6200Direction["bot"]]
 		] + [
-			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_3") for t in tile_set if IcecraftPosition(t.x, t.y+1) not in tile_set
+			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g1_3") for t in border[XC6200Direction["top"]]
 		] + [
-			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_4") for t in tile_set if IcecraftPosition(t.x-1, t.y) not in tile_set
+			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g0_4") for t in border[XC6200Direction["lft"]]
 		] + [
-			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g3_2") for t in tile_set if IcecraftPosition(t.x+1, t.y) not in tile_set
+			IcecraftResCon(t.x, t.y, f"NET#{UNCONNECTED_NAME}", "NET#local_g3_2") for t in border[XC6200Direction["rgt"]]
 		]
 		req["output_lutffs"] = []
 		req["lut_functions"] = []
