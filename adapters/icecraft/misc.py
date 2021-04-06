@@ -4,7 +4,8 @@ from typing import Tuple, Iterable
 
 from .ice_board.device_data import BRAMMode
 
-from domain.model import BitPosition, Gene, ElementPosition
+from domain.base_structures import BitPos
+from domain.model import Gene, ElementPosition
 
 TILE_EXTERNAL_BITS = -1
 TILE_ALL = -2
@@ -33,7 +34,7 @@ class IcecraftPosition(ElementPosition):
 		return cls(tile.x, tile.y, *args, **kwargs)
 
 @dataclass(frozen=True, order=True)
-class IcecraftBitPosition(BitPosition, IcecraftPosition):
+class IcecraftBitPosition(BitPos, IcecraftPosition):
 	group: int
 	index: int
 

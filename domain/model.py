@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
 
+"""Entities representing enterprise rules
+
+Ideally entities would not depend on anything. Yet as FPGAs are not mere devices, but also essential target of the 
+whole enterprise logic, some entities also depend on device specific structures. These structures are called
+"base structures" and will be kept to a minimum.
+"""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Callable, Tuple, TypeVar, Generic, Union, Any, Sequence
 
 from domain.allele_sequence import Allele, AlleleSequence, AlleleList, AlleleAll
+from .base_structures import BitPos
 
 class TargetConfiguration(ABC):
 	@abstractmethod
@@ -39,12 +47,9 @@ class Preprocessing:
 	def __call__(self, input_data: InputData, output_data: OutputData) -> Tuple[InputData, OutputData]:
 		return self.implementation(input_data, output_data)
 
-class BitPosition(ABC):
-	pass
-
 @dataclass(frozen=True)
 class Gene:
-	bit_positions: Tuple[BitPosition, ...]
+	bit_positions: Tuple[BitPos, ...]
 	alleles: AlleleSequence
 	# human readable description of the gene function
 	# should not be relevant for the function itself
