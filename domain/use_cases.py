@@ -47,13 +47,3 @@ class CreateFitnessFunction(UseCase):
 	def perform(self, request: RequestObject) -> FitnessFunction:
 		implementation = self._library.get_implementation(request["identifier"])
 		return FitnessFunction(request["identifier"], request["description"], implementation)
-
-class CreateRepresentation(UseCase):
-	def __init__(self, rep_gen: RepresentationGenerator) -> None:
-		self._rep_gen = rep_gen
-		self._parameters = {"perform": []}
-		call_params = rep_gen.parameters["__call__"]
-		self._parameters["perform"].extend(call_params)
-	
-	def perform(self, request: RequestObject) -> Representation:
-		return self._rep_gen(request)
