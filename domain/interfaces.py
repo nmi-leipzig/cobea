@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod, abstractproperty
 from typing import Any, Callable, Union, Mapping, Iterable, Sequence
 
-from domain.model import FitnessFunctionImpl, PreprocessingImpl, OutputData, Chromosome, ElementPosition
+from domain.model import FitnessFunctionImpl, PreprocessingImpl, OutputData, Chromosome
 from domain.request_model import RequestObject, ParameterValues, ParameterUser, Parameter
+
+class ElementPosition(ABC):
+	pass
 
 class TargetConfiguration(ABC):
 	@abstractmethod

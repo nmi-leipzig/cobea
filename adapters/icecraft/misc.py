@@ -5,7 +5,8 @@ from typing import Tuple, Iterable
 from .ice_board.device_data import BRAMMode
 
 from domain.base_structures import BitPos
-from domain.model import Gene, ElementPosition
+from domain.model import Gene
+from domain.interfaces import ElementPosition
 
 TILE_EXTERNAL_BITS = -1
 TILE_ALL = -2

@@ -57,6 +57,3 @@ class Chromosome:
 	
 	def __getitem__(self, key):
 		return self.allele_indices[key]
-
-class ElementPosition(ABC):
-	pass
