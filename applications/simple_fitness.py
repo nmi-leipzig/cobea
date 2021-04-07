@@ -16,7 +16,7 @@ sys.path.append(
 )
 
 from domain.model import InputData
-from domain.use_cases import Measure, CreateFitnessFunction
+from domain.use_cases import Measure
 from domain.request_model import RequestObject
 from adapters.icecraft import IcecraftManager, IcecraftEmbedMeter, IcecraftStormConfig, IcecraftPosition
 from adapters.scipy_functions import SciPyFunctions
@@ -37,8 +37,8 @@ def main():
 	ice_meter = IcecraftEmbedMeter()
 	
 	measure_case = Measure(ice_man, ice_meter)
-	fit_func_fac = CreateFitnessFunction(SciPyFunctions())
-	fit_func = fit_func_fac(RequestObject(identifier="pearsons_correlation", description="pc"))
+	fit_func_fac = SciPyFunctions()
+	fit_func = fit_func_fac.get_fitness_function("pearsons_correlation")#(RequestObject(identifier=, description="pc"))
 	
 	in_data = InputData([random.randint(0, 255) for _ in range(512)])
 	

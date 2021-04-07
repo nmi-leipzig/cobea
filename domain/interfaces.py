@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod, abstractproperty
 from typing import Any, Callable, Union, Mapping, Iterable, Sequence, Tuple
 
-from domain.model import FitnessFunctionImpl, InputData, OutputData, Chromosome
+from domain.model import InputData, OutputData, Chromosome
 from domain.request_model import RequestObject, ParameterValues, ParameterUser, Parameter
 
 class ElementPosition(ABC):
@@ -53,11 +53,14 @@ class TargetManager(ABC):
 	def release(self, target: TargetDevice) -> None:
 		raise NotImplementedError()
 
+# interface to compute a fitness function
+FitnessFunction = Callable[[InputData, OutputData], float]
+
 class FitnessFunctionLibrary(ABC):
 	"""Interface for a library of fitness function implementations"""
 	
 	@abstractmethod
-	def get_implementation(self, identifier: str) -> FitnessFunctionImpl:
+	def get_fitness_function(self, identifier: str) -> FitnessFunction:
 		raise NotImplementedError()
 
 # interface to prepare data for fitness function

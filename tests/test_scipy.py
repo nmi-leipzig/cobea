@@ -18,33 +18,20 @@ class SciPyFunctionsTest(unittest.TestCase):
 	def test_creation(self):
 		spf = SciPyFunctions()
 	
-	def test_get_implementation(self):
+	def test_get_fitness_function(self):
 		spf = SciPyFunctions()
-		res = spf.get_implementation("pearsons_correlation")
+		res = spf.get_fitness_function("pearsons_correlation")
 		
 		self.assertEqual(SciPyFunctions.pearsons_correlation, res)
 	
-	def test_use_case_creation(self):
-		spf = SciPyFunctions()
-		create_case = use_cases.CreateFitnessFunction(spf)
-		req = use_cases.RequestObject()
-		identifier = "pearsons_correlation"
-		description = "Pearson Correlation by SciPy"
-		req["identifier"] = identifier
-		req["description"] = description
-		fitness_function = create_case(req)
-		
-		self.assertEqual(identifier, fitness_function.identifier)
-		self.assertEqual(description, fitness_function.description)
-		self.assertEqual(SciPyFunctions.pearsons_correlation, fitness_function.implementation)
-	
 	def test_function(self):
 		spf = SciPyFunctions()
-		create_case = use_cases.CreateFitnessFunction(spf)
-		fitness_function = create_case(use_cases.RequestObject(
-			identifier = "pearsons_correlation",
-			description = "Pearson Correlation by SciPy"
-		))
+		#fitness_function = create_case(use_cases.RequestObject(
+		#	identifier = "pearsons_correlation",
+		#	description = "Pearson Correlation by SciPy"
+		#))
+		spf = SciPyFunctions()
+		fitness_function = spf.get_fitness_function("pearsons_correlation")
 		
 		test_in = model.InputData((10, 45, 23, 53))
 		test_out = model.OutputData((2, 1, 7, 3))

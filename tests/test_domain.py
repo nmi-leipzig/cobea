@@ -43,25 +43,22 @@ class FitnessFunctionTest(unittest.TestCase):
 			self.function = mock.MagicMock()
 			self.function.return_value = 1.2
 		
-		def get_implementation(self, identifier: str) -> model.FitnessFunctionImpl:
+		def get_fitness_function(self, identifier: str) -> interfaces.FitnessFunction:
 			return self.function
 	
 	def setUp(self):
 		self.mock_lib = self.MockLibrary()
 	
 	def test_creation(self):
-		create_case = use_cases.CreateFitnessFunction(self.mock_lib)
+		ff_lib = self.mock_lib
 		identifier = "my_ff"
-		description = "my very own fitness function"
-		fitness_function = create_case(use_cases.RequestObject(identifier=identifier, description=description))
+		fitness_function = ff_lib.get_fitness_function(identifier)
 		
-		self.assertEqual(identifier, fitness_function.identifier)
-		self.assertEqual(description, fitness_function.description)
-		self.assertEqual(self.mock_lib.function, fitness_function.implementation)
+		self.assertEqual(self.mock_lib.function, fitness_function)
 	
 	def test_call(self):
-		create_case = use_cases.CreateFitnessFunction(self.mock_lib)
-		fitness_function = create_case(use_cases.RequestObject(identifier="my_ff", description="my very own fitness function"))
+		ff_lib = self.mock_lib
+		fitness_function = ff_lib.get_fitness_function("my_ff")
 		
 		input_data = model.InputData([2, 3, 4])
 		output_data = model.OutputData([12, 13, 14])
@@ -69,10 +66,6 @@ class FitnessFunctionTest(unittest.TestCase):
 		fitness_function(input_data, output_data)
 		self.mock_lib.function.assert_called_once_with(input_data, output_data)
 	
-	def test_parameter_user(self):
-		create_case = use_cases.CreateFitnessFunction(self.mock_lib)
-		check_parameter_user(self, create_case)
-		
 
 class ChromosomeTest(unittest.TestCase):
 	def test_creation(self):

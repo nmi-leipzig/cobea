@@ -1,15 +1,15 @@
 import numpy as np
 from scipy.stats import stats
 
-from domain.interfaces import FitnessFunctionLibrary
-from domain.model import FitnessFunctionImpl, InputData, OutputData
+from domain.interfaces import FitnessFunction, FitnessFunctionLibrary
+from domain.model import InputData, OutputData
 
 class SciPyFunctions(FitnessFunctionLibrary):
 	
 	def __init__(self):
 		pass
 	
-	def get_implementation(self, identifier: str) -> FitnessFunctionImpl:
+	def get_fitness_function(self, identifier: str) -> FitnessFunction:
 		return getattr(self, identifier)
 	
 	@staticmethod

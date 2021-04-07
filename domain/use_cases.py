@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Mapping, Iterable
 
-from domain.model import FitnessFunction, OutputData, Chromosome
+from domain.model import OutputData, Chromosome
 from domain.interfaces import FitnessFunctionLibrary, Preprocessing, PreprocessingLibrary,\
 TargetManager, Meter, RepresentationGenerator, Representation, PosTrans, PosTransLibrary, TargetConfiguration
 from domain.request_model import RequestObject, ParameterUser, Parameter
@@ -35,15 +35,3 @@ class Measure(UseCase):
 			self._target_manager.release(target)
 		
 		return output_data
-
-class CreateFitnessFunction(UseCase):
-	def __init__(self, library: FitnessFunctionLibrary) -> None:
-		self._library = library
-		self._parameters = {"perform": [
-			Parameter("identifier", str),
-			Parameter("description", str),
-		]}
-	
-	def perform(self, request: RequestObject) -> FitnessFunction:
-		implementation = self._library.get_implementation(request["identifier"])
-		return FitnessFunction(request["identifier"], request["description"], implementation)
