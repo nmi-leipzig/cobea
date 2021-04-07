@@ -80,6 +80,11 @@ class Representation(ABC):
 	
 	@abstractmethod
 	def decode(self, config: TargetConfiguration, chromo: Chromosome) -> None:
+		"""Decode a chromosome to a Configuration.
+		
+		The name is not 100 percent correct as decoding maps the chromosome to the phenotype,
+		but the real phenotype is the configured FPGA, not the configuration.
+		"""
 		raise NotImplementedError()
 
 class RepresentationGenerator(ParameterUser):

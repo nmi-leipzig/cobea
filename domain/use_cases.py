@@ -48,22 +48,6 @@ class CreateFitnessFunction(UseCase):
 		implementation = self._library.get_implementation(request["identifier"])
 		return FitnessFunction(request["identifier"], request["description"], implementation)
 
-class DecodeChromosome(UseCase):
-	"""Decode a chromosome to a Configuration.
-	
-	The name is not 100 percent correct as decoding maps the chromosome to the phenotype,
-	but the real phenotype is the configured FPGA, not the configuration.
-	"""
-	def __init__(self, rep: Representation) -> None:
-		self._rep = rep
-		self._parameters = {"perform": [
-			Parameter("configuration", TargetConfiguration),
-			Parameter("chromosome", Chromosome),
-		]}
-	
-	def perform(self, request: RequestObject) -> Any:
-		self._rep.decode(request.configuration, request.chromosome)
-
 class CreateRepresentation(UseCase):
 	def __init__(self, rep_gen: RepresentationGenerator) -> None:
 		self._rep_gen = rep_gen

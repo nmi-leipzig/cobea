@@ -83,29 +83,3 @@ class ChromosomeTest(unittest.TestCase):
 		chromo = model.Chromosome(2, allele_indices)
 		for i, a in enumerate(allele_indices):
 			self.assertEqual(a, chromo[i])
-
-class DecodeChromosomeTest(unittest.TestCase):
-	def test_creation(self):
-		rep = mock.MagicMock()
-		dec_case = use_cases.DecodeChromosome(rep)
-	
-	def test_call(self):
-		rep = mock.MagicMock()
-		dec_case = use_cases.DecodeChromosome(rep)
-		
-		config = mock.MagicMock()
-		chromo = mock.MagicMock()
-		
-		req = RequestObject()
-		req["configuration"] = config
-		req["chromosome"] = chromo
-		
-		dec_case(req)
-		
-		rep.decode.assert_called_once_with(config, chromo)
-	
-	def test_parameter_user(self):
-		rep = mock.MagicMock()
-		dec_case = use_cases.DecodeChromosome(rep)
-		
-		check_parameter_user(self, dec_case)
