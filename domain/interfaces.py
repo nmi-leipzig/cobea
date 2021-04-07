@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod, abstractproperty
-from typing import Any, Callable, Union, Mapping, Iterable, Sequence
+from typing import Any, Callable, Union, Mapping, Iterable, Sequence, Tuple
 
-from domain.model import FitnessFunctionImpl, PreprocessingImpl, OutputData, Chromosome
+from domain.model import FitnessFunctionImpl, InputData, OutputData, Chromosome
 from domain.request_model import RequestObject, ParameterValues, ParameterUser, Parameter
 
 class ElementPosition(ABC):
@@ -60,11 +60,14 @@ class FitnessFunctionLibrary(ABC):
 	def get_implementation(self, identifier: str) -> FitnessFunctionImpl:
 		raise NotImplementedError()
 
+# interface to prepare data for fitness function
+Preprocessing = Callable[[InputData, OutputData], Tuple[InputData, OutputData]]
+
 class PreprocessingLibrary(ABC):
 	"""Interface for a library of preprocessing implementations"""
 	
 	@abstractmethod
-	def get_implementation(self, request: RequestObject) -> PreprocessingImpl:
+	def get_preprocessing(self, request: RequestObject) -> Preprocessing:
 		raise NotImplementedError()
 
 class ParameterRepository(ABC):

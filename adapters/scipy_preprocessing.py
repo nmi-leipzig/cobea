@@ -4,8 +4,8 @@ from functools import partial
 import numpy as np
 from scipy.stats import stats
 
-from domain.interfaces import PreprocessingLibrary
-from domain.model import PreprocessingImpl, InputData, OutputData
+from domain.interfaces import Preprocessing, PreprocessingLibrary
+from domain.model import InputData, OutputData
 from domain.request_model import RequestObject, ParameterValues
 
 class SciPyPreprocessing(PreprocessingLibrary):
@@ -17,7 +17,7 @@ class SciPyPreprocessing(PreprocessingLibrary):
 	def __init__(self):
 		pass
 	
-	def get_implementation(self, request: RequestObject) -> PreprocessingImpl:
+	def get_preprocessing(self, request: RequestObject) -> Preprocessing:
 		func = getattr(self, request.identifier)
 		params = ParameterValues()
 		for name in self.param_dict[request.identifier]:

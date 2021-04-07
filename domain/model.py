@@ -31,17 +31,6 @@ class FitnessFunction:
 	def __call__(self, input_data: InputData, output_data: OutputData) -> float:
 		return self.implementation(input_data, output_data)
 
-PreprocessingImpl = Callable[[InputData, OutputData], Tuple[InputData, OutputData]]
-
-@dataclass(frozen=True)
-class Preprocessing:
-	identifier: str
-	description: str
-	implementation: PreprocessingImpl
-	
-	def __call__(self, input_data: InputData, output_data: OutputData) -> Tuple[InputData, OutputData]:
-		return self.implementation(input_data, output_data)
-
 @dataclass(frozen=True)
 class Gene:
 	bit_positions: Tuple[BitPos, ...]

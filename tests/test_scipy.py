@@ -77,18 +77,9 @@ class SciPyPreprocessingTest(unittest.TestCase):
 	def test_creation(self):
 		spp = SciPyPreprocessing()
 	
-	def test_get_implementation(self):
+	def test_get_preprocessing(self):
 		spp = SciPyPreprocessing()
 		
-		res = spp.get_implementation(self.get_example_request())
+		res = spp.get_preprocessing(self.get_example_request())
 		self.check_example(res)
 	
-	def test_create_use_case(self):
-		spp = SciPyPreprocessing()
-		use_case = use_cases.CreatePreprocessing(spp)
-		req = self.get_example_request()
-		
-		res = use_case(req)
-		self.assertEqual(req.identifier, res.identifier)
-		self.assertEqual(req.description, res.description)
-		self.check_example(res)

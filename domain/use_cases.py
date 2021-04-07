@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Mapping, Iterable
 
-from domain.model import FitnessFunction, Preprocessing, OutputData, Chromosome
-from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository,\
+from domain.model import FitnessFunction, OutputData, Chromosome
+from domain.interfaces import FitnessFunctionLibrary, Preprocessing, PreprocessingLibrary, ParameterRepository,\
 TargetManager, Meter, RepresentationGenerator, Representation, PosTrans, PosTransLibrary, TargetConfiguration
 from domain.request_model import RequestObject, ParameterUser, Parameter
 
@@ -45,18 +45,6 @@ class CreateFitnessFunction(UseCase):
 	def perform(self, request: RequestObject) -> FitnessFunction:
 		implementation = self._library.get_implementation(request["identifier"])
 		return FitnessFunction(request["identifier"], request["description"], implementation)
-
-class CreatePreprocessing(UseCase):
-	def __init__(self, library: PreprocessingLibrary) -> None:
-		self._library = library
-		self._parameters = {"perform": [
-			Parameter("identifier", str),
-			Parameter("description", str),
-		]}
-	
-	def perform(self, request: RequestObject) -> Preprocessing:
-		implementation = self._library.get_implementation(request)
-		return Preprocessing(request["identifier"], request["description"], implementation)
 
 class ReadParameter(UseCase):
 	def __init__(self, repository: ParameterRepository) -> None:
