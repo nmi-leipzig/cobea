@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Mapping, Iterable
 
 from domain.model import FitnessFunction, OutputData, Chromosome
-from domain.interfaces import FitnessFunctionLibrary, Preprocessing, PreprocessingLibrary, ParameterRepository,\
+from domain.interfaces import FitnessFunctionLibrary, Preprocessing, PreprocessingLibrary,\
 TargetManager, Meter, RepresentationGenerator, Representation, PosTrans, PosTransLibrary, TargetConfiguration
 from domain.request_model import RequestObject, ParameterUser, Parameter
 
@@ -45,16 +45,6 @@ class CreateFitnessFunction(UseCase):
 	def perform(self, request: RequestObject) -> FitnessFunction:
 		implementation = self._library.get_implementation(request["identifier"])
 		return FitnessFunction(request["identifier"], request["description"], implementation)
-
-class ReadParameter(UseCase):
-	def __init__(self, repository: ParameterRepository) -> None:
-		self._repository = repository
-		self._parameters = {"perform": [
-			Parameter("param", str),
-		]}
-	
-	def perform(self, request: RequestObject) -> Any:
-		return self._repository.read_value(request["param"])
 
 class DecodeChromosome(UseCase):
 	"""Decode a chromosome to a Configuration.

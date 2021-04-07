@@ -70,13 +70,6 @@ class PreprocessingLibrary(ABC):
 	def get_preprocessing(self, request: RequestObject) -> Preprocessing:
 		raise NotImplementedError()
 
-class ParameterRepository(ABC):
-	"""Interface for getting values for parameters"""
-	
-	@abstractmethod
-	def read_value(self, identifier: str) -> Any:
-		raise NotImplementedError()
-
 class Representation(ABC):
 	"""Interface for representating the phenotype as a genotype"""
 	
