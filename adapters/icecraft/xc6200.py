@@ -6,7 +6,6 @@ from domain.interfaces import RepresentationGenerator
 from domain.request_model import RequestObject, Parameter
 
 from .representation import IcecraftRep, IcecraftRepGen
-from .position_transformation import IcecraftPosTransLibrary
 from .misc import IcecraftPosition, IcecraftBitPosition, IcecraftResource,\
 IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftGeneConstraint
 from .chip_data_utils import UNCONNECTED_NAME

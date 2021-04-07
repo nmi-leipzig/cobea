@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Mapping, Iterable
 
-from domain.model import FitnessFunction, Preprocessing, OutputData, Chromosome, PosTrans
+from domain.model import FitnessFunction, Preprocessing, OutputData, Chromosome
 from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository,\
-TargetManager, Meter, RepresentationGenerator, Representation, PosTransLibrary, TargetConfiguration
+TargetManager, Meter, RepresentationGenerator, Representation, PosTrans, PosTransLibrary, TargetConfiguration
 from domain.request_model import RequestObject, ParameterUser, Parameter
 
 class UseCase(ParameterUser):
@@ -93,15 +93,3 @@ class CreateRepresentation(UseCase):
 	
 	def perform(self, request: RequestObject) -> Representation:
 		return self._rep_gen(request)
-
-class CreatePosTrans(UseCase):
-	def __init__(self, library: PosTransLibrary) -> None:
-		self._library = library
-		self._parameters = {"perform": [
-			Parameter("identifier", str),
-			Parameter("description", str),
-		]}
-		
-	def perform(self, request: RequestObject) -> PosTrans:
-		implementation = self._library.get_implementation(request)
-		return PosTrans(request["identifier"], request["description"], implementation)

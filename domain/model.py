@@ -60,15 +60,3 @@ class Chromosome:
 
 class ElementPosition(ABC):
 	pass
-
-PosTransImpl = Callable[[Sequence[ElementPosition]], Sequence[ElementPosition]]
-
-@dataclass(frozen=True)
-class PosTrans:
-	# transformation of element positions
-	identifier: str
-	description: str
-	implementation: PosTransImpl
-	
-	def __call__(self, in_positions: Sequence[ElementPosition]) -> Sequence[ElementPosition]:
-		return self.implementation(in_positions)

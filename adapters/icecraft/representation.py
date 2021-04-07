@@ -8,9 +8,6 @@ from domain.model import Gene, Chromosome
 from domain.request_model import RequestObject, Parameter
 from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 
-from domain.use_cases import CreatePosTrans
-from .position_transformation import IcecraftPosTransLibrary
-
 from .misc import IcecraftPosition, IcecraftLUTPosition, IcecraftColBufCtrl, \
 	IcecraftNetPosition, LUTFunction, IcecraftBitPosition, \
 	IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, \

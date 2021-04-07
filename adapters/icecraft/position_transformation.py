@@ -1,8 +1,7 @@
 from functools import partial
 from typing import Sequence, List
 
-from domain.interfaces import PosTransLibrary
-from domain.model import PosTransImpl
+from domain.interfaces import PosTransLibrary, PosTrans
 from domain.request_model import RequestObject, ParameterValues
 from adapters.icecraft.misc import IcecraftPosition
 
@@ -12,7 +11,7 @@ class IcecraftPosTransLibrary(PosTransLibrary):
 			"expand_rectangle": tuple()
 		}
 	
-	def get_implementation(self, request: RequestObject) -> PosTransImpl:
+	def get_pos_trans(self, request: RequestObject) -> PosTrans:
 		func = getattr(self, request.identifier)
 		params = ParameterValues()
 		for name in self.param_dict[request.identifier]:

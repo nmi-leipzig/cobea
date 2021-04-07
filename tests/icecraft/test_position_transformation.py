@@ -1,17 +1,12 @@
 import unittest
 
 from domain.request_model import RequestObject
-from domain.use_cases import CreatePosTrans
 from adapters.icecraft.position_transformation import IcecraftPosTransLibrary
 from adapters.icecraft.misc import IcecraftPosition
 
 class TestIcecraftPosTransLibrary(unittest.TestCase):
 	def test_creation(self):
 		ptl = IcecraftPosTransLibrary()
-	
-	def test_use_case_creation(self):
-		ptl = IcecraftPosTransLibrary()
-		uc = CreatePosTrans(ptl)
 	
 	def test_expand_rectangle(self):
 		dut = IcecraftPosTransLibrary.expand_rectangle
@@ -23,19 +18,7 @@ class TestIcecraftPosTransLibrary(unittest.TestCase):
 		
 		req = RequestObject()
 		req["identifier"] = "expand_rectangle"
-		dut = ptl.get_implementation(req)
-		
-		self.check_expand_rectangle(dut)
-	
-	def test_use_case(self):
-		ptl = IcecraftPosTransLibrary()
-		uc = CreatePosTrans(ptl)
-		
-		req = RequestObject()
-		req["identifier"] = "expand_rectangle"
-		req["description"] = "from corners to all tiles in rectangle"
-		
-		dut = uc(req)
+		dut = ptl.get_pos_trans(req)
 		
 		self.check_expand_rectangle(dut)
 	
