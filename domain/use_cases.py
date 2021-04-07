@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Mapping, Iterable
 
 from domain.model import OutputData, Chromosome
-from domain.interfaces import FitnessFunctionLibrary, Preprocessing, PreprocessingLibrary,\
+from domain.interfaces import FitnessFunctionLibrary, Preprocessing, PreprocessingLibrary, EvoAlgo, DataSink\
 TargetManager, Meter, RepresentationGenerator, Representation, PosTrans, PosTransLibrary, TargetConfiguration
 from domain.request_model import RequestObject, ParameterUser, Parameter
 
@@ -35,3 +35,15 @@ class Measure(UseCase):
 			self._target_manager.release(target)
 		
 		return output_data
+
+class RunEvoAlgo(UseCase):
+	def __init__(self, evo_algo: EvoAlgo, data_sink: DataSink) -> None:
+		self._evo_algo = evo_algo
+		self._target_manager = target_manager
+		self._meter = meter
+		self._data_sink = data_sink
+		self._parameters = {}
+	
+	def perform(self, request: RequestObject) -> None:
+		with self._data_sink:
+			self._evo_algo.run()

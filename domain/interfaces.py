@@ -106,3 +106,13 @@ class PosTransLibrary(ABC):
 	@abstractmethod
 	def get_pos_trans(self, request: RequestObject) -> PosTrans:
 		raise NotImplementedError()
+
+class EvoAlgo(ABC):
+	@abstractmethod
+	def run(self) -> None:
+		raise NotImplementedError()
+
+class DataSink(AbstractContextManager):
+	@abstractmethod
+	def write_metadata(self, name: str, data: Any, data_type: type, multiple=False) -> None:
+		raise NotImplementedError()
