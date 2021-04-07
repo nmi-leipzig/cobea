@@ -14,11 +14,6 @@ from typing import Callable, Tuple, TypeVar, Generic, Union, Any, Sequence
 from domain.allele_sequence import Allele, AlleleSequence, AlleleList, AlleleAll
 from .base_structures import BitPos
 
-class TargetConfiguration(ABC):
-	@abstractmethod
-	def to_text(self) -> str:
-		raise NotImplementedError()
-
 class InputData(tuple):
 	pass
 

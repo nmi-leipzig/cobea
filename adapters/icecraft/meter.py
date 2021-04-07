@@ -1,8 +1,8 @@
 import struct
 from typing import Mapping
 
-from domain.interfaces import TargetDevice, Meter
-from domain.model import TargetConfiguration, InputData, OutputData
+from domain.interfaces import TargetConfiguration, TargetDevice, Meter
+from domain.model import InputData, OutputData
 from domain.request_model import RequestObject, Parameter
 
 from .misc import IcecraftPosition

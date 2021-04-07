@@ -3,8 +3,7 @@ from typing import Union
 
 from .ice_board import FPGABoard, FPGAManager
 
-from domain.interfaces import TargetDevice, TargetManager
-from domain.model import TargetConfiguration
+from domain.interfaces import TargetDevice, TargetManager, TargetConfiguration
 
 HX8K_BOARD = "ICE40HX8K-B-EVN"
 

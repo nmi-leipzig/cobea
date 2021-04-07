@@ -1,8 +1,13 @@
 from abc import ABC, abstractmethod, abstractproperty
 from typing import Any, Callable, Union, Mapping, Iterable
 
-from domain.model import FitnessFunctionImpl, PreprocessingImpl, TargetConfiguration, OutputData, Chromosome, PosTransImpl
+from domain.model import FitnessFunctionImpl, PreprocessingImpl, OutputData, Chromosome, PosTransImpl
 from domain.request_model import RequestObject, ParameterValues, ParameterUser, Parameter
+
+class TargetConfiguration(ABC):
+	@abstractmethod
+	def to_text(self) -> str:
+		raise NotImplementedError()
 
 class TargetDevice(ABC):
 	"""Interface for accessing a target device"""

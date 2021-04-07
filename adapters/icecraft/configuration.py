@@ -8,7 +8,7 @@ import icebox
 
 from .ice_board import Configuration, FPGABoard, TilePosition
 
-from domain.model import TargetConfiguration
+from domain.interfaces import TargetConfiguration
 
 from .misc import BRAMMode, IcecraftPosition
 

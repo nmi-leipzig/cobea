@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Mapping, Iterable
 
-from domain.model import FitnessFunction, Preprocessing, OutputData, Chromosome, TargetConfiguration, PosTrans
+from domain.model import FitnessFunction, Preprocessing, OutputData, Chromosome, PosTrans
 from domain.interfaces import FitnessFunctionLibrary, PreprocessingLibrary, ParameterRepository,\
-TargetManager, Meter, RepresentationGenerator, Representation, PosTransLibrary
+TargetManager, Meter, RepresentationGenerator, Representation, PosTransLibrary, TargetConfiguration
 from domain.request_model import RequestObject, ParameterUser, Parameter
 
 class UseCase(ParameterUser):

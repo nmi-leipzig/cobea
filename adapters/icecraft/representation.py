@@ -3,8 +3,8 @@ from typing import Sequence, Mapping, List, Tuple, Iterable, Callable, Union, Se
 from dataclasses import dataclass
 from collections import defaultdict
 
-from domain.interfaces import Representation, RepresentationGenerator
-from domain.model import TargetConfiguration, Gene, Chromosome
+from domain.interfaces import Representation, RepresentationGenerator, TargetConfiguration
+from domain.model import Gene, Chromosome
 from domain.request_model import RequestObject, Parameter
 from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 

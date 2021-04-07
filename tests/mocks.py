@@ -18,7 +18,7 @@ class MockTargetDevice(interfaces.TargetDevice):
 	def hardware_type(self) -> str:
 		return self._hardware_type
 	
-	def configure(self, configuration: model.TargetConfiguration) -> None:
+	def configure(self, configuration: interfaces.TargetConfiguration) -> None:
 		pass
 	
 	def read_bytes(self, size: int) -> bytes:
