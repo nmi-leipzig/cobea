@@ -3,6 +3,8 @@ from typing import Mapping, Iterable
 
 import domain.request_model as request_model
 
+from ..common import check_parameter_user
+
 class ParameterTest(unittest.TestCase):
 	
 	def test_creation_default(self):
@@ -67,13 +69,6 @@ class ParameterValuesTest(unittest.TestCase):
 class RequestObjectTest(ParameterValuesTest):
 	target_cls = request_model.RequestObject
 	
-
-def check_parameter_user(test_case, parameter_user):
-	for key in parameter_user.parameters:
-		test_case.assertIsInstance(key, str)
-		params = parameter_user.parameters[key]
-		for p in params:
-			test_case.assertIsInstance(p, request_model.Parameter)
 
 class ParameterUserTest(unittest.TestCase):
 	class PUImpl(request_model.ParameterUser):

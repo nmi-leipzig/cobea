@@ -5,7 +5,7 @@ import adapters.icecraft as icecraft
 from domain import model
 from domain.request_model import RequestObject
 
-from ..test_request_model import check_parameter_user
+from ..common import check_parameter_user
 
 from .common import SEND_BRAM_META
 

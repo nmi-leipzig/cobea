@@ -19,7 +19,7 @@ from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex
 from adapters.icecraft.misc import IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftInputError, IcecraftGeneConstraint
 from adapters.icecraft.position_transformation import IcecraftPosTransLibrary
 
-from ..test_request_model import check_parameter_user
+from ..common import check_parameter_user
 
 from .common import TEST_DATA_DIR, create_bits
 from .data.chip_resources import NET_DATA, CON_DATA, LUT_DATA, LUT_CON
