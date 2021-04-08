@@ -1,9 +1,12 @@
 from typing import Any, Union, Mapping, Iterable
 
-from domain.interfaces import TargetDevice, TargetConfiguration, TargetManager, Meter
-from domain.model import OutputData
+from domain.base_structures import BitPos
+from domain.interfaces import TargetDevice, TargetConfiguration, TargetManager, Meter, UniqueID, PRNG, Representation
+from domain.model import OutputData, Gene, Chromosome
 from domain.request_model import RequestObject, Parameter
 
+class MockBitPos(BitPos, int):
+	pass
 
 class MockTargetDevice(TargetDevice):
 	def __init__(self, serial_number="9555", hardware_type="S6C7"):
@@ -56,3 +59,44 @@ class MockMeter(Meter):
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 		return {"__call__": []}
 	
+
+class MockUniqueID(UniqueID):
+	"""IDs are passed to the constructor and returned in the order given"""
+	
+	def __init__(self, id_iter: Iterable[int]) -> None:
+		self._id_list = list(id_iter)
+		self._id_list.reverse()
+	
+	def get_id(self) -> int:
+		return self._id_list.pop()
+
+class MockRandInt(PRNG):
+	"""integers are passed to the constructor and returned in the order given
+	
+	The validity (a<=i<=b) is not checked.
+	"""
+	
+	def __init__(self, int_iter: Iterable[int]) -> None:
+		self._int_list = list(int_iter)
+		self._int_list.reverse()
+	
+	def seed(self, int) -> None:
+		pass
+	
+	def randint(self, a: int, b: int) -> int:
+		return self._int_list.pop()
+
+class MockRepresentation(Representation):
+	"""genes are passed to the constructor"""
+	
+	def __init__(self, gene_iter: Iterable[Gene]) -> None:
+		self._gene_list = list(gene_iter)
+	
+	def prepare_config(self, config: TargetConfiguration) -> None:
+		pass
+	
+	def decode(self, config: TargetConfiguration, chromo: Chromosome) -> None:
+		pass
+	
+	def iter_genes(self) -> Iterable[Gene]:
+		yield from self._gene_list
