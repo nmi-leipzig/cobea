@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from contextlib import AbstractContextManager
 from typing import Any, Callable, Union, Mapping, Iterable, Sequence, Tuple
 
-from domain.model import InputData, OutputData, Chromosome
+from domain.model import InputData, OutputData, Chromosome, Gene
 from domain.request_model import RequestObject, ParameterValues, ParameterUser, Parameter
 
 class ElementPosition(ABC):
@@ -90,6 +90,11 @@ class Representation(ABC):
 		but the real phenotype is the configured FPGA, not the configuration.
 		"""
 		raise NotImplementedError()
+	
+	@abstractmethod
+	def iter_genes(self) -> Iterable[Gene]:
+		raise NotImplementedError()
+	
 
 class RepresentationGenerator(ParameterUser):
 	"""Interface for generation of a representation """

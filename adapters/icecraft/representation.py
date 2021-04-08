@@ -40,6 +40,9 @@ class IcecraftRep(Representation):
 	def decode(self, config: TargetConfiguration, chromo: Chromosome) -> None:
 		pass
 	
+	def iter_genes(self) -> Iterable[Gene]:
+		yield from self.genes
+	
 
 class IcecraftRepGen(RepresentationGenerator):
 	"""Generate a representation for ice40 FPGAs
