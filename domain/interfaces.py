@@ -122,3 +122,21 @@ class DataSink(AbstractContextManager):
 	@abstractmethod
 	def write_metadata(self, name: str, data: Any, data_type: type, multiple=False) -> None:
 		raise NotImplementedError()
+
+class PRNG(ABC):
+	"""Interface for pseudo random number generator"""
+	
+	@abstractmethod
+	def seed(self, int) -> None:
+		raise NotImplementedError()
+	
+	@abstractmethod
+	def randint(self, a: int, b: int) -> int:
+		raise NotImplementedError()
+
+class UniqueID(ABC):
+	"""Interface for generating unique IDs"""
+	
+	@abstractmethod
+	def get_id(self) -> int:
+		raise NotImplementedError()
