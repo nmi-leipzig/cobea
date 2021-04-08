@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod, abstractproperty
+from contextlib import AbstractContextManager
 from typing import Any, Callable, Union, Mapping, Iterable, Sequence, Tuple
 
 from domain.model import InputData, OutputData, Chromosome
