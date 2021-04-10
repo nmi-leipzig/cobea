@@ -20,13 +20,16 @@ class MeasureTest(unittest.TestCase):
 		
 		mock_manager = MockTargetManager()
 		mock_meter = MockMeter(output_data)
+		exp_prep = mock_meter.prep_count + 1
 		
 		measure_case = Measure(mock_manager, mock_meter)
 		req = RequestObject()
 		#req["input_data"] = input_data
 		req["serial_number"] = None
+		
 		res_data = measure_case(req)
 		
+		self.assertEqual(exp_prep, mock_meter.prep_count)
 		self.assertEqual(output_data, res_data)
 	
 	def test_parameter_user(self):

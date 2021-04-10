@@ -31,6 +31,7 @@ class Measure(UseCase):
 	def perform(self, request: RequestObject) -> OutputData:
 		target = self._target_manager.acquire(request.serial_number)
 		try:
+			self._meter.prepare(request)
 			request["target"] = target
 			output_data = self._meter.measure(request)
 		finally:

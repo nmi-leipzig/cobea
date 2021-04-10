@@ -39,6 +39,10 @@ class TargetDevice(ABC):
 
 class Meter(ParameterUser):
 	@abstractmethod
+	def prepare(self, request: RequestObject) -> None:
+		raise NotImplementedError()
+	
+	@abstractmethod
 	def measure(self, request: RequestObject) -> OutputData:
 		raise NotImplementedError()
 

@@ -51,6 +51,10 @@ class MockTargetManager(TargetManager):
 class MockMeter(Meter):
 	def __init__(self, output_data: OutputData):
 		self.output_data = output_data
+		self.prep_count = 0
+	
+	def prepare(self, request: RequestObject) -> None:
+		self.prep_count += 1
 	
 	def measure(self, request: RequestObject) -> OutputData:
 		return self.output_data
