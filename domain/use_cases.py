@@ -31,7 +31,7 @@ class Measure(UseCase):
 	def perform(self, request: RequestObject) -> OutputData:
 		target = self._target_manager.acquire(request.serial_number)
 		try:
-			output_data = self._meter(target, request)
+			output_data = self._meter.measure(target, request)
 		finally:
 			self._target_manager.release(target)
 		

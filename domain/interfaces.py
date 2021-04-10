@@ -40,7 +40,7 @@ class TargetDevice(ABC):
 
 class Meter(ParameterUser):
 	@abstractmethod
-	def __call__(self, target: TargetDevice, request: RequestObject) -> OutputData:
+	def measure(self, target: TargetDevice, request: RequestObject) -> OutputData:
 		raise NotImplementedError()
 
 class TargetManager(ABC):

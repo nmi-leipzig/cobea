@@ -33,7 +33,7 @@ class IcecraftEmbedMeterTest(unittest.TestCase):
 				req["output_count"] = len(data)
 				req["output_format"] = format_dict[req.ram_mode]
 				
-				output = meter(device, req)
+				output = meter.measure(device, req)
 				self.assertEqual(data, output)
 		
 		device.close()
