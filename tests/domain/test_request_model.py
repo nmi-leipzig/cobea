@@ -128,8 +128,8 @@ class ParameterUserTest(unittest.TestCase):
 			error: Exception
 		
 		test_cases = [
-			MeldErrorTC("wrong type", [Parameter("one", str)], [Parameter("one", int)], AssertionError),
-			MeldErrorTC("wrong multiple", [Parameter("one", str, multiple=True)], [Parameter("one", str, multiple=False)], AssertionError),
+			MeldErrorTC("wrong type", [Parameter("one", str)], [Parameter("one", int)], ValueError),
+			MeldErrorTC("wrong multiple", [Parameter("one", str, multiple=True)], [Parameter("one", str, multiple=False)], ValueError),
 		]
 		
 		for tc in test_cases:

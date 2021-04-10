@@ -51,7 +51,9 @@ class ParameterUser(ABC):
 				p_list.append(param)
 				continue
 			
-			assert a_param.data_type == param.data_type
-			assert a_param.multiple == param.multiple
+			if a_param.data_type != param.data_type:
+				raise ValueError(f"data type different for {param.name}")
+			if a_param.multiple != param.multiple:
+				raise ValueError(f"multiple different for {param.name}")
 		
 		return p_list
