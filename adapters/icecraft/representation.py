@@ -60,17 +60,25 @@ class IcecraftRepGen(RepresentationGenerator):
 	a used function constructed from the request
 	"""
 	def __init__(self) -> None:
-		self._parameters = {"__call__": [
-			Parameter("tiles", IcecraftPosition, multiple=True),
+		p_choose_res = [
 			Parameter("exclude_resources", IcecraftResource, default=[], multiple=True),
 			Parameter("include_resources", IcecraftResource, default=[], multiple=True),
+		]
+		p_choose_con = [
 			Parameter("exclude_connections", IcecraftResCon, default=[], multiple=True),
 			Parameter("include_connections", IcecraftResCon, default=[], multiple=True),
+		]
+		p_call = [
+			Parameter("tiles", IcecraftPosition, multiple=True),
 			Parameter("output_lutffs", IcecraftLUTPosition, multiple=True),
 			Parameter("lut_functions", LUTFunction, default=[], multiple=True),
 			Parameter("gene_constraints", IcecraftGeneConstraint, default=[], multiple=True),
 			Parameter("prune_no_viable_src", bool, default=False),
-		]}
+		]
+		p_call = self.meld_parameters(p_call, p_choose_res)
+		p_call = self.meld_parameters(p_call, p_choose_con)
+		
+		self._parameters = {"__call__": p_call, "_choose_resources": p_choose_res, "_choose_connections": p_choose_con}
 	
 	@property
 	def parameters(self) -> Mapping[str, Parameter]:
