@@ -24,9 +24,8 @@ class Measure(UseCase):
 	def __init__(self, target_manager: TargetManager, meter: Meter) -> None:
 		self._target_manager = target_manager
 		self._meter = meter
-		self._parameters = {"perform": [Parameter("serial_number", str)]}
 		measure_params = meter.parameters["measure"]
-		self._parameters["perform"].extend(measure_params)
+		self._parameters = {"perform": self.meld_parameters([Parameter("serial_number", str)], measure_params)}
 	
 	def perform(self, request: RequestObject) -> OutputData:
 		target = self._target_manager.acquire(request.serial_number)
