@@ -1,4 +1,4 @@
-from typing import Any, Dict, Mapping, Iterable
+from typing import Any, Dict, Mapping, Iterable, List
 from abc import ABC, abstractproperty
 from dataclasses import dataclass
 
@@ -29,3 +29,29 @@ class ParameterUser(ABC):
 	@abstractproperty
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 		raise NotImplementedError()
+	
+	@staticmethod
+	def meld_parameters(a: Iterable[Parameter], b: Iterable[Parameter]) -> List[Parameter]:
+		"""Meld two iterables of Parameters into a single list.
+		
+		Assumptions: 
+			a is valid, i.e. no two parameters of a have the same name. 
+			b is valid, i.e. no two parameters of b have the same name.
+		
+		If any parameters in b have the same name as a parameter in a, they have to have the same data_type and
+		multiple value. The default value n such cases is taken from a.
+		"""
+		a_map = {p.name: p for p in a}
+		p_list = list(a)
+		
+		for param in b:
+			try:
+				a_param = a_map[param.name]
+			except KeyError:
+				p_list.append(param)
+				continue
+			
+			assert a_param.data_type == param.data_type
+			assert a_param.multiple == param.multiple
+		
+		return p_list

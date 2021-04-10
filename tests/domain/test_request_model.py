@@ -1,5 +1,6 @@
 import unittest
-from typing import Mapping, Iterable
+
+from typing import Mapping, Iterable, NamedTuple, List
 
 from domain.request_model import Parameter, NO_DEFAULT, ParameterValues, RequestObject, ParameterUser
 
@@ -93,3 +94,45 @@ class ParameterUserTest(unittest.TestCase):
 		)}
 		dut = self.PUImpl(params)
 		check_parameter_user(self, dut)
+	
+	def test_meld_parameters(self):
+		class MeldTC(NamedTuple):
+			desc: str
+			a: Iterable[Parameter]
+			b: Iterable[Parameter]
+			exp: List[Parameter]
+		
+		test_cases = [
+			MeldTC("a&b empty", [], [], []),
+			MeldTC("b empty", [Parameter("one", str)], [], [Parameter("one", str)]),
+			MeldTC("a empty", [], [Parameter("one", str)], [Parameter("one", str)]),
+			MeldTC("same parameter", [Parameter("one", str, "1")], [Parameter("one", str)], [Parameter("one", str, "1")]),
+			MeldTC(
+				"normal",
+				[Parameter("one", str)],
+				[Parameter("two", str)],
+				[Parameter("one", str), Parameter("two", str)]
+			),
+		]
+		
+		for tc in test_cases:
+			with self.subTest(desc=tc.desc):
+				res = ParameterUser.meld_parameters(tc.a, tc.b)
+				self.assertEqual(tc.exp, res)
+	
+	def test_meld_parameters_error(self):
+		class MeldErrorTC(NamedTuple):
+			desc: str
+			a: Iterable[Parameter]
+			b: Iterable[Parameter]
+			error: Exception
+		
+		test_cases = [
+			MeldErrorTC("wrong type", [Parameter("one", str)], [Parameter("one", int)], AssertionError),
+			MeldErrorTC("wrong multiple", [Parameter("one", str, multiple=True)], [Parameter("one", str, multiple=False)], AssertionError),
+		]
+		
+		for tc in test_cases:
+			with self.subTest(desc=tc.desc):
+				with self.assertRaises(tc.error):
+					res = ParameterUser.meld_parameters(tc.a, tc.b)
