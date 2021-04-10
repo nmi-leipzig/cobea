@@ -14,7 +14,9 @@ class UseCase(ParameterUser):
 	
 	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
-		return self._parameters
+		res = dict(self._parameters)
+		res["__call__"] = res["perform"]
+		return res
 	
 	@abstractmethod
 	def perform(self, request: RequestObject) -> Any:
