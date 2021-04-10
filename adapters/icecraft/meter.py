@@ -20,7 +20,7 @@ class IcecraftEmbedMeter(Meter):
 			Parameter("output_count", int),
 			Parameter("output_format", str),
 			Parameter("target", TargetDevice),
-		]}
+		], "prepare": []}
 	
 	@property
 	def parameters(self) -> Mapping[str, Parameter]:
