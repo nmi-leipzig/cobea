@@ -21,20 +21,14 @@ class UseCase(ParameterUser):
 		raise NotImplementedError()
 
 class Measure(UseCase):
-	def __init__(self, target_manager: TargetManager, meter: Meter) -> None:
-		self._target_manager = target_manager
+	def __init__(self, meter: Meter) -> None:
 		self._meter = meter
 		measure_params = meter.parameters["measure"]
-		self._parameters = {"perform": self.meld_parameters([Parameter("serial_number", str)], measure_params)}
+		self._parameters = {"perform": measure_params}
 	
 	def perform(self, request: RequestObject) -> OutputData:
-		target = self._target_manager.acquire(request.serial_number)
-		try:
-			self._meter.prepare(request)
-			request["target"] = target
-			output_data = self._meter.measure(request)
-		finally:
-			self._target_manager.release(target)
+		self._meter.prepare(request)
+		output_data = self._meter.measure(request)
 		
 		return output_data
 

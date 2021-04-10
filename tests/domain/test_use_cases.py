@@ -18,14 +18,12 @@ class MeasureTest(unittest.TestCase):
 		input_data = InputData([2, 3, 4])
 		output_data = OutputData([12, 13, 14])
 		
-		mock_manager = MockTargetManager()
 		mock_meter = MockMeter(output_data)
 		exp_prep = mock_meter.prep_count + 1
 		
-		measure_case = Measure(mock_manager, mock_meter)
+		measure_case = Measure(mock_meter)
 		req = RequestObject()
 		#req["input_data"] = input_data
-		req["serial_number"] = None
 		
 		res_data = measure_case(req)
 		
@@ -33,11 +31,10 @@ class MeasureTest(unittest.TestCase):
 		self.assertEqual(output_data, res_data)
 	
 	def test_parameter_user(self):
-		mock_manager = MockTargetManager()
 		output_data = OutputData([12, 13, 14])
 		mock_meter = MockMeter(output_data)
 		
-		measure_case = Measure(mock_manager, mock_meter)
+		measure_case = Measure(mock_meter)
 		check_parameter_user(self, measure_case)
 
 class GenChromoTest(unittest.TestCase):

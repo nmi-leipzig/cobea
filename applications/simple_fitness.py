@@ -43,7 +43,6 @@ def main():
 	in_data = InputData([random.randint(0, 255) for _ in range(512)])
 	
 	req = RequestObject()
-	req["serial_number"] = None
 	req["configuration"] = IcecraftStormConfig.create_from_file(args.asc)
 	req["ram_mode"] = "512x8"
 	req["ram_blocks"] = [IcecraftPosition(8, 27)]
@@ -52,7 +51,13 @@ def main():
 	req["output_count"] = len(in_data)
 	req["output_format"] = "B"
 	
-	out_data = measure_case(req)
+	target = ice_man.acquire()
+	try:
+		req["target"] = target
+		
+		out_data = measure_case(req)
+	finally:
+		ice_man.release(target)
 	
 	fitness = fit_func(in_data, out_data)
 	
