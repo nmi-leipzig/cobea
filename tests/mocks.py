@@ -52,7 +52,7 @@ class MockMeter(Meter):
 	def __init__(self, output_data: OutputData):
 		self.output_data = output_data
 	
-	def measure(self, target: TargetDevice, request: RequestObject) -> OutputData:
+	def measure(self, request: RequestObject) -> OutputData:
 		return self.output_data
 	
 	@property

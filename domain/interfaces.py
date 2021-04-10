@@ -37,10 +37,9 @@ class TargetDevice(ABC):
 	def write_bytes(self, data: bytes) -> int:
 		raise NotImplementedError()
 
-
 class Meter(ParameterUser):
 	@abstractmethod
-	def measure(self, target: TargetDevice, request: RequestObject) -> OutputData:
+	def measure(self, request: RequestObject) -> OutputData:
 		raise NotImplementedError()
 
 class TargetManager(ABC):
