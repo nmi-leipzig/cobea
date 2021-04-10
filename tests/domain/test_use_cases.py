@@ -5,6 +5,7 @@ import sys
 import unittest
 import unittest.mock as mock
 
+from adapters.dummies import DummyDriver
 from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 from domain.model import InputData, OutputData, Gene
 from domain.use_cases import Measure, GenChromo, RandomChromo
@@ -21,7 +22,9 @@ class MeasureTest(unittest.TestCase):
 		mock_meter = MockMeter(output_data)
 		exp_prep = mock_meter.prep_count + 1
 		
-		measure_case = Measure(mock_meter)
+		driver = DummyDriver()
+		
+		measure_case = Measure(driver, mock_meter)
 		req = RequestObject()
 		#req["input_data"] = input_data
 		
@@ -33,8 +36,9 @@ class MeasureTest(unittest.TestCase):
 	def test_parameter_user(self):
 		output_data = OutputData([12, 13, 14])
 		mock_meter = MockMeter(output_data)
+		driver = DummyDriver()
 		
-		measure_case = Measure(mock_meter)
+		measure_case = Measure(driver, mock_meter)
 		check_parameter_user(self, measure_case)
 
 class GenChromoTest(unittest.TestCase):

@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
+from functools import reduce
 from typing import Any, Dict, Mapping, Iterable
 
 from domain.model import OutputData, Chromosome
 from domain.interfaces import FitnessFunctionLibrary, Preprocessing, PreprocessingLibrary, EvoAlgo, DataSink, PRNG,\
 TargetManager, Meter, RepresentationGenerator, Representation, PosTrans, PosTransLibrary, TargetConfiguration,\
-UniqueID
+UniqueID, Driver
 from domain.request_model import RequestObject, ParameterUser, Parameter
 
 class UseCase(ParameterUser):
@@ -23,14 +24,20 @@ class UseCase(ParameterUser):
 		raise NotImplementedError()
 
 class Measure(UseCase):
-	def __init__(self, meter: Meter) -> None:
+	def __init__(self, driver: Driver, meter: Meter) -> None:
+		self._driver = driver
 		self._meter = meter
-		measure_params = meter.parameters["measure"]
-		self._parameters = {"perform": measure_params}
+		sub_params = [
+			driver.parameters["drive"], driver.parameters["clean_up"],
+			meter.parameters["prepare"], meter.parameters["measure"]
+		]
+		self._parameters = {"perform": reduce(self.meld_parameters, sub_params)}
 	
 	def perform(self, request: RequestObject) -> OutputData:
 		self._meter.prepare(request)
+		self._driver.drive(request)
 		output_data = self._meter.measure(request)
+		self._driver.clean_up(request)
 		
 		return output_data
 

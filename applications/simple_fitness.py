@@ -18,6 +18,7 @@ sys.path.append(
 from domain.model import InputData
 from domain.use_cases import Measure
 from domain.request_model import RequestObject
+from adapters.dummies import DummyDriver
 from adapters.icecraft import IcecraftManager, IcecraftEmbedMeter, IcecraftStormConfig, IcecraftPosition
 from adapters.scipy_functions import SciPyFunctions
 
@@ -33,10 +34,11 @@ def main():
 	arg_parser = create_arg_parser()
 	args = arg_parser.parse_args()
 	
+	driver = DummyDriver()
 	ice_man = IcecraftManager()
 	ice_meter = IcecraftEmbedMeter()
 	
-	measure_case = Measure(ice_meter)
+	measure_case = Measure(driver, ice_meter)
 	fit_func_fac = SciPyFunctions()
 	fit_func = fit_func_fac.get_fitness_function("pearsons_correlation")#(RequestObject(identifier=, description="pc"))
 	

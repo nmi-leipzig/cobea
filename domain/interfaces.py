@@ -37,6 +37,15 @@ class TargetDevice(ABC):
 	def write_bytes(self, data: bytes) -> int:
 		raise NotImplementedError()
 
+class Driver(ParameterUser):
+	@abstractmethod
+	def drive(self, request: RequestObject) -> None:
+		raise NotImplementedError()
+	
+	@abstractmethod
+	def clean_up(self, request: RequestObject) -> None:
+		raise NotImplementedError()
+
 class Meter(ParameterUser):
 	@abstractmethod
 	def prepare(self, request: RequestObject) -> None:
