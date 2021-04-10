@@ -1,7 +1,7 @@
 import unittest
 from typing import Mapping, Iterable
 
-import domain.request_model as request_model
+from domain.request_model import Parameter, NO_DEFAULT, ParameterValues, RequestObject, ParameterUser
 
 from ..common import check_parameter_user
 
@@ -11,20 +11,20 @@ class ParameterTest(unittest.TestCase):
 		name = "my_param"
 		tpe = str
 		
-		param = request_model.Parameter(name, tpe)
+		param = Parameter(name, tpe)
 		
 		self.assertEqual(name, param.name)
 		self.assertEqual(tpe, param.data_type)
-		self.assertEqual(request_model.NO_DEFAULT, param.default)
+		self.assertEqual(NO_DEFAULT, param.default)
 		self.assertEqual(False, param.multiple)
 	
 	def test_creation_multiple(self):
 		name = "my_param"
 		tpe = str
-		default = request_model.NO_DEFAULT
+		default = NO_DEFAULT
 		multiple = True
 		
-		param = request_model.Parameter(name, tpe, multiple=True)
+		param = Parameter(name, tpe, multiple=True)
 		
 		self.assertEqual(name, param.name)
 		self.assertEqual(tpe, param.data_type)
@@ -37,7 +37,7 @@ class ParameterTest(unittest.TestCase):
 		default = "value"
 		multiple = True
 		
-		param = request_model.Parameter(name, tpe, default, multiple)
+		param = Parameter(name, tpe, default, multiple)
 		
 		self.assertEqual(name, param.name)
 		self.assertEqual(tpe, param.data_type)
@@ -46,7 +46,7 @@ class ParameterTest(unittest.TestCase):
 		
 
 class ParameterValuesTest(unittest.TestCase):
-	target_cls = request_model.ParameterValues
+	target_cls = ParameterValues
 	
 	def test_creation(self):
 		pv = self.target_cls()
@@ -67,21 +67,21 @@ class ParameterValuesTest(unittest.TestCase):
 		self.assertEqual(pv.val_name, val)
 
 class RequestObjectTest(ParameterValuesTest):
-	target_cls = request_model.RequestObject
+	target_cls = RequestObject
 	
 
 class ParameterUserTest(unittest.TestCase):
-	class PUImpl(request_model.ParameterUser):
+	class PUImpl(ParameterUser):
 		def __init__(self, params=None):
 			if params is None:
 				params = {}
 			self._params = params
 		
 		@property
-		def parameters(self) -> Mapping[str, Iterable[request_model.Parameter]]:
+		def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 			return self._params
 		
-		def take_request(self, request:request_model.RequestObject) -> None:
+		def take_request(self, request: RequestObject) -> None:
 			pass
 	
 	def test_creation(self):
@@ -89,7 +89,7 @@ class ParameterUserTest(unittest.TestCase):
 	
 	def test_parameter_user(self):
 		params = {"take_request": (
-			request_model.Parameter("some_val", int, 2),
+			Parameter("some_val", int, 2),
 		)}
 		dut = self.PUImpl(params)
 		check_parameter_user(self, dut)
