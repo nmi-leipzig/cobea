@@ -36,7 +36,7 @@ def main():
 	ice_man = IcecraftManager()
 	ice_meter = IcecraftEmbedMeter()
 	
-	measure_case = Measure(ice_man, ice_meter)
+	measure_case = Measure(ice_meter)
 	fit_func_fac = SciPyFunctions()
 	fit_func = fit_func_fac.get_fitness_function("pearsons_correlation")#(RequestObject(identifier=, description="pc"))
 	
