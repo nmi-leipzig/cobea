@@ -11,7 +11,7 @@ class IcecraftEmbedMeter(Meter):
 	"""Measure icecraft target by embedding the input data in ram"""
 	
 	def __init__(self) -> None:
-		self._parameters = {"__call__": [
+		self._parameters = {"measure": [
 			Parameter("configuration", TargetConfiguration),
 			Parameter("ram_mode", str),
 			Parameter("input_data", InputData),
@@ -19,6 +19,7 @@ class IcecraftEmbedMeter(Meter):
 			Parameter("prefix", bytes, default=None),
 			Parameter("output_count", int),
 			Parameter("output_format", str),
+			Parameter("target", TargetDevice),
 		]}
 	
 	@property

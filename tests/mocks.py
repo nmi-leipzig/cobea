@@ -57,7 +57,7 @@ class MockMeter(Meter):
 	
 	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
-		return {"__call__": []}
+		return {"measure": []}
 	
 
 class MockUniqueID(UniqueID):
