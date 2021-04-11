@@ -7,6 +7,7 @@ sys.path.append("/usr/local/bin")
 import icebox
 
 import adapters.icecraft as icecraft
+from adapters.icecraft import RAMMode
 
 from .common import SEND_BRAM_META
 
@@ -20,7 +21,7 @@ class IcecraftStormConfigTest(unittest.TestCase):
 		config = self.target_cls.create_empty()
 	
 	def test_create_from_file(self):
-		config = self.target_cls.create_from_file(self.config_meta["256x16"].asc_filename)
+		config = self.target_cls.create_from_file(self.config_meta[RAMMode.RAM_256x16].asc_filename)
 	
 	def test_get_ram_values(self):
 		for mode, current in self.config_meta.items():
@@ -92,7 +93,7 @@ class IcecraftStormConfigTest(unittest.TestCase):
 				expected_ic = icebox.iceconfig()
 				expected_ic.read_file(current.asc_filename)
 				
-				tmp_filename = f"tmp.test_write_asc.{mode}.asc"
+				tmp_filename = f"tmp.test_write_asc.{mode.name}.asc"
 				config.write_asc(tmp_filename)
 				
 				ic = icebox.iceconfig()
@@ -110,8 +111,8 @@ class IcecraftStormConfigTest(unittest.TestCase):
 				expected_ic = icebox.iceconfig()
 				expected_ic.read_file(current.asc_filename)
 				
-				tmp_bin = f"tmp.test_write_bitstream.{mode}.bin"
-				tmp_asc = f"tmp.test_write_bitstream.{mode}.asc"
+				tmp_bin = f"tmp.test_write_bitstream.{mode.name}.bin"
+				tmp_asc = f"tmp.test_write_bitstream.{mode.name}.asc"
 				config.write_bitstream(tmp_bin)
 				
 				subprocess.run(

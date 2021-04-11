@@ -2,6 +2,7 @@ import os
 import unittest
 
 import adapters.icecraft as icecraft
+from adapters.icecraft import RAMMode
 
 from .common import SEND_BRAM_META, TEST_DATA_DIR
 
@@ -49,7 +50,7 @@ class IcecraftDeviceTest(unittest.TestCase):
 	
 	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
 	def test_read_bytes(self):
-		meta = next(s for s in SEND_BRAM_META if s.mode=="512x8")
+		meta = next(s for s in SEND_BRAM_META if s.mode==RAMMode.RAM_512x8)
 		device = self.get_configured_device(meta.asc_filename)
 		
 		exp_values = bytes(meta.initial_data)

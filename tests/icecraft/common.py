@@ -3,19 +3,21 @@ import json
 from dataclasses import dataclass
 from typing import List, Iterable, Tuple
 
-from adapters.icecraft import IcecraftPosition, IcecraftBitPosition
+from adapters.icecraft import IcecraftPosition, IcecraftBitPosition, RAMMode
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
 @dataclass
 class SendBRAMMeta:
-	mode: str
+	mode: RAMMode
 	asc_filename: str
 	ram_block: IcecraftPosition
 	initial_data: List[int]
 	mask: int
 	
 	def __post_init__(self):
+		if isinstance(self.mode, str):
+			self.mode = RAMMode[f"RAM_{self.mode}"]
 		self.ram_block = IcecraftPosition(*self.ram_block)
 		self.asc_filename = os.path.join(TEST_DATA_DIR, self.asc_filename)
 

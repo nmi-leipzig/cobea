@@ -2,6 +2,7 @@ import random
 import unittest
 
 import adapters.icecraft as icecraft
+from adapters.icecraft import RAMMode
 from domain import model
 from domain.request_model import RequestObject
 
@@ -12,7 +13,12 @@ from .common import SEND_BRAM_META
 class IcecraftEmbedMeterTest(unittest.TestCase):
 	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
 	def test_call(self):
-		format_dict = {"256x16": "<H", "512x8": "B", "1024x4": "B", "2048x2": "B"}
+		format_dict = {
+			RAMMode.RAM_256x16: "<H",
+			RAMMode.RAM_512x8: "B",
+			RAMMode.RAM_1024x4: "B",
+			RAMMode.RAM_2048x2: "B"
+		}
 		meter = icecraft.IcecraftEmbedMeter()
 		fpga = icecraft.target.FPGABoard.get_suitable_board()
 		device = icecraft.IcecraftDevice(fpga)

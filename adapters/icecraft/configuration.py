@@ -14,10 +14,10 @@ from .misc import RAMMode, IcecraftPosition
 
 class IcecraftRawConfig(TargetConfiguration):
 	mode_map = {
-		"256x16": BRAMMode.BRAM_256x16,
-		"512x8": BRAMMode.BRAM_512x8,
-		"1024x4": BRAMMode.BRAM_1024x4,
-		"2048x2": BRAMMode.BRAM_2048x2,
+		RAMMode.RAM_256x16: BRAMMode.BRAM_256x16,
+		RAMMode.RAM_512x8: BRAMMode.BRAM_512x8,
+		RAMMode.RAM_1024x4: BRAMMode.BRAM_1024x4,
+		RAMMode.RAM_2048x2: BRAMMode.BRAM_2048x2,
 	}
 	
 	def __init__(self, raw_config: Configuration) -> None:
@@ -38,11 +38,11 @@ class IcecraftRawConfig(TargetConfiguration):
 		FPGABoard.pack_bitstream(asc_name, bitstream_name)
 		os.remove(asc_name)
 	
-	def set_ram_values(self, ram_block: IcecraftPosition, address: int, values: Iterable[int], mode: str="512x8") -> None:
+	def set_ram_values(self, ram_block: IcecraftPosition, address: int, values: Iterable[int], mode: RAMMode=RAMMode.RAM_512x8) -> None:
 		raw_mode = self.mode_map[mode]
 		self._raw_config.set_bram_values(TilePosition(ram_block.x, ram_block.y), values, address, raw_mode)
 	
-	def get_ram_values(self, ram_block: IcecraftPosition, address: int, count: int=1, mode: str="512x8") -> List[int]:
+	def get_ram_values(self, ram_block: IcecraftPosition, address: int, count: int=1, mode: RAMMode=RAMMode.RAM_512x8) -> List[int]:
 		raw_mode = self.mode_map[mode]
 		return self._raw_config.get_bram_values(TilePosition(ram_block.x, ram_block.y), address, count, raw_mode)
 	
@@ -85,13 +85,13 @@ class IcecraftStormConfig(TargetConfiguration):
 		FPGABoard.pack_bitstream(asc_name, bitstream_name)
 		os.remove(asc_name)
 	
-	def set_ram_values(self, ram_block: IcecraftPosition, address: int, values: Iterable[int], mode: str="512x8") -> None:
+	def set_ram_values(self, ram_block: IcecraftPosition, address: int, values: Iterable[int], mode: RAMMode=RAMMode.RAM_512x8) -> None:
 		ram_strings = self._ice_conf.ram_data.setdefault((ram_block.x, ram_block.y), ["0"*64]*16)
 		for value in values:
 			self.set_in_ram_strings(ram_strings, address, value, mode)
 			address += 1
 	
-	def get_ram_values(self, ram_block: IcecraftPosition, address: int, count: int=1, mode: str="512x8") -> List[int]:
+	def get_ram_values(self, ram_block: IcecraftPosition, address: int, count: int=1, mode: RAMMode=RAMMode.RAM_512x8) -> List[int]:
 		ram_strings = self._ice_conf.ram_data.setdefault((ram_block.x, ram_block.y), ["0"*64]*16)
 		values = []
 		for tmp_address in range(address, address+count):
@@ -101,21 +101,12 @@ class IcecraftStormConfig(TargetConfiguration):
 		return values
 	
 	@classmethod
-	def block_size_from_mode(cls, mode: str) -> int:
+	def block_size_from_mode(cls, mode: RAMMode) -> int:
 		return 4096//cls.value_length_from_mode(mode)
 	
 	@staticmethod
-	def value_length_from_mode(mode: str) -> int:
-		if (mode == 0) or (mode == "256x16"):
-			return 16
-		elif (mode == 1) or (mode == "512x8"):
-			return 8
-		elif (mode == 2) or (mode == "1024x4"):
-			return 4
-		elif (mode == 3) or (mode == "2048x2"):
-			return 2
-		else:
-			raise ValueError(f"Invalid mode: {mode}")
+	def value_length_from_mode(mode: RAMMode) -> int:
+		return 16 // (1 << mode)
 	
 	@staticmethod
 	def split_address(address: int) -> Tuple[int, int, int]:
@@ -127,7 +118,7 @@ class IcecraftStormConfig(TargetConfiguration):
 		return row_index, col_index, offset
 	
 	@classmethod
-	def get_from_ram_strings(cls, ram_strings: Sequence[str], address: int, mode: str="512x8") -> int:
+	def get_from_ram_strings(cls, ram_strings: Sequence[str], address: int, mode: RAMMode=RAMMode.RAM_512x8) -> int:
 		value_len = cls.value_length_from_mode(mode)
 		row_index, col_index, offset = cls.split_address(address)
 		
@@ -151,7 +142,7 @@ class IcecraftStormConfig(TargetConfiguration):
 		return value
 	
 	@classmethod
-	def set_in_ram_strings(cls, ram_strings: Sequence[str], address: int, value: int, mode: str="512x8") -> None:
+	def set_in_ram_strings(cls, ram_strings: Sequence[str], address: int, value: int, mode: RAMMode=RAMMode.RAM_512x8) -> None:
 		value_len = cls.value_length_from_mode(mode)
 		row_index, col_index, offset = cls.split_address(address)
 		
