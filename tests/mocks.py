@@ -9,9 +9,20 @@ class MockBitPos(BitPos, int):
 	pass
 
 class MockTargetDevice(TargetDevice):
-	def __init__(self, serial_number="9555", hardware_type="S6C7"):
+	def __init__(self, serial_number="9555", hardware_type="S6C7", read_data=b""):
 		self._serial_number = serial_number
 		self._hardware_type = hardware_type
+		self._read_data = read_data
+		self._configured = []
+		self._written = bytes()
+	
+	@property
+	def configured(self):
+		return tuple(self._configured)
+	
+	@property
+	def written(self):
+		return self._written
 	
 	@property
 	def serial_number(self) -> str:
@@ -22,12 +33,15 @@ class MockTargetDevice(TargetDevice):
 		return self._hardware_type
 	
 	def configure(self, configuration: TargetConfiguration) -> None:
-		pass
+		self._configured.append(configuration.to_text())
 	
 	def read_bytes(self, size: int) -> bytes:
-		return bytes((7,))*size
+		data = self._read_data[:size]
+		self._read_data = self._read_data[size:]
+		return data
 	
 	def write_bytes(self, data: bytes) -> int:
+		self._written += data
 		return len(data)
 
 class MockTargetManager(TargetManager):
