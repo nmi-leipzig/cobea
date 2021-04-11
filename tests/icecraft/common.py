@@ -6,6 +6,12 @@ from typing import List, Iterable, Tuple
 from adapters.icecraft import IcecraftPosition, IcecraftBitPosition, RAMMode
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+FORMAT_DICT = {
+	RAMMode.RAM_256x16: "<H",
+	RAMMode.RAM_512x8: "B",
+	RAMMode.RAM_1024x4: "B",
+	RAMMode.RAM_2048x2: "B"
+}
 
 @dataclass
 class SendBRAMMeta:
