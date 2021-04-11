@@ -70,6 +70,10 @@ class IcecraftManager(TargetManager):
 	def release(self, target: TargetDevice) -> None:
 		self._in_use.remove(target.serial_number)
 		target.close()
+	
+	@staticmethod
+	def device_present() -> bool:
+		return len(FPGABoard.get_suitable_serial_numbers()) < 1
 
 class MultiIcecraftManager(TargetManager):
 	"""management of ice devices in multiprocessing environments"""
