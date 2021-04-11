@@ -1,6 +1,7 @@
 """Dummies that do nothing"""
 
 from domain.interfaces import Driver, Meter
+from domain.model import OutputData
 from domain.request_model import RequestObject
 
 class DummyDriver(Driver):
@@ -22,5 +23,5 @@ class DummyMeter(Meter):
 	def prepare(self, request: RequestObject) -> None:
 		pass
 	
-	def measure(self, request: RequestObject) -> None:
-		pass
+	def measure(self, request: RequestObject) -> OutputData:
+		return OutputData()
