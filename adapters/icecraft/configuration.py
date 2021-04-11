@@ -6,11 +6,11 @@ from typing import Iterable, List, Tuple, Sequence
 sys.path.append("/usr/local/bin")
 import icebox
 
-from .ice_board import Configuration, FPGABoard, TilePosition
+from .ice_board import BRAMMode, Configuration, FPGABoard, TilePosition
 
 from domain.interfaces import TargetConfiguration
 
-from .misc import BRAMMode, IcecraftPosition
+from .misc import RAMMode, IcecraftPosition
 
 class IcecraftRawConfig(TargetConfiguration):
 	mode_map = {

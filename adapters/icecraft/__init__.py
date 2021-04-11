@@ -1,4 +1,4 @@
-from .misc import BRAMMode, LUTFunction, IcecraftPosition,\
+from .misc import RAMMode, LUTFunction, IcecraftPosition,\
 	IcecraftBitPosition, IcecraftLUTPosition, IcecraftColBufCtrl,\
 	IcecraftNetPosition, IcecraftConnection
 from .configuration import IcecraftRawConfig, IcecraftStormConfig

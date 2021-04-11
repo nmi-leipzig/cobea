@@ -1,8 +1,6 @@
-from enum import Enum, auto
+from enum import Enum, IntEnum, auto
 from dataclasses import dataclass
 from typing import Tuple, Iterable
-
-from .ice_board.device_data import BRAMMode
 
 from domain.base_structures import BitPos
 from domain.model import Gene
@@ -11,6 +9,12 @@ from domain.interfaces import ElementPosition
 TILE_EXTERNAL_BITS = -1
 TILE_ALL = -2
 TILE_ALL_LOGIC = -3
+
+class RAMMode(IntEnum):
+	RAM_256x16 = 0
+	RAM_512x8 = 1
+	RAM_1024x4 = 2
+	RAM_2048x2 = 3
 
 class LUTFunction(Enum):
 	CONST_0 = auto()
