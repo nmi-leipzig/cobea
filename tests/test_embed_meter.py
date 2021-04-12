@@ -120,6 +120,7 @@ class EmbedMeterTest(TestCase):
 				
 				self.assertEqual(send_meta.initial_data+[0]*(count-len(send_meta.initial_data)), list(res))
 		
+		man.release(device)
 	
 	def test_parameter_user(self):
 		dut = EmbedMeter()
