@@ -14,7 +14,7 @@ class EmbedMeter(Meter):
 				Parameter("prefix", bytes, default=bytes()),
 				Parameter("output_count", int),
 				Parameter("output_format", str),
-				Parameter("target", TargetDevice),
+				Parameter("meter_dev", TargetDevice),
 			]
 		}
 	
@@ -24,20 +24,20 @@ class EmbedMeter(Meter):
 	def measure(self, request: RequestObject) -> OutputData:
 		# receive prefix
 		if len(request.prefix):
-			pre = request.target.read_bytes(len(request.prefix))
+			pre = request.meter_dev.read_bytes(len(request.prefix))
 			assert pre == request.prefix
 		
 		# receive output data
-		data = self.read_data(request.target, request.output_count, request.output_format)
+		data = self.read_data(request.meter_dev, request.output_count, request.output_format)
 		return OutputData(data)
 	
 	@staticmethod
-	def read_data(target: TargetDevice, count: int, format_str: str) -> list:
+	def read_data(meter_dev: TargetDevice, count: int, format_str: str) -> list:
 		size = struct.calcsize(format_str)
 		data = []
 		
 		for _ in range(count):
-			raw = target.read_bytes(size)
+			raw = meter_dev.read_bytes(size)
 			if len(raw) < size:
 				raise IOError()
 			

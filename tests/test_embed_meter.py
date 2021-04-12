@@ -33,14 +33,14 @@ class EmbedMeterTest(TestCase):
 		dut = EmbedMeter()
 		for req in self.req_list:
 			with self.subTest(req=req):
-				req["target"] = MagicMock()
+				req["meter_dev"] = MagicMock()
 				exp = RequestObject(req)
 				dut.prepare(req)
 				
 				for var in ["prefix", "output_count", "output_format"]:
 					self.assertEqual(exp[var], req[var])
 				
-				self.assertEqual(0, len(exp.target.method_calls))
+				self.assertEqual(0, len(exp.meter_dev.method_calls))
 	
 	def test_measure(self):
 		dut = EmbedMeter()
@@ -49,7 +49,7 @@ class EmbedMeterTest(TestCase):
 			with self.subTest(req=req):
 				exp_data, ret_data = self.create_data(req)
 				
-				req["target"] = MockTargetDevice(read_data=ret_data)
+				req["meter_dev"] = MockTargetDevice(read_data=ret_data)
 				
 				res = dut.measure(req)
 				
@@ -74,7 +74,7 @@ class EmbedMeterTest(TestCase):
 				exp_data, ret_data = self.create_data(req)
 				ret_data = bytes([(ret_data[0]+1)%256]) + ret_data[1:]
 				
-				req["target"] = MockTargetDevice(read_data=ret_data)
+				req["meter_dev"] = MockTargetDevice(read_data=ret_data)
 				
 				with self.assertRaises(AssertionError):
 					res = dut.measure(req)
@@ -89,7 +89,7 @@ class EmbedMeterTest(TestCase):
 			with self.subTest(req=req):
 				exp_data, ret_data = self.create_data(req)
 				
-				req["target"] = MockTargetDevice(read_data=ret_data)
+				req["meter_dev"] = MockTargetDevice(read_data=ret_data)
 				
 				res = measure_case(req)
 				
@@ -113,7 +113,7 @@ class EmbedMeterTest(TestCase):
 					prefix = b"",
 					output_count = count, #len(send_meta.initial_data),
 					output_format = FORMAT_DICT[send_meta.mode],
-					target = device,
+					meter_dev = device,
 				)
 				
 				res = dut.measure(req)
