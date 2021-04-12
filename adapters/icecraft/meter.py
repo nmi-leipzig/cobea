@@ -1,6 +1,7 @@
 import struct
 from typing import Mapping
 
+from adapters.icecraft.configuration import block_size_from_mode
 from domain.interfaces import TargetConfiguration, TargetDevice, Meter
 from domain.model import InputData, OutputData
 from domain.request_model import RequestObject, Parameter
@@ -45,7 +46,7 @@ class IcecraftEmbedMeter(Meter):
 		target = request.target
 		# embed input data in ram
 		config = request.configuration
-		block_size = config.block_size_from_mode(request.ram_mode)
+		block_size = block_size_from_mode(request.ram_mode)
 		start = 0
 		block_index = 0
 		while start < len(request.input_data):

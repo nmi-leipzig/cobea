@@ -12,6 +12,12 @@ from domain.interfaces import TargetConfiguration
 
 from .misc import RAMMode, IcecraftPosition
 
+def value_length_from_mode(mode: RAMMode) -> int:
+	return 16 // (1 << mode)
+
+def block_size_from_mode(mode: RAMMode) -> int:
+	return 4096//value_length_from_mode(mode)
+
 class IcecraftRawConfig(TargetConfiguration):
 	mode_map = {
 		RAMMode.RAM_256x16: BRAMMode.BRAM_256x16,
@@ -100,14 +106,6 @@ class IcecraftStormConfig(TargetConfiguration):
 		
 		return values
 	
-	@classmethod
-	def block_size_from_mode(cls, mode: RAMMode) -> int:
-		return 4096//cls.value_length_from_mode(mode)
-	
-	@staticmethod
-	def value_length_from_mode(mode: RAMMode) -> int:
-		return 16 // (1 << mode)
-	
 	@staticmethod
 	def split_address(address: int) -> Tuple[int, int, int]:
 		index = address % 256
@@ -119,7 +117,7 @@ class IcecraftStormConfig(TargetConfiguration):
 	
 	@classmethod
 	def get_from_ram_strings(cls, ram_strings: Sequence[str], address: int, mode: RAMMode=RAMMode.RAM_512x8) -> int:
-		value_len = cls.value_length_from_mode(mode)
+		value_len = value_length_from_mode(mode)
 		row_index, col_index, offset = cls.split_address(address)
 		
 		l = len(ram_strings[row_index])
@@ -143,7 +141,7 @@ class IcecraftStormConfig(TargetConfiguration):
 	
 	@classmethod
 	def set_in_ram_strings(cls, ram_strings: Sequence[str], address: int, value: int, mode: RAMMode=RAMMode.RAM_512x8) -> None:
-		value_len = cls.value_length_from_mode(mode)
+		value_len = value_length_from_mode(mode)
 		row_index, col_index, offset = cls.split_address(address)
 		
 		assert value >= 0, "Value has to be non negative."

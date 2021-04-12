@@ -3,6 +3,7 @@ import unittest
 
 import adapters.icecraft as icecraft
 from adapters.icecraft import RAMMode
+from adapters.icecraft.configuration import block_size_from_mode
 from domain import model
 from domain.request_model import RequestObject
 
@@ -29,7 +30,7 @@ class IcecraftEmbedMeterTest(unittest.TestCase):
 				# the BRAM needs some time to be functional after power up
 				# else the first read (most of the time address 0) returns always 0
 				data = model.InputData([
-					random.randint(0, send_meta.mask) for _ in range(config.block_size_from_mode(send_meta.mode))
+					random.randint(0, send_meta.mask) for _ in range(block_size_from_mode(send_meta.mode))
 				])
 				req = RequestObject()
 				req["configuration"] = config
