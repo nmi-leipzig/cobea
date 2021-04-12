@@ -1,7 +1,11 @@
+import os
+
 from inspect import getmembers, ismethod
 from typing import get_type_hints
 
 from domain.request_model import Parameter, RequestObject
+
+TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
 def is_request_function(function):
 	if not ismethod(function):
