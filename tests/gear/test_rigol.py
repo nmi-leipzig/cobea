@@ -38,8 +38,8 @@ class SetupCmdTest(TestCase):
 					self.assertEqual(subcmd, subsubcmd.parent_)
 					subsubcmd_list[i] = subsubcmd
 		
-		self.assertEqual(subsubcmd_list[0].cmd(full=False), ":log1:othername:subsubcmd")
-		self.assertEqual(subsubcmd_list[1].cmd(full=False), ":log2:subcmd:subsubcmd")
+		self.assertEqual(subsubcmd_list[0].cmd_(full=False), ":log1:othername:subsubcmd")
+		self.assertEqual(subsubcmd_list[1].cmd_(full=False), ":log2:subcmd:subsubcmd")
 	
 	def test_subcommands(self):
 		sub_dut = SetupCmd("subcmd")
@@ -51,7 +51,7 @@ class SetupCmdTest(TestCase):
 	
 	def test_cmd(self):
 		dut = SetupCmd("cmd", [1, 2, 3], 2)
-		res = dut.cmd()
+		res = dut.cmd_()
 		self.assertEqual(":cmd 2", res)
 
 class OsciDS1102ETest(TestCase):
@@ -98,4 +98,8 @@ class OsciDS1102ETest(TestCase):
 	
 	def test_create_setup(self):
 		dut = OsciDS1102E.create_setup()
-		#print(dut)
+		
+		dut.ACQ.MEMD.value_ = "NORM"
+		self.assertEqual(":ACQ:MEMD NORM", dut.ACQ.MEMD.cmd_())
+		
+		self.assertEqual(":TRIG:EDGE:SWE SING", dut.TRIG.EDGE.SWE.cmd_())
