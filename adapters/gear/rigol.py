@@ -109,6 +109,17 @@ class OsciDS1102E(Meter):
 		
 		return dev_str
 	
+	@classmethod
+	def apply_all(cls, osci: pyvisa.Resource, setup: SetupCmd) -> None:
+		if setup.values_ is not None:
+			if setup.value_ not in setup.values_:
+				raise ValueError(f"'{setup.value_}' invalid for {setup.name_}")
+			
+			osci.write(setup.cmd_(write=True))
+		
+		for subcmd in setup.subcmds_:
+			cls.apply_all(osci, subcmd)
+	
 	@staticmethod
 	def create_setup() -> SetupCmd:
 		# very simple representation of the setup, especially following points have to be regarded:

@@ -1,4 +1,6 @@
+from typing import NamedTuple, List
 from unittest import TestCase, skipIf
+from unittest.mock import MagicMock
 
 import pyvisa
 
@@ -109,7 +111,6 @@ class MultiIntCheckTest(TestCase):
 			with self.subTest(val=val):
 				self.assertFalse(val in dut)
 
-
 class OsciDS1102ETest(TestCase):
 	def check_dev_str(self, dev_str):
 		"""check device string and return serial number"""
@@ -141,6 +142,41 @@ class OsciDS1102ETest(TestCase):
 		self.assertEqual(serial_no, res)
 		
 		res_man.close()
+	
+	def test_apply_all(self):
+		class ApplyData(NamedTuple):
+			desc: str
+			setup: SetupCmd
+			writes: List[str]
+		
+		sub_cases = [
+			ApplyData("no value, no subcommand", SetupCmd("NO"), []),
+			ApplyData("value, no subcommand", SetupCmd("VAL", ("YES", "NO"), "YES"), [":VAL YES"]),
+			ApplyData(
+				"no value, subcommand",
+				SetupCmd("SUP", subcmds_=(SetupCmd("SUB1", ("YES", "NO"), "YES"), )),
+				[":SUP:SUB1 YES"]
+			),
+			ApplyData(
+				"value, subcommand",
+				SetupCmd("SUP", ("ON", "OFF"), "OFF", (SetupCmd("SUB1", ("YES", "NO"), "YES"), )),
+				[":SUP OFF", ":SUP:SUB1 YES"]
+			),
+		]
+		
+		for tc in sub_cases:
+			with self.subTest(desc=tc.desc):
+				mock_osci = MagicMock()
+				
+				OsciDS1102E.apply_all(mock_osci, tc.setup)
+				
+				call_iter = mock_osci.mock_calls
+				self.assertEqual(len(tc.writes), len(call_iter))
+				for exp, (name, args, kwargs) in zip(tc.writes, call_iter):
+					self.assertEqual("write", name)
+					self.assertEqual((exp, ), args)
+					self.assertEqual(kwargs, {})
+		
 	
 	@skipIf(usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None, "No oscilloscope found")
 	def test_set_up_instrument(self):
