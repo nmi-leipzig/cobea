@@ -1,5 +1,8 @@
+import re
+
 from copy import deepcopy
 from dataclasses import dataclass, field
+from math import isfinite
 from typing import Any, Iterable, Optional, Tuple, List
 
 import pyvisa
@@ -53,7 +56,7 @@ class FloatCheck:
 	def __contains__(self, item: Any) -> bool:
 		try:
 			v = float(item)
-			return True
+			return isfinite(v)
 		except:
 			return False
 
@@ -75,11 +78,8 @@ class MultiIntCheck:
 		self._count = count
 	
 	def __contains__(self, item: Any) -> bool:
-		try:
-			res = re.match("".join([r"\d,"]*(self._count-1)+[r"\d$"]), str(item))
-			return res is not None
-		except:
-			return False
+		res = re.match("".join([r"-?\d,"]*(self._count-1)+[r"-?\d$"]), str(item))
+		return res is not None
 
 class OsciDS1102E(Meter):
 	def prepare(self, request: RequestObject) -> None:
