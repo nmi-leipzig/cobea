@@ -1,4 +1,4 @@
-from typing import NamedTuple, List
+from typing import List, NamedTuple
 from unittest import TestCase, skipIf
 from unittest.mock import MagicMock
 
@@ -112,6 +112,9 @@ class MultiIntCheckTest(TestCase):
 				self.assertFalse(val in dut)
 
 class OsciDS1102ETest(TestCase):
+	def test_creation(self):
+		dut = OsciDS1102E()
+	
 	def check_dev_str(self, dev_str):
 		"""check device string and return serial number"""
 		

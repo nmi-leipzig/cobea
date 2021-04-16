@@ -3,13 +3,13 @@ import re
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import isfinite
-from typing import Any, Iterable, Optional, Tuple, List
+from typing import Any, Iterable, Mapping, Optional, Tuple, List
 
 import pyvisa
 
 from domain.interfaces import Meter
 from domain.model import OutputData
-from domain.request_model import RequestObject
+from domain.request_model import Parameter, RequestObject
 
 @dataclass
 class SetupCmd:
@@ -82,17 +82,51 @@ class MultiIntCheck:
 		return res is not None
 
 class OsciDS1102E(Meter):
+	def __init__(self, serial_number: Optional[str]=None):
+		self._serial_number = serial_number
+		self._is_open = False
+		self._res_man = None
+		self._dev_str = None
+		self._osci = None
+	
+	@property
+	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
+		return {"prepare": [], "measure": []}
+	
+	def open(self):
+		if self._is_open:
+			return
+		
+		self._res_man = pyvisa.ResourceManager()
+		self._dev_str = self.find_instrument(self._res_man, self._serial_number)
+		self._osci = self._res_man.open_resource(self._dev_str)
+		
+		self._is_open = True
+	
+	def close(self):
+		if not self._is_open:
+			return
+		
+		self._is_open = False
+		
+		self._osci.close()
+		self._res_man.close()
+		
+		self._res_man = None
+		self._osci = None
+	
+	def __enter__(self) -> "OsciDS1102E":
+		self.open()
+		return self
+	
+	def __exit__(self,exc_type, exc_value, traceback):
+		self.close()
+	
 	def prepare(self, request: RequestObject) -> None:
 		raise NotImplementedError()
 	
 	def measure(self, request: RequestObject) -> OutputData:
 		raise NotImplementedError()
-	
-	#open
-	#is_open
-	#close
-	#__enter__
-	#__exit__
 	
 	@staticmethod
 	def find_instrument(res_man: pyvisa.ResourceManager, serial_number: Optional[str]=None) -> str:
@@ -111,6 +145,7 @@ class OsciDS1102E(Meter):
 	
 	@classmethod
 	def apply_all(cls, osci: pyvisa.Resource, setup: SetupCmd) -> None:
+		"""Write all values including subcommands without regard of their meaning"""
 		if setup.values_ is not None:
 			if setup.value_ not in setup.values_:
 				raise ValueError(f"'{setup.value_}' invalid for {setup.name_}")
