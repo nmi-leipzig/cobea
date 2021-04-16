@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import List, NamedTuple
 from unittest import TestCase, skipIf
 from unittest.mock import MagicMock
@@ -146,7 +147,7 @@ class OsciDS1102ETest(TestCase):
 		
 		res_man.close()
 	
-	def test_apply_all(self):
+	def test_apply(self):
 		class ApplyData(NamedTuple):
 			desc: str
 			setup: SetupCmd
@@ -171,7 +172,7 @@ class OsciDS1102ETest(TestCase):
 			with self.subTest(desc=tc.desc):
 				mock_osci = MagicMock()
 				
-				OsciDS1102E.apply_all(mock_osci, tc.setup)
+				OsciDS1102E.apply(mock_osci, tc.setup)
 				
 				call_iter = mock_osci.mock_calls
 				self.assertEqual(len(tc.writes), len(call_iter))
@@ -180,6 +181,18 @@ class OsciDS1102ETest(TestCase):
 					self.assertEqual((exp, ), args)
 					self.assertEqual(kwargs, {})
 		
+	
+	@contextmanager
+	def get_osci(self):
+		res_man = pyvisa.ResourceManager()
+		dev_str = OsciDS1102E.find_instrument(res_man)
+		osci = res_man.open_resource(dev_str)
+		
+		try:
+			yield osci
+		finally:
+			osci.close()
+			res_man.close()
 	
 	@skipIf(usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None, "No oscilloscope found")
 	def test_set_up_instrument(self):
@@ -190,6 +203,7 @@ class OsciDS1102ETest(TestCase):
 		OsciDS1102E.set_up_instrument(osci, None)
 		
 		osci.close()
+		res_man.close()
 	
 	def test_create_setup(self):
 		dut = OsciDS1102E.create_setup()
@@ -198,3 +212,22 @@ class OsciDS1102ETest(TestCase):
 		self.assertEqual(":ACQ:MEMD NORM", dut.ACQ.MEMD.cmd_())
 		
 		self.assertEqual(":TRIG:EDGE:SWE SING", dut.TRIG.EDGE.SWE.cmd_())
+	
+	def query_all(self, osci, setup):
+		if setup.values_ is not None:
+			query = setup.cmd_(write=False)
+			with self.subTest(query=query):
+				try:
+					res = osci.query(query)
+				except:
+					self.fail()
+		
+		for subcmd in setup.subcmds_:
+			self.query_all(osci, subcmd)
+	
+	@skipIf(usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None, "No oscilloscope found")
+	def test_create_setup_with_hardware(self):
+		dut = OsciDS1102E.create_setup()
+		
+		with self.get_osci() as osci:
+			self.query_all(osci, dut)

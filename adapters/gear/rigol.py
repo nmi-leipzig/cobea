@@ -3,7 +3,7 @@ import re
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import isfinite
-from typing import Any, Iterable, Mapping, Optional, Tuple, List
+from typing import Any, Callable, Iterable, Mapping, Optional, Tuple, List
 
 import pyvisa
 
@@ -21,6 +21,7 @@ class SetupCmd:
 	values_: Any = None # has to support a in b syntax, e.g. __contains__ or iter; in general only coarse check
 	value_: Any = None
 	subcmds_: Tuple["SetupCmd"] = field(default_factory=tuple)
+	condition_: Callable[["SetupCmd"], bool] = lambda _: True
 	parent_: Optional["SetupCmd"] = field(default=None, init=False)
 	prefix_: str = ":"
 	write_: str = " "
@@ -144,8 +145,15 @@ class OsciDS1102E(Meter):
 		return dev_str
 	
 	@classmethod
-	def apply_all(cls, osci: pyvisa.Resource, setup: SetupCmd) -> None:
-		"""Write all values including subcommands without regard of their meaning"""
+	def apply(cls, osci: pyvisa.Resource, setup: SetupCmd) -> None:
+		"""Apply values of the setup while respecting the connection between different values.
+		
+		One example for a connection between different values: if TRIG:MODE is EDGE, then only subcommands of TRIG:EDGE
+		will be written, as e.g. subcommands of TRIG:PULS are not relevant.
+		"""
+		if not setup.condition_(setup):
+			return
+		
 		if setup.values_ is not None:
 			if setup.value_ not in setup.values_:
 				raise ValueError(f"'{setup.value_}' invalid for {setup.name_}")
@@ -153,7 +161,7 @@ class OsciDS1102E(Meter):
 			osci.write(setup.cmd_(write=True))
 		
 		for subcmd in setup.subcmds_:
-			cls.apply_all(osci, subcmd)
+			cls.apply(osci, subcmd)
 	
 	@staticmethod
 	def create_setup() -> SetupCmd:
@@ -187,7 +195,12 @@ class OsciDS1102E(Meter):
 			SetupCmd("ACQ", subcmds_=(
 				SetupCmd("TYPE", ("NORM", "AVER", "PEAK"), "NORM"),
 				SetupCmd("MODE", ("RTIM", "ETIM"), "RTIM"),
-				SetupCmd("AVER", (2, 4, 8, 16, 32, 64, 128, 256), 16),
+				SetupCmd(
+					"AVER",
+					(2, 4, 8, 16, 32, 64, 128, 256),
+					16,
+					condition_=lambda s: s.parent_.TYPE.value_=="AVER"
+				),
 				SetupCmd("MEMD", ("LONG", "NORMAL"), "LONG"),
 			)),
 			SetupCmd("TIM", subcmds_=(
@@ -198,39 +211,39 @@ class OsciDS1102E(Meter):
 				SetupCmd("DEL", subcmds_=(
 					SetupCmd("OFFS", FloatCheck(), 0),
 					SetupCmd("SCAL", FloatCheck(), 0.5),
-				)),
+				), condition_=lambda s: s.parent_.MODE.value_=="DEL"),
 			)),
 			SetupCmd("TRIG", subcmds_=(
-				SetupCmd("MODE", ("EDGE", "PULS", "VIDEO", "SLOP", "PATT", "DUR", "ALT"), "EDGE"),
-				SetupCmd("SOUR", ("CHAN1", "CHAN2", "EXT", "ACL"), "CHAN1"), # no "DIG"
-				# LEV in EDGE, PULS and VIDEO
-				# SWE in "EDGE", "PULS", "SLOP", "PATT", "DUR"
-				# COUP in EDGE, PULS and SLOP
+				SetupCmd("MODE", ("EDGE", "PULS", "VIDEO", "SLOP", "ALT"), "EDGE"),
 				SetupCmd("HOLD", FloatCheck(), 0.0005),
 				SetupCmd("EDGE", subcmds_=(
+					SetupCmd("SOUR", ("CHAN1", "CHAN2", "EXT", "ACL"), "CHAN1"),
 					SetupCmd("LEV", FloatCheck(), 1),
 					SetupCmd("SWE", ("AUTO", "NORM", "SING"), "SING"),
 					SetupCmd("COUP", ("DC", "AC", "HF", "LF"), "DC"),
 					SetupCmd("SLOP", ("POS", "NEG"), "POS"),
 					SetupCmd("SENS", FloatCheck(), 0.5),
-				)),
+				), condition_=lambda s: s.parent_.MODE.value_=="EDGE"),
 				SetupCmd("PULS", subcmds_=(
+					SetupCmd("SOUR", ("CHAN1", "CHAN2", "EXT"), "CHAN1"),
 					SetupCmd("LEV", FloatCheck(), 1),
 					SetupCmd("SWE", ("AUTO", "NORM", "SING"), "SING"),
 					SetupCmd("COUP", ("DC", "AC", "HF", "LF"), "DC"),
 					SetupCmd("MODE", ("+GRE", "+LESS", "+EQU", "-GRE", "-LESS", "-EQU"), "+GRE"),
 					SetupCmd("SENS", FloatCheck(), 0.5),
 					SetupCmd("WIDT", FloatCheck(), 0.001),
-				)),
+				), condition_=lambda s: s.parent_.MODE.value_=="PULS"),
 				SetupCmd("VIDEO", subcmds_=(
+					SetupCmd("SOUR", ("CHAN1", "CHAN2", "EXT"), "CHAN1"),
 					SetupCmd("LEV", FloatCheck(), 1),
 					SetupCmd("MODE", ("ODD", "EVEN", "LINE", "ALL"), "ALL"),
 					SetupCmd("POL", ("POS", "NEG"), "POS"),
 					SetupCmd("STAN", ("NTSC", "PALS"), "PALS"),
 					SetupCmd("LINE", IntCheck(), 1),
 					SetupCmd("SENS", FloatCheck(), 0.5),
-				)),
+				), condition_=lambda s: s.parent_.MODE.value_=="VIDEO"),
 				SetupCmd("SLOP", subcmds_=(
+					SetupCmd("SOUR", ("CHAN1", "CHAN2", "EXT"), "CHAN1"),
 					SetupCmd("SWE", ("AUTO", "NORM", "SING"), "SING"),
 					SetupCmd("COUP", ("DC", "AC", "HF", "LF"), "DC"),
 					SetupCmd("TIME", FloatCheck(), 0.000001),
@@ -239,13 +252,7 @@ class OsciDS1102E(Meter):
 					SetupCmd("WIND", ("PA", "PB", "PAB", "NA", "NB", "NAB"), "PAB"),
 					SetupCmd("LEVA", FloatCheck(), 0.1),
 					SetupCmd("LEVB", FloatCheck(), -0.1),
-				)),
-				#SetupCmd("DUR", subcmds_=(
-				#	SetupCmd("SWE", ("AUTO", "NORM", "SING"), "SING"),
-				#	SetupCmd("PATT", MultiIntCheck(2), MultiNoSpace([65535, 655535])),
-				#	SetupCmd("TIME", FloatCheck(), 0.000001),
-				#	SetupCmd("QUAL", ("GRE", "LESS", "EQU"), "GRE"),
-				#)),
+				), condition_=lambda s: s.parent_.MODE.value_=="SLOP"),
 				SetupCmd("ALT", subcmds_=(
 					#TODO: problem: SOUR switches to completely new set of variables, but atm only one is stored
 					SetupCmd("SOUR", ("CHAN1", "CHAN2"), "CHAN1"),
@@ -287,11 +294,11 @@ class OsciDS1102E(Meter):
 						SetupCmd("SENS", FloatCheck(), 0.5),
 					)),
 					
-				)),
+				), condition_=lambda s: s.parent_.MODE.value_=="ALT"),
 			)),
 			SetupCmd("MATH", subcmds_=(
 				SetupCmd("DISP", ("ON", "OFF"), "OFF"),
-				SetupCmd("OPER", ("A+B", "A-B", "AB", "FFT"), "A_B"),
+				SetupCmd("OPER", ("A+B", "A-B", "AB", "FFT"), "A_B", condition_=lambda s: s.parent_.DISP.value_=="ON"),
 			)),
 			SetupCmd("FFT", subcmds_=(
 				SetupCmd("DISP", ("ON", "OFF"), "OFF"),
@@ -301,8 +308,9 @@ class OsciDS1102E(Meter):
 				SetupCmd("COUP", ("DC", "AC", "GND"), "DC"),
 				SetupCmd("DISP", ("ON", "OFF"), "ON"),
 				SetupCmd("INV", ("ON", "OFF"), "OFF"),
-				SetupCmd("OFFS", FloatCheck(), 0),
+				# set probe before offset and scale as change of the former influences the values of the later
 				SetupCmd("PROB", [1, 5, 10, 50, 100, 500, 1000], 1),
+				SetupCmd("OFFS", FloatCheck(), 0),
 				SetupCmd("SCAL", FloatCheck(), 1),
 				SetupCmd("FILT", ("ON", "OFF"), "OFF"),
 				SetupCmd("VERN", ("ON", "OFF"), "OFF"),
