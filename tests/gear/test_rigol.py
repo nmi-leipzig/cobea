@@ -12,7 +12,7 @@ except ImportError:
 			def find(*args, **kwargs) -> None:
 				return None
 
-from adapters.gear.rigol import OsciDS1102E, SetupCmd
+from adapters.gear.rigol import OsciDS1102E, SetupCmd, FloatCheck, IntCheck, MultiIntCheck, MultiNoSpace
 
 class SetupCmdTest(TestCase):
 	def test_creation(self):
@@ -53,6 +53,62 @@ class SetupCmdTest(TestCase):
 		dut = SetupCmd("cmd", [1, 2, 3], 2)
 		res = dut.cmd_()
 		self.assertEqual(":cmd 2", res)
+
+class FloatCheckTest(TestCase):
+	def test_creation(self):
+		dut = FloatCheck()
+	
+	def test_contains(self):
+		dut = FloatCheck()
+		
+		for val in [1, 0, -5.3]:
+			with self.subTest(val=val):
+				self.assertTrue(val in dut)
+		
+		for val in ["NAN", "TWO"]:
+			with self.subTest(val=val):
+				self.assertFalse(val in dut)
+
+class IntCheckTest(TestCase):
+	def test_creation(self):
+		dut = IntCheck()
+	
+	def test_contains(self):
+		dut = IntCheck()
+		
+		for val in [1, 0, -5]:
+			with self.subTest(val=val):
+				self.assertTrue(val in dut)
+		
+		for val in ["NAN", "TWO", 1.2, -10.3]:
+			with self.subTest(val=val):
+				self.assertFalse(val in dut)
+
+class MultiNoSpaceTest(TestCase):
+	def test_creation(self):
+		dut1 = MultiNoSpace()
+		dut2 = MultiNoSpace([1])
+		dut3 = MultiNoSpace([1, 4, -10])
+	
+	def test_str(self):
+		dut = MultiNoSpace([1, 4, -10])
+		self.assertEqual("1,4,-10", str(dut))
+
+class MultiIntCheckTest(TestCase):
+	def test_creation(self):
+		dut = MultiIntCheck(4)
+	
+	def test_contains(self):
+		dut = MultiIntCheck(2)
+		
+		for val in [MultiNoSpace([1, -5]), MultiNoSpace([0, 0])]:
+			with self.subTest(val=val):
+				self.assertTrue(val in dut)
+		
+		for val in [(1, 2), 2, 1.2, [7, 9]]:
+			with self.subTest(val=val):
+				self.assertFalse(val in dut)
+
 
 class OsciDS1102ETest(TestCase):
 	def check_dev_str(self, dev_str):
