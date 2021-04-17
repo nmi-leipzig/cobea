@@ -312,7 +312,26 @@ class OsciDS1102E(Meter):
 				SetupCmd("PROB", [1, 5, 10, 50, 100, 500, 1000], 1),
 				SetupCmd("OFFS", FloatCheck(), 0),
 				SetupCmd("SCAL", FloatCheck(), 1),
-				SetupCmd("FILT", ("ON", "OFF"), "OFF"),
+				SetupCmd("FILT", ("ON", "OFF"), "OFF", subcmds_=( # subcmds available in menu, but not documented
+					SetupCmd(
+						"TYPE",
+						("LPAS", "HPAS", "BPAS", "BTR"),
+						"LPAS",
+						condition_=lambda s: s.parent_.value_=="ON"
+					),
+					SetupCmd(
+						"LLIM",
+						FloatCheck(),
+						49.5,
+						condition_=lambda s: s.parent_.value_=="ON" and s.parent_.TYPE.value_ in ("HPAS", "BPAS", "BTR")
+					),
+					SetupCmd(
+						"ULIM",
+						FloatCheck(),
+						50.5,
+						condition_=lambda s: s.parent_.value_=="ON" and s.parent_.TYPE.value_ in ("LPAS", "BPAS", "BTR")
+					),
+				)),
 				SetupCmd("VERN", ("ON", "OFF"), "OFF"),
 			)),
 			SetupCmd("MEAS", subcmds_=(
