@@ -196,14 +196,8 @@ class OsciDS1102ETest(TestCase):
 	
 	@skipIf(usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None, "No oscilloscope found")
 	def test_set_up_instrument(self):
-		res_man = pyvisa.ResourceManager()
-		dev_str = OsciDS1102E.find_instrument(res_man)
-		osci = res_man.open_resource(dev_str)
-		
-		OsciDS1102E.set_up_instrument(osci, None)
-		
-		osci.close()
-		res_man.close()
+		with self.get_osci() as osci:
+			OsciDS1102E.set_up_instrument(osci, None)
 	
 	def test_create_setup(self):
 		dut = OsciDS1102E.create_setup()
