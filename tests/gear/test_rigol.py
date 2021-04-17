@@ -196,8 +196,29 @@ class OsciDS1102ETest(TestCase):
 	
 	@skipIf(usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None, "No oscilloscope found")
 	def test_set_up_instrument(self):
+		setup = OsciDS1102E.create_setup()
+		setup.CHAN1.DISP.value_ = "ON"
+		setup.CHAN1.PROB.value_ = 10
+		setup.CHAN1.SCAL.value_ = 1
+		setup.CHAN1.OFFS.value_ = 0
+		setup.CHAN2.DISP.value_ = "OFF"
+		
+		setup.ACQ.MEMD.value_ = "LONG"
+		setup.ACQ.TYPE.value_ = "NORM"
+		setup.ACQ.MODE.value_ = "RTIM"
+		
+		setup.TIM.SCAL.value_ = 0.5
+		setup.TIM.SCAL.value_ = 2
+		
+		setup.TRIG.MODE.value_ = "EDGE"
+		setup.TRIG.EDGE.SOUR.value_ = "CHAN2"
+		setup.TRIG.EDGE.SLOP.value_ = "POS"
+		setup.TRIG.EDGE.SWE.value_ = "SING"
+		setup.TRIG.EDGE.COUP.value_ = "DC"
+		setup.TRIG.EDGE.LEV.value_ = 1
+		
 		with self.get_osci() as osci:
-			OsciDS1102E.set_up_instrument(osci, None)
+			OsciDS1102E.apply(osci, setup)
 	
 	def test_create_setup(self):
 		dut = OsciDS1102E.create_setup()

@@ -351,37 +351,3 @@ class OsciDS1102E(Meter):
 			)),
 		))
 	
-	@staticmethod
-	def set_up_instrument(osci: pyvisa.Resource, setup: "SetupDS1102E") -> None:
-		osci.write(":CHAN1:DISP ON")
-		osci.write(":CHAN2:DISP OFF")
-		
-		# set trigger
-		# trigger mode: edge
-		osci.write(":TRIG:MODE EDGE")
-		# CHAN2 can still be trigger source even if it's off
-		osci.write(":TRIG:EDGE:SOUR CHAN2")
-		# slope raising
-		osci.write(":TRIG:EDGE:SLOP POS")
-		# sweep single
-		osci.write(":TRIG:EDGE:SWE SINGLE")
-		# coupling dc
-		osci.write(":TRIG:EDGE:COUP DC")
-		# trigger level 1 V
-		osci.write(":TRIG:EDGE:LEV 1")
-		
-		# probe 1 or 10
-		# koax -> 1; x10 probe -> 10 (higher bandwith)
-		osci.write(":CHAN1:PROB 10")
-		
-		# set timebase
-		osci.write(":TIM:SCAL 0.5")
-		# trigger offset
-		osci.write(":TIM:OFFS 2.5")
-		
-		# get scales
-		offset = osci.query(":CHAN1:OFFS?")
-		scale = osci.query(":CHAN1:SCAL?")
-		osci.write(":ACQ:MEMD LONG")
-		osci.write(":ACQ:TYPE NORM")
-		osci.write(":ACQ:MODE REAL_TIME")
