@@ -1,4 +1,5 @@
 import re
+import time
 
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -83,12 +84,14 @@ class MultiIntCheck:
 		return res is not None
 
 class OsciDS1102E(Meter):
-	def __init__(self, serial_number: Optional[str]=None):
+	def __init__(self, setup: SetupCmd, serial_number: Optional[str]=None) -> None:
+		self._setup = setup
 		self._serial_number = serial_number
 		self._is_open = False
 		self._res_man = None
 		self._dev_str = None
 		self._osci = None
+		self._delay = 0.01
 	
 	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
@@ -101,7 +104,7 @@ class OsciDS1102E(Meter):
 		self._res_man = pyvisa.ResourceManager()
 		self._dev_str = self.find_instrument(self._res_man, self._serial_number)
 		self._osci = self._res_man.open_resource(self._dev_str)
-		
+		#self._osci.timeout = None
 		self._is_open = True
 	
 	def close(self):
@@ -124,10 +127,32 @@ class OsciDS1102E(Meter):
 		self.close()
 	
 	def prepare(self, request: RequestObject) -> None:
-		raise NotImplementedError()
+		self.open()
+		
+		self.apply(self._osci, self._setup, self._delay)
+		
+		#self.read_and_print(self._osci, self._setup)
+		self._osci.write(":RUN")
+		while self._osci.query(":TRIG:STAT?") != "WAIT":
+			time.sleep(self._delay)
 	
 	def measure(self, request: RequestObject) -> OutputData:
-		raise NotImplementedError()
+		while self._osci.query(":TRIG:STAT?") != "STOP":
+			time.sleep(self._delay)
+		
+		self._osci.write(":WAV:DATA? CHAN1")
+		bef = time.perf_counter()
+		raw_data = self._osci.read_raw()
+		aft = time.perf_counter()
+		print(f"{len(raw_data)} bytes in {aft-bef} s, {len(raw_data)/(aft-bef)} b/s")
+		assert raw_data[:2] == bytes("#8", "utf8"), f"not #8, but {data[:2]}"
+		length = int(raw_data[2:10])
+		
+		scale = self._setup.CHAN1.OFFS.value_
+		offset = self._setup.CHAN1.SCAL.value_
+		
+		data = [(128-r)*scale/25.6-offset for r in raw_data[10:]]
+		return OutputData(data)
 	
 	@staticmethod
 	def find_instrument(res_man: pyvisa.ResourceManager, serial_number: Optional[str]=None) -> str:
@@ -145,7 +170,7 @@ class OsciDS1102E(Meter):
 		return dev_str
 	
 	@classmethod
-	def apply(cls, osci: pyvisa.Resource, setup: SetupCmd) -> None:
+	def apply(cls, osci: pyvisa.Resource, setup: SetupCmd, delay: float=0.01) -> None:
 		"""Apply values of the setup while respecting the connection between different values.
 		
 		One example for a connection between different values: if TRIG:MODE is EDGE, then only subcommands of TRIG:EDGE
@@ -157,11 +182,25 @@ class OsciDS1102E(Meter):
 		if setup.values_ is not None:
 			if setup.value_ not in setup.values_:
 				raise ValueError(f"'{setup.value_}' invalid for {setup.name_}")
-			
+			#print(setup.cmd_(write=True))
 			osci.write(setup.cmd_(write=True))
+			time.sleep(delay)
 		
 		for subcmd in setup.subcmds_:
 			cls.apply(osci, subcmd)
+	
+	@classmethod
+	def read_and_print(cls, osci: pyvisa.Resource, setup: SetupCmd, relevant: bool=True) -> None:
+		if relevant and not setup.condition_(setup):
+			return
+		
+		if setup.values_ is not None:
+			query = setup.cmd_(write=False)
+			res = osci.query(query)
+			print(f"{query} -> {res}")
+		
+		for subcmd in setup.subcmds_:
+			cls.read_and_print(osci, subcmd)
 	
 	@staticmethod
 	def create_setup() -> SetupCmd:
