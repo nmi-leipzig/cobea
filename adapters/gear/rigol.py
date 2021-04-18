@@ -187,7 +187,7 @@ class OsciDS1102E(Meter):
 			time.sleep(delay)
 		
 		for subcmd in setup.subcmds_:
-			cls.apply(osci, subcmd)
+			cls.apply(osci, subcmd, delay)
 	
 	@classmethod
 	def read_and_print(cls, osci: pyvisa.Resource, setup: SetupCmd, relevant: bool=True) -> None:
