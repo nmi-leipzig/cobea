@@ -3,6 +3,7 @@ import os
 from typing import List, Tuple
 
 from adapters.embed_driver import EmbedDriver
+from adapters.gear.rigol import OsciDS1102E
 from adapters.icecraft import IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen, IcecraftManager,\
 IcecraftRawConfig
 from domain.interfaces import TargetDevice, InputData
@@ -33,6 +34,33 @@ def prepare_generator(gen: TargetDevice, asc_path: str) -> None:
 	config = IcecraftRawConfig.create_from_file(asc_path)
 	gen.configure(config)
 
+def create_meter_setup():
+	setup = OsciDS1102E.create_setup()
+	setup.CHAN1.DISP.value_ = "ON"
+	setup.CHAN1.PROB.value_ = 10
+	setup.CHAN1.SCAL.value_ = 1
+	setup.CHAN1.OFFS.value_ = 0
+	
+	setup.CHAN2.DISP.value_ = "OFF"
+	setup.CHAN2.PROB.value_ = 1
+	setup.CHAN2.SCAL.value_ = 1
+
+	setup.ACQ.MEMD.value_ = "LONG"
+	setup.ACQ.TYPE.value_ = "NORM"
+	setup.ACQ.MODE.value_ = "RTIM"
+	
+	setup.TIM.SCAL.value_ = 0.5
+	setup.TIM.OFFS.value_ = 2
+	
+	setup.TRIG.MODE.value_ = "EDGE"
+	setup.TRIG.EDGE.SOUR.value_ = "CHAN2"
+	setup.TRIG.EDGE.SLOP.value_ = "POS"
+	setup.TRIG.EDGE.SWE.value_ = "SING"
+	setup.TRIG.EDGE.COUP.value_ = "DC"
+	setup.TRIG.EDGE.LEV.value_ = 1
+	
+	return setup
+
 # measure
 
 # 
@@ -51,13 +79,25 @@ def run(args) -> None:
 	hab_config = IcecraftRawConfig.create_from_file(hab_path)
 	target.configure(hab_config)
 	
+	meter_setup = create_meter_setup()
+	meter = OsciDS1102E(meter_setup)
+	
 	driver = EmbedDriver()
 	driver_req = RequestObject(
 		driver_data = InputData([0]),
 		driver_format = "B",
 		driver_dev = gen,
 	)
+	meter.open()
+	meter.prepare(RequestObject())
 	driver.drive(driver_req)
+	
+	data = meter.measure(RequestObject())
+	print(len(data))
+	
+	driver.clean_up(driver_req)
+	
+	meter.close()
 	
 	man.release(gen)
 
