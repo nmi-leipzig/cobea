@@ -1,4 +1,4 @@
-from domain.interface import UniqueID
+from domain.interfaces import UniqueID
 
 class SimpleUID(UniqueID):
 	def __init__(self):
