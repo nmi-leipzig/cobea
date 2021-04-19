@@ -1,15 +1,15 @@
 import numpy as np
 from scipy.stats import stats
 
-from domain.interfaces import FitnessFunction, FitnessFunctionLibrary
+from domain.interfaces import CorrelationFunction, CorrelationFunctionLibrary
 from domain.model import InputData, OutputData
 
-class SciPyFunctions(FitnessFunctionLibrary):
+class SciPyFunctions(CorrelationFunctionLibrary):
 	
 	def __init__(self):
 		pass
 	
-	def get_fitness_function(self, identifier: str) -> FitnessFunction:
+	def get_correlation_function(self, identifier: str) -> CorrelationFunction:
 		return getattr(self, identifier)
 	
 	@staticmethod

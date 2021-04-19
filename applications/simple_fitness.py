@@ -39,8 +39,8 @@ def main():
 	ice_meter = IcecraftEmbedMeter()
 	
 	measure_case = Measure(driver, ice_meter)
-	fit_func_fac = SciPyFunctions()
-	fit_func = fit_func_fac.get_fitness_function("pearsons_correlation")#(RequestObject(identifier=, description="pc"))
+	cor_func_fac = SciPyFunctions()
+	fit_func = cor_func_fac.get_correlation_function("pearsons_correlation")#(RequestObject(identifier=, description="pc"))
 	
 	in_data = InputData([random.randint(0, 255) for _ in range(512)])
 	

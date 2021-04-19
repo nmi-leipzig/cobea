@@ -18,9 +18,9 @@ class SciPyFunctionsTest(unittest.TestCase):
 	def test_creation(self):
 		spf = SciPyFunctions()
 	
-	def test_get_fitness_function(self):
+	def test_get_correlation_function(self):
 		spf = SciPyFunctions()
-		res = spf.get_fitness_function("pearsons_correlation")
+		res = spf.get_correlation_function("pearsons_correlation")
 		
 		self.assertEqual(SciPyFunctions.pearsons_correlation, res)
 	
@@ -31,7 +31,7 @@ class SciPyFunctionsTest(unittest.TestCase):
 		#	description = "Pearson Correlation by SciPy"
 		#))
 		spf = SciPyFunctions()
-		fitness_function = spf.get_fitness_function("pearsons_correlation")
+		fitness_function = spf.get_correlation_function("pearsons_correlation")
 		
 		test_in = model.InputData((10, 45, 23, 53))
 		test_out = model.OutputData((2, 1, 7, 3))

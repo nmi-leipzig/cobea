@@ -3,7 +3,7 @@ from functools import reduce
 from typing import Any, Dict, Mapping, Iterable
 
 from domain.model import OutputData, Chromosome
-from domain.interfaces import FitnessFunctionLibrary, Preprocessing, PreprocessingLibrary, EvoAlgo, DataSink, PRNG,\
+from domain.interfaces import Preprocessing, PreprocessingLibrary, EvoAlgo, DataSink, PRNG,\
 TargetManager, Meter, RepresentationGenerator, Representation, PosTrans, PosTransLibrary, TargetConfiguration,\
 UniqueID, Driver
 from domain.request_model import RequestObject, ParameterUser, Parameter

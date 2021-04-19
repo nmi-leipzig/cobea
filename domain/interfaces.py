@@ -67,13 +67,13 @@ class TargetManager(ABC):
 		raise NotImplementedError()
 
 # interface to compute a fitness function
-FitnessFunction = Callable[[InputData, OutputData], float]
+CorrelationFunction = Callable[[InputData, OutputData], float]
 
-class FitnessFunctionLibrary(ABC):
-	"""Interface for a library of fitness function implementations"""
+class CorrelationFunctionLibrary(ABC):
+	"""Interface for a library of correlation function implementations"""
 	
 	@abstractmethod
-	def get_fitness_function(self, identifier: str) -> FitnessFunction:
+	def get_correlation_function(self, identifier: str) -> CorrelationFunction:
 		raise NotImplementedError()
 
 # interface to prepare data for fitness function
