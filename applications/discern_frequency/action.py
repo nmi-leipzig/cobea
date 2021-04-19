@@ -8,7 +8,7 @@ from adapters.icecraft import IcecraftPosition, IcecraftPosTransLibrary, Icecraf
 IcecraftRawConfig
 from domain.interfaces import TargetDevice, InputData
 from domain.request_model import RequestObject
-#from domain.use_cases import 
+from domain.use_cases import Measure
 
 # generate tiles
 def tiles_from_corners(min_pos: Tuple[int, int], max_pos: Tuple[int, int]) -> List[IcecraftPosition]:
@@ -81,23 +81,16 @@ def run(args) -> None:
 	
 	meter_setup = create_meter_setup()
 	meter = OsciDS1102E(meter_setup)
-	
 	driver = EmbedDriver()
+	measure_uc = Measure(driver, meter)
+	
 	driver_req = RequestObject(
 		driver_data = InputData([0]),
 		driver_format = "B",
 		driver_dev = gen,
 	)
-	meter.open()
-	meter.prepare(RequestObject())
-	driver.drive(driver_req)
-	
-	data = meter.measure(RequestObject())
+	data = measure_uc(driver_req)
 	print(len(data))
-	
-	driver.clean_up(driver_req)
-	
-	meter.close()
 	
 	man.release(gen)
 
