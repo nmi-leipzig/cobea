@@ -1,3 +1,5 @@
+import random
+
 from deap import tools
 from deap import creator
 from deap import base
@@ -11,10 +13,18 @@ class SimpleEA(EvoAlgo):
 		pass
 	
 	def run(self) -> None:
+		# create toolbox
+		toolbox = self.create_toolbox()
+		# create population
+		pop = toolbox.init_pop(n=10)
+		# run
+		algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.1, ngen=5)
 		
 	
 	@staticmethod
-	def create_toolbox():
+	def create_toolbox() -> base.Toolbox:
+		creator.create("TestFit", base.Fitness, weights=(1.0,))
+		creator.create("Chromo", list, fitness=creator.TestFit)
 		
 		toolbox = base.Toolbox()
 		
@@ -25,5 +35,6 @@ class SimpleEA(EvoAlgo):
 		toolbox.register("mate", tools.cxTwoPoint)
 		toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
 		toolbox.register("select", tools.selTournament, tournsize=3)
+		toolbox.register("evaluate", lambda i: (sum(i), ))
 		
 		return toolbox
