@@ -7,7 +7,10 @@ from adapters.deap.simple_ea import SimpleEA
 from adapters.gear.rigol import OsciDS1102E
 from adapters.icecraft import IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen, IcecraftManager,\
 IcecraftRawConfig
+from adapters.prng import BuiltInPRNG
+from adapters.unique_id import SimpleUID
 from domain.interfaces import TargetDevice, InputData
+from domain.model import AlleleAll, Gene
 from domain.request_model import RequestObject
 from domain.use_cases import Measure
 
@@ -85,7 +88,10 @@ def run(args) -> None:
 	driver = FixedEmbedDriver(gen, "B")
 	measure_uc = Measure(driver, meter)
 	
-	ea = SimpleEA(measure_uc)
+	from tests.mocks import MockRepresentation
+	rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
+	
+	ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG())
 	
 	driver_req = RequestObject(
 		driver_data = InputData([0]),
