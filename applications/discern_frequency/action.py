@@ -2,7 +2,8 @@ import os
 
 from typing import List, Tuple
 
-from adapters.embed_driver import EmbedDriver
+from adapters.embed_driver import FixedEmbedDriver
+from adapters.deap.simple_ea import SimpleEA
 from adapters.gear.rigol import OsciDS1102E
 from adapters.icecraft import IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen, IcecraftManager,\
 IcecraftRawConfig
@@ -81,16 +82,17 @@ def run(args) -> None:
 	
 	meter_setup = create_meter_setup()
 	meter = OsciDS1102E(meter_setup)
-	driver = EmbedDriver()
+	driver = FixedEmbedDriver(gen, "B")
 	measure_uc = Measure(driver, meter)
+	
+	ea = SimpleEA(measure_uc)
 	
 	driver_req = RequestObject(
 		driver_data = InputData([0]),
-		driver_format = "B",
-		driver_dev = gen,
 	)
-	data = measure_uc(driver_req)
-	print(len(data))
+	#data = measure_uc(driver_req)
+	#print(len(data))
+	ea.run()
 	
 	man.release(gen)
 
