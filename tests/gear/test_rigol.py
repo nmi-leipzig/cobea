@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from typing import List, NamedTuple
 from unittest import TestCase, skipIf
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pyvisa
 
@@ -114,7 +114,9 @@ class MultiIntCheckTest(TestCase):
 
 class OsciDS1102ETest(TestCase):
 	def test_creation(self):
-		dut = OsciDS1102E()
+		setup = OsciDS1102E.create_setup()
+		with patch("pyvisa.ResourceManager"):
+			dut = OsciDS1102E(setup)
 	
 	def check_dev_str(self, dev_str):
 		"""check device string and return serial number"""
