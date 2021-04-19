@@ -41,6 +41,33 @@ class Measure(UseCase):
 		
 		return output_data
 
+class MeasureFitness(UseCase):
+	def __init__(self, rep: Representation, measure_uc: Measure, fit_func: FitnessFunction) -> None:
+		self._rep = rep
+		self._measure_uc = measure_uc
+		self._fit_func = fit_func
+		
+		sub_params = [
+			[
+				Parameter("configuration", TargetConfiguration),
+				Parameter("chromosome", Chromosome),
+			],
+			measure_uc.parameters["__call__"], fit_func.parameters["compute"],
+		]
+		perf_params = reduce(self.meld_parameters, sub_params)
+		for provided in ["output_data"]:
+			try:
+				del perf_params[provided]
+			except KeyError:
+				# not needed
+				pass
+		self._parameters = {"perform": perf_params}
+	
+	def perform(self, request: RequestObject) -> float:
+		request["configuration"] = self._rep.decode(request.configuration, request.chromosome)
+		request["output_data"] = self._measure_uc(request)
+		return self._fit_func.compute(request)
+
 class RunEvoAlgo(UseCase):
 	def __init__(self, evo_algo: EvoAlgo, data_sink: DataSink) -> None:
 		self._evo_algo = evo_algo

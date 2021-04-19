@@ -66,6 +66,11 @@ class TargetManager(ABC):
 	def release(self, target: TargetDevice) -> None:
 		raise NotImplementedError()
 
+class FitnessFunction(ParameterUser):
+	@abstractmethod
+	def compute(self, request: RequestObject) -> float:
+		raise NotImplementedError()
+
 # interface to compute a fitness function
 CorrelationFunction = Callable[[InputData, OutputData], float]
 
