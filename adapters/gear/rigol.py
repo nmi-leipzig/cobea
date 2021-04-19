@@ -92,6 +92,9 @@ class OsciDS1102E(Meter):
 		self._dev_str = None
 		self._osci = None
 		self._delay = 0.01
+		
+		self.open()
+		self.apply(self._osci, self._setup, self._delay)
 	
 	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
@@ -127,9 +130,7 @@ class OsciDS1102E(Meter):
 		self.close()
 	
 	def prepare(self, request: RequestObject) -> None:
-		self.open()
-		
-		self.apply(self._osci, self._setup, self._delay)
+		#self.open()
 		
 		#self.read_and_print(self._osci, self._setup)
 		self._osci.write(":RUN")
