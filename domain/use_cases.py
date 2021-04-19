@@ -5,7 +5,7 @@ from typing import Any, Dict, Mapping, Iterable
 from domain.model import OutputData, Chromosome
 from domain.interfaces import Preprocessing, PreprocessingLibrary, EvoAlgo, DataSink, PRNG,\
 TargetManager, Meter, RepresentationGenerator, Representation, PosTrans, PosTransLibrary, TargetConfiguration,\
-UniqueID, Driver
+UniqueID, Driver, FitnessFunction
 from domain.request_model import RequestObject, ParameterUser, Parameter
 
 class UseCase(ParameterUser):
