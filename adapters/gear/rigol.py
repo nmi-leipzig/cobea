@@ -149,8 +149,8 @@ class OsciDS1102E(Meter):
 		assert raw_data[:2] == bytes("#8", "utf8"), f"not #8, but {data[:2]}"
 		length = int(raw_data[2:10])
 		
-		scale = self._setup.CHAN1.OFFS.value_
-		offset = self._setup.CHAN1.SCAL.value_
+		scale = self._setup.CHAN1.SCAL.value_
+		offset = self._setup.CHAN1.OFFS.value_
 		
 		data = [(128-r)*scale/25.6-offset for r in raw_data[10:]]
 		return OutputData(data)
