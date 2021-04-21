@@ -107,7 +107,7 @@ class OsciDS1102E(Meter):
 		self._res_man = pyvisa.ResourceManager()
 		self._dev_str = self.find_instrument(self._res_man, self._serial_number)
 		self._osci = self._res_man.open_resource(self._dev_str)
-		#self._osci.timeout = None
+		self._osci.timeout = 30000
 		self._is_open = True
 	
 	def close(self):
@@ -148,6 +148,7 @@ class OsciDS1102E(Meter):
 		print(f"{len(raw_data)} bytes in {aft-bef} s, {len(raw_data)/(aft-bef)} b/s")
 		assert raw_data[:2] == bytes("#8", "utf8"), f"not #8, but {data[:2]}"
 		length = int(raw_data[2:10])
+		print(f"expected {length}")
 		
 		scale = self._setup.CHAN1.SCAL.value_
 		offset = self._setup.CHAN1.OFFS.value_
