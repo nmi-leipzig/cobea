@@ -8,7 +8,7 @@ from deap import creator
 from deap import base
 from deap import algorithms
 
-from domain.interfaces import EvoAlgo, InputData, PRNG, Representation, UniqueID
+from domain.interfaces import EvoAlgo, InputData, PRNG, Representation, TargetConfiguration, TargetDevice, UniqueID
 from domain.model import Chromosome
 from domain.request_model import RequestObject
 from domain.use_cases import GenChromo, Measure, RandomChromo
@@ -42,11 +42,14 @@ class Individual:
 		return wrapped_func
 
 class SimpleEA(EvoAlgo):
-	def __init__(self, rep: Representation, measure_uc: Measure, uid_gen: UniqueID, prng: PRNG) -> None:
+	def __init__(self, rep: Representation, measure_uc: Measure, uid_gen: UniqueID, prng: PRNG, habitat: TargetConfiguration, target: TargetDevice) -> None:
 		self._rep = rep
 		self._measure_uc = measure_uc
 		self._init_uc = RandomChromo(prng, rep, uid_gen)
 		self._chromo_gen = GenChromo(uid_gen)
+		rep.prepare_config(habitat)
+		self._habitat = habitat
+		self._target = target
 	
 	def run(self) -> None:
 		# create toolbox
@@ -54,18 +57,22 @@ class SimpleEA(EvoAlgo):
 		# create population
 		pop = self._init_pop(10)
 		# run
-		algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.1, ngen=5)
+		algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.1, ngen=50)
 		
 	
 	def _init_pop(self, count) -> List[Individual]:
 		return [Individual(self._init_uc(RequestObject())) for _ in range(count)]
 	
-	def _evaluate(self, i) -> Tuple[int]:
-		driver_req = RequestObject(
+	def _evaluate(self, indi: Individual) -> Tuple[int]:
+		eval_req = RequestObject(
 			driver_data = InputData([0]),
 		)
-		data = self._measure_uc(driver_req)
-		return (sum(i)+sum(data), )
+		
+		self._rep.decode(self._habitat, indi.chromo)
+		self._target.configure(self._habitat)
+		data = self._measure_uc(eval_req)
+		
+		return (sum(indi)+sum(data), )
 	
 	def create_toolbox(self) -> base.Toolbox:
 		#creator.create("TestFit", base.Fitness, weights=(1.0,))
