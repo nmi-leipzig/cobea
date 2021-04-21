@@ -1,5 +1,5 @@
 import os
-from typing import Union
+from typing import List, Union
 
 from .ice_board import FPGABoard, FPGAManager
 
@@ -72,8 +72,12 @@ class IcecraftManager(TargetManager):
 		target.close()
 	
 	@staticmethod
-	def device_present() -> bool:
-		return len(FPGABoard.get_suitable_serial_numbers()) < 1
+	def get_present_serial_numbers() -> List[str]:
+		return FPGABoard.get_suitable_serial_numbers()
+	
+	@classmethod
+	def device_present(cls) -> bool:
+		return len(cls.get_present_serial_numbers) < 1
 
 class MultiIcecraftManager(TargetManager):
 	"""management of ice devices in multiprocessing environments"""
