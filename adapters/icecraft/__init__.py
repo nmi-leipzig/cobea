@@ -6,4 +6,4 @@ from .target import IcecraftDevice, HX8K_BOARD, IcecraftManager, MultiIcecraftMa
 from .meter import IcecraftEmbedMeter
 from .position_transformation import IcecraftPosTransLibrary
 from .representation import IcecraftRep, IcecraftRepGen
-from .xc6200 import XC6200RepGen
+from .xc6200 import XC6200Direction, XC6200Port, XC6200RepGen
