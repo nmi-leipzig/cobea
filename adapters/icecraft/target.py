@@ -85,7 +85,7 @@ class IcecraftManager(TargetManager):
 	
 	@classmethod
 	def device_present(cls) -> bool:
-		return len(cls.get_present_serial_numbers) < 1
+		return len(cls.get_present_serial_numbers()) < 1
 
 class MultiIcecraftManager(TargetManager):
 	"""management of ice devices in multiprocessing environments"""
