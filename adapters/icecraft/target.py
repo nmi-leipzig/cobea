@@ -24,6 +24,12 @@ class IcecraftDevice(TargetDevice):
 	def close(self) -> None:
 		self._device.close()
 	
+	def flush(self) -> None:
+		self._device.flush()
+	
+	def reset(self) -> None:
+		self._device.reset_buffer(True, True)
+	
 	def configure(self, configuration: TargetConfiguration) -> None:
 		# just use the configuration as if it was for the correct device
 		
@@ -64,8 +70,10 @@ class IcecraftManager(TargetManager):
 			device = FPGABoard(serial_number)
 		
 		self._in_use.add(serial_number)
+		icd = IcecraftDevice(device)
+		icd.reset()
 		
-		return IcecraftDevice(device)
+		return icd
 	
 	def release(self, target: TargetDevice) -> None:
 		self._in_use.remove(target.serial_number)
