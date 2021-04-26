@@ -83,6 +83,9 @@ class MultiIntCheck:
 		res = re.match("".join([r"-?\d,"]*(self._count-1)+[r"-?\d$"]), str(item))
 		return res is not None
 
+class InvalidMsgError(Exception):
+	pass
+
 class OsciDS1102E(Meter):
 	def __init__(self, setup: SetupCmd, serial_number: Optional[str]=None) -> None:
 		self._setup = setup
@@ -95,6 +98,7 @@ class OsciDS1102E(Meter):
 		
 		self.open()
 		self.apply(self._osci, self._setup, self._delay)
+		
 	
 	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
@@ -107,7 +111,13 @@ class OsciDS1102E(Meter):
 		self._res_man = pyvisa.ResourceManager()
 		self._dev_str = self.find_instrument(self._res_man, self._serial_number)
 		self._osci = self._res_man.open_resource(self._dev_str)
+		
+		# if a raw data block is transfered in multiple chunks, the last 10 bytes of the first chunk are missing
+		# -> use chunk size that fits largest block 1024*1024+10
+		self._osci.chunk_size = 2*1024*1024
+		# large chunks can take a long time -> increase timeout
 		self._osci.timeout = 30000
+		
 		self._is_open = True
 	
 	def close(self):
@@ -141,20 +151,38 @@ class OsciDS1102E(Meter):
 		while self._osci.query(":TRIG:STAT?") != "STOP":
 			time.sleep(self._delay)
 		
-		self._osci.write(":WAV:DATA? CHAN1")
-		bef = time.perf_counter()
-		raw_data = self._osci.read_raw()
-		aft = time.perf_counter()
-		print(f"{len(raw_data)} bytes in {aft-bef} s, {len(raw_data)/(aft-bef)} b/s")
-		assert raw_data[:2] == bytes("#8", "utf8"), f"not #8, but {data[:2]}"
-		length = int(raw_data[2:10])
-		print(f"expected {length}")
+		raw_data = self._read_data(1)
 		
 		scale = self._setup.CHAN1.SCAL.value_
 		offset = self._setup.CHAN1.OFFS.value_
 		
-		data = [(128-r)*scale/25.6-offset for r in raw_data[10:]]
+		data = [(128-r)*scale/25.6-offset for r in raw_data]
 		return OutputData(data)
+	
+	def _read_data(self, chan: int) -> List[int]:
+		self._osci.write(f":WAV:DATA? CHAN{chan}")
+		
+		bef = time.perf_counter()
+		block = self._osci.read_raw()
+		aft = time.perf_counter()
+		
+		# decode header
+		if block[0:1] != b"#":
+			print(len(block), block[:40])
+			raise InvalidMsgError(f"starts not with #, but {data[:1]}")
+		len_len = int(block[1:2])
+		length = int(block[2:2+len_len])
+		
+		raw_data = block[2+len_len:]
+		
+		print(f"{len(raw_data)+10} bytes in {aft-bef} s, {(len(raw_data)+10)/(aft-bef)} b/s")
+		#assert raw_data[:2] == bytes("#8", "utf8"), f"not #8, but {data[:2]}"
+		#length = int(raw_data[2:10])
+		print(f"expected {length} bytes of data and 10 header bytes")
+		if len(raw_data) != length:
+			raise InvalidMsgError(f"Expected {length} bytes, but got {len(raw_data)}")
+		
+		return raw_data
 	
 	@staticmethod
 	def find_instrument(res_man: pyvisa.ResourceManager, serial_number: Optional[str]=None) -> str:
