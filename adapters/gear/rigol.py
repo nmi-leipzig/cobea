@@ -146,6 +146,10 @@ class OsciDS1102E(Meter):
 		self._osci.write(":RUN")
 		while self._osci.query(":TRIG:STAT?") != "WAIT":
 			time.sleep(self._delay)
+		
+		# for small time scales (20 ms or less) the trigger might come too fast -> wait a bit (0.03 s seem to work)
+		if self._setup.TIM.SCAL.value_ <= 0.02:
+			time.sleep(0.03)
 	
 	def measure(self, request: RequestObject) -> OutputData:
 		while self._osci.query(":TRIG:STAT?") != "STOP":
