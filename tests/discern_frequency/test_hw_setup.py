@@ -101,32 +101,32 @@ class HWSetupTest(TestCase):
 		
 		man = IcecraftManager()
 		
+		too_short = 0
 		gen = man.acquire(driver_sn)
 		target = man.acquire(target_sn)
+		try:
+			self.flash_device(gen, "freq_gen.asc")
+			self.flash_device(target, "dummy_hab.asc")
+			
+			meter_setup = self.create_meter_setup()
+			meter = OsciDS1102E(meter_setup)
+			
+			driver = FixedEmbedDriver(gen, "B")
 		
-		self.flash_device(gen, "freq_gen.asc")
-		self.flash_device(target, "dummy_hab.asc")
-		
-		meter_setup = self.create_meter_setup()
-		meter = OsciDS1102E(meter_setup)
-		
-		driver = FixedEmbedDriver(gen, "B")
-	
-		measure_uc = Measure(driver, meter)
-		
-		req = RequestObject(
-			driver_data = InputData([0]),
-		)
-		
-		too_short = 0
-		for _ in range(10):
-			data = measure_uc(req)
-			if len(data) != 524288:
-				print(f"only got {len(data)} bytes")
-				too_short += 1
-		
-		man.release(target)
-		man.release(gen)
+			measure_uc = Measure(driver, meter)
+			
+			req = RequestObject(
+				driver_data = InputData([0]),
+			)
+			
+			for _ in range(10):
+				data = measure_uc(req)
+				if len(data) != 524288:
+					print(f"only got {len(data)} bytes")
+					too_short += 1
+		finally:
+			man.release(target)
+			man.release(gen)
 		
 		self.assertEqual(0, too_short)
 	
@@ -135,13 +135,13 @@ class HWSetupTest(TestCase):
 		#print("start")
 		man = IcecraftManager()
 		gen = man.acquire(driver_sn)
-		
-		# send command that should be invalid
-		#print("start write")
-		gen.write_bytes(b"\xff\xff"*1000000)
-		#print("end write")
-		
-		man.release(gen)
+		try:
+			# send command that should be invalid
+			#print("start write")
+			gen.write_bytes(b"\xff\xff"*1000000)
+			#print("end write")
+		finally:
+			man.release(gen)
 		#print("end")
 	
 	def test_blocked_buffer(self):
@@ -166,18 +166,18 @@ class HWSetupTest(TestCase):
 			man = IcecraftManager()
 			
 			gen = man.acquire(driver_sn)
-			
-			# flash trigger
-			self.flash_device(gen, "freq_gen.asc")
-			#time.sleep(7)
-			
-			driver = FixedEmbedDriver(gen, "B")
-			print("start measure")
-			measure_uc = Measure(driver, meter)
-			
-			req = RequestObject(
-				driver_data = InputData([0]),
-			)
-			data = measure_uc(req)
-			
-			man.release(gen)
+			try:
+				# flash trigger
+				self.flash_device(gen, "freq_gen.asc")
+				#time.sleep(7)
+				
+				driver = FixedEmbedDriver(gen, "B")
+				print("start measure")
+				measure_uc = Measure(driver, meter)
+				
+				req = RequestObject(
+					driver_data = InputData([0]),
+				)
+				data = measure_uc(req)
+			finally:
+				man.release(gen)
