@@ -1,4 +1,6 @@
+import multiprocessing
 import os
+import time
 
 from unittest import TestCase
 
@@ -54,10 +56,12 @@ class HWSetupTest(TestCase):
 		
 		setup.TRIG.MODE.value_ = "EDGE"
 		setup.TRIG.EDGE.SOUR.value_ = "CHAN2"
-		setup.TRIG.EDGE.SLOP.value_ = "POS"
+		setup.TRIG.EDGE.SLOP.value_ = "POS"#"NEG"#
 		setup.TRIG.EDGE.SWE.value_ = "SING"
 		setup.TRIG.EDGE.COUP.value_ = "DC"
-		setup.TRIG.EDGE.LEV.value_ = 1
+		setup.TRIG.EDGE.LEV.value_ = 1.5
+		
+		#setup.WAV.POIN.MODE.value_ = "NOR"
 		
 		return setup
 	
@@ -113,9 +117,67 @@ class HWSetupTest(TestCase):
 		req = RequestObject(
 			driver_data = InputData([0]),
 		)
-		for _ in range(5):
-			data = measure_uc(req)
-			print(len(data))
 		
+		too_short = 0
+		for _ in range(10):
+			data = measure_uc(req)
+			if len(data) != 524288:
+				print(f"only got {len(data)} bytes")
+				too_short += 1
+		
+		man.release(target)
 		man.release(gen)
 		
+		self.assertEqual(0, too_short)
+	
+	@staticmethod
+	def create_and_write(driver_sn):
+		#print("start")
+		man = IcecraftManager()
+		gen = man.acquire(driver_sn)
+		
+		# send command that should be invalid
+		#print("start write")
+		gen.write_bytes(b"\xff\xff"*1000000)
+		#print("end write")
+		
+		man.release(gen)
+		#print("end")
+	
+	def test_blocked_buffer(self):
+		try:
+			driver_sn, target_sn, meter_sn = self.detect_setup()
+		except DetectSetupError:
+			self.skipTest("Couldn't detect hardware setup.")
+		
+		meter_setup = self.create_meter_setup()
+		meter_setup.TIM.SCAL.value_ = 0.05
+		meter_setup.TIM.OFFS.value_ = 3*meter_setup.TIM.SCAL.value_
+		
+		meter = OsciDS1102E(meter_setup)
+		
+		multiprocessing.set_start_method("spawn")
+		for i in range(3):
+			p = multiprocessing.Process(target=self.create_and_write, args=(driver_sn, ))
+			p.start()
+			time.sleep(3)
+			p.terminate()
+			
+			man = IcecraftManager()
+			
+			gen = man.acquire(driver_sn)
+			
+			# flash trigger
+			self.flash_device(gen, "freq_gen.asc")
+			#time.sleep(7)
+			
+			driver = FixedEmbedDriver(gen, "B")
+			print("start measure")
+			measure_uc = Measure(driver, meter)
+			
+			req = RequestObject(
+				driver_data = InputData([0]),
+			)
+			data = measure_uc(req)
+			
+			man.release(gen)
