@@ -122,7 +122,10 @@ class HWSetupTest(TestCase):
 			)
 			
 			for _ in range(10):
+				bef = time.perf_counter()
 				data = measure_uc(req)
+				aft = time.perf_counter()
+				print(f"whole measurement took {aft-bef} s")
 				if len(data) != 524288:
 					print(f"only got {len(data)} bytes")
 					too_short += 1
