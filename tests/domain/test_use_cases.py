@@ -7,6 +7,7 @@ import unittest.mock as mock
 
 from adapters.dummies import DummyDriver
 from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
+from domain.interfaces import MeasureTimeout
 from domain.model import InputData, OutputData, Gene
 from domain.use_cases import Measure, GenChromo, RandomChromo
 from domain.request_model import RequestObject
@@ -32,6 +33,25 @@ class MeasureTest(unittest.TestCase):
 		
 		self.assertEqual(exp_prep, mock_meter.prep_count)
 		self.assertEqual(output_data, res_data)
+	
+	def test_retry(self):
+		output_data = OutputData([12, 13, 14])
+		
+		def run_measure(retry, fail_count):
+			mock_meter = MockMeter(output_data, fail_count=fail_count)
+			driver = DummyDriver()
+			measure_case = Measure(driver, mock_meter)
+			req = RequestObject(retry=retry)
+			
+			return measure_case(req)
+		
+		for retry in range(5):
+			for fail_count in range(retry+1):
+				res = run_measure(retry, fail_count)
+			
+			for fail_count in range(retry+1, 10):
+				with self.assertRaises(MeasureTimeout):
+					res = run_measure(retry, fail_count)
 	
 	def test_parameter_user(self):
 		output_data = OutputData([12, 13, 14])

@@ -1,7 +1,8 @@
 from typing import Any, Union, Mapping, Iterable
 
 from domain.base_structures import BitPos
-from domain.interfaces import TargetDevice, TargetConfiguration, TargetManager, Meter, UniqueID, PRNG, Representation
+from domain.interfaces import MeasureTimeout, Meter, PRNG, Representation, TargetConfiguration, TargetDevice,\
+TargetManager, UniqueID
 from domain.model import OutputData, Gene, Chromosome
 from domain.request_model import RequestObject, Parameter
 
@@ -63,14 +64,21 @@ class MockTargetManager(TargetManager):
 		self.available.add(target.serial_number)
 
 class MockMeter(Meter):
-	def __init__(self, output_data: OutputData):
+	def __init__(self, output_data: OutputData, fail_count=0):
 		self.output_data = output_data
+		self.fail_count = fail_count
 		self.prep_count = 0
+		self.meas_count = 0
 	
 	def prepare(self, request: RequestObject) -> None:
 		self.prep_count += 1
 	
 	def measure(self, request: RequestObject) -> OutputData:
+		self.meas_count += 1
+		
+		if self.meas_count <= self.fail_count:
+			raise MeasureTimeout()
+		
 		return self.output_data
 	
 	@property
