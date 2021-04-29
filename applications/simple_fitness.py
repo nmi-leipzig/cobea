@@ -44,7 +44,7 @@ def main():
 	
 	in_data = InputData([random.randint(0, 255) for _ in range(512)])
 	
-	req = RequestObject()
+	req = RequestObject(retry=0)
 	req["configuration"] = IcecraftStormConfig.create_from_file(args.asc)
 	req["ram_mode"] = "512x8"
 	req["ram_blocks"] = [IcecraftPosition(8, 27)]

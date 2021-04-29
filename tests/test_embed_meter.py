@@ -24,6 +24,7 @@ class EmbedMeterTest(TestCase):
 						prefix = prefix,
 						output_count = output_count,
 						output_format = output_format,
+						retry = 0,
 					))
 	
 	def test_creation(self):

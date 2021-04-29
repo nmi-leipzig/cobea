@@ -3,9 +3,9 @@ from functools import reduce
 from typing import Any, Dict, Mapping, Iterable
 
 from domain.model import OutputData, Chromosome
-from domain.interfaces import Preprocessing, PreprocessingLibrary, EvoAlgo, DataSink, PRNG,\
-TargetManager, Meter, RepresentationGenerator, Representation, PosTrans, PosTransLibrary, TargetConfiguration,\
-UniqueID, Driver, FitnessFunction
+from domain.interfaces import DataSink, Driver, EvoAlgo, FitnessFunction, MeasureTimeout, Meter, Preprocessing,\
+PreprocessingLibrary, PosTrans, PosTransLibrary, PRNG, RepresentationGenerator, Representation, TargetConfiguration,\
+TargetManager, UniqueID
 from domain.request_model import RequestObject, ParameterUser, Parameter
 
 class UseCase(ParameterUser):
@@ -28,16 +28,30 @@ class Measure(UseCase):
 		self._driver = driver
 		self._meter = meter
 		sub_params = [
+			[Parameter("retry", int, default=0)],
 			driver.parameters["drive"], driver.parameters["clean_up"],
 			meter.parameters["prepare"], meter.parameters["measure"]
 		]
 		self._parameters = {"perform": reduce(self.meld_parameters, sub_params)}
 	
 	def perform(self, request: RequestObject) -> OutputData:
-		self._meter.prepare(request)
-		self._driver.drive(request)
-		output_data = self._meter.measure(request)
-		self._driver.clean_up(request)
+		attempt = 0
+		while True:
+			attempt += 1
+			self._meter.prepare(request)
+			self._driver.drive(request)
+			
+			try:
+				output_data = self._meter.measure(request)
+			except MeasureTimeout:
+				print(f"Got timeout on attempt {attempt}")
+				if attempt <= request.retry:
+					continue
+				else:
+					raise
+			
+			self._driver.clean_up(request)
+			break
 		
 		return output_data
 

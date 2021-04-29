@@ -25,7 +25,7 @@ class MeasureTest(unittest.TestCase):
 		driver = DummyDriver()
 		
 		measure_case = Measure(driver, mock_meter)
-		req = RequestObject()
+		req = RequestObject(retry=0)
 		#req["input_data"] = input_data
 		
 		res_data = measure_case(req)

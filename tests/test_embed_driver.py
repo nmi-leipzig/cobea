@@ -81,6 +81,7 @@ class EmbedDriverTest(TestCase):
 					driver_data = tc.driver_data,
 					driver_format = tc.fmt,
 					driver_dev = dev,
+					retry = 0,
 				)
 				
 				measure_case(req)

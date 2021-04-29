@@ -66,6 +66,8 @@ class SimpleEA(EvoAlgo):
 	def _evaluate(self, indi: Individual) -> Tuple[int]:
 		eval_req = RequestObject(
 			driver_data = InputData([0]),
+			retry = 0,
+			measure_timeout = None,
 		)
 		
 		self._rep.decode(self._habitat, indi.chromo)

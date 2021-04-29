@@ -56,7 +56,7 @@ def create_meter_setup():
 	setup.CHAN2.DISP.value_ = "ON"#"OFF"#
 	setup.CHAN2.PROB.value_ = 1
 	setup.CHAN2.SCAL.value_ = 1
-
+	
 	setup.ACQ.MEMD.value_ = "LONG"
 	setup.ACQ.TYPE.value_ = "NORM"
 	setup.ACQ.MODE.value_ = "RTIM"
@@ -102,18 +102,20 @@ def run(args) -> None:
 		
 		driver = FixedEmbedDriver(gen, "B")
 	
-	measure_uc = Measure(driver, meter)
-	
-	hab_path = os.path.join(pkg_path, "dummy_hab.asc")
-	hab_config = IcecraftRawConfig.create_from_file(hab_path)
-	
-	#from tests.mocks import MockRepresentation
-	#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
-	rep = create_xc6200_rep((10, 23), (19, 32))
-	ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target)
-	
-	ea.run()
-	
-	if not use_dummy:
-		man.release(gen)
+	try:
+		measure_uc = Measure(driver, meter)
+		
+		hab_path = os.path.join(pkg_path, "dummy_hab.asc")
+		hab_config = IcecraftRawConfig.create_from_file(hab_path)
+		
+		#from tests.mocks import MockRepresentation
+		#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
+		rep = create_xc6200_rep((10, 23), (19, 32))
+		ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target)
+		
+		ea.run()
+	finally:
+		if not use_dummy:
+			man.release(target)
+			man.release(gen)
 

@@ -46,6 +46,9 @@ class Driver(ParameterUser):
 	def clean_up(self, request: RequestObject) -> None:
 		raise NotImplementedError()
 
+class MeasureTimeout(Exception):
+	pass
+
 class Meter(ParameterUser):
 	@abstractmethod
 	def prepare(self, request: RequestObject) -> None:

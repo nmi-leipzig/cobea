@@ -8,7 +8,7 @@ from typing import Any, Callable, Iterable, Mapping, Optional, Tuple, List
 
 import pyvisa
 
-from domain.interfaces import Meter
+from domain.interfaces import MeasureTimeout, Meter
 from domain.model import OutputData
 from domain.request_model import Parameter, RequestObject
 
@@ -102,7 +102,7 @@ class OsciDS1102E(Meter):
 	
 	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
-		return {"prepare": [], "measure": []}
+		return {"prepare": [], "measure": [Parameter("measure_timeout", float, default=None)]}
 	
 	def open(self):
 		if self._is_open:
@@ -136,7 +136,7 @@ class OsciDS1102E(Meter):
 		self.open()
 		return self
 	
-	def __exit__(self,exc_type, exc_value, traceback):
+	def __exit__(self, exc_type, exc_value, traceback):
 		self.close()
 	
 	def prepare(self, request: RequestObject) -> None:
@@ -152,7 +152,10 @@ class OsciDS1102E(Meter):
 			time.sleep(0.03)
 	
 	def measure(self, request: RequestObject) -> OutputData:
+		start_time = time.perf_counter()
 		while self._osci.query(":TRIG:STAT?") != "STOP":
+			if request.measure_timeout is not None and time.perf_counter() - start_time > request.measure_timeout:
+				raise MeasureTimeout()
 			time.sleep(self._delay)
 		
 		raw_data = self._read_data(1)
