@@ -158,9 +158,9 @@ class HWSetupTest(TestCase):
 		
 		meter = OsciDS1102E(meter_setup)
 		
-		multiprocessing.set_start_method("spawn")
+		mp = multiprocessing.get_context("spawn")
 		for i in range(3):
-			p = multiprocessing.Process(target=self.create_and_write, args=(driver_sn, ))
+			p = mp.Process(target=self.create_and_write, args=(driver_sn, ))
 			p.start()
 			time.sleep(3)
 			p.terminate()
