@@ -158,6 +158,9 @@ class OsciDS1102E(Meter):
 				raise MeasureTimeout()
 			time.sleep(self._delay)
 		
+		while self._osci.query(":TRIG:STAT?") != "STOP":
+			time.sleep(self._delay)
+		
 		raw_data = self._read_data(1)
 		
 		scale = self._setup.CHAN1.SCAL.value_
