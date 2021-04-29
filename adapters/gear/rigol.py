@@ -153,7 +153,7 @@ class OsciDS1102E(Meter):
 	
 	def measure(self, request: RequestObject) -> OutputData:
 		start_time = time.perf_counter()
-		while self._osci.query(":TRIG:STAT?") != "STOP":
+		while self._osci.query(":TRIG:STAT?") not in ("T'D", "STOP"):
 			if request.measure_timeout is not None and time.perf_counter() - start_time > request.measure_timeout:
 				raise MeasureTimeout()
 			time.sleep(self._delay)
