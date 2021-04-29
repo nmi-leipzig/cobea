@@ -117,8 +117,8 @@ class HWSetupTest(TestCase):
 			
 			req = RequestObject(
 				driver_data = InputData([0]),
-				measure_timeout = None,
-				retry = 0,
+				measure_timeout = 3,
+				retry = 1,
 			)
 			
 			for _ in range(10):
