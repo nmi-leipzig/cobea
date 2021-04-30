@@ -1,5 +1,7 @@
+import itertools
 import multiprocessing
 import os
+import random
 import time
 
 from unittest import TestCase
@@ -34,7 +36,8 @@ class DetectSetupError(Exception):
 
 class HWSetupTest(TestCase):
 	def setUp(self):
-		self.asc_path = os.path.dirname(os.path.abspath(applications.discern_frequency.__file__))
+		self.app_path = os.path.dirname(os.path.abspath(applications.discern_frequency.__file__))
+		self.local_path = os.path.dirname(os.path.abspath(__file__))
 	
 	def create_meter_setup(self):
 		setup = OsciDS1102E.create_setup()
@@ -92,8 +95,13 @@ class HWSetupTest(TestCase):
 		
 		return (driver_sn, target_sn, meter_sn)
 	
-	def flash_device(self, dev, asc_filename):
-		config = IcecraftRawConfig.create_from_file(os.path.join(self.asc_path, asc_filename))
+	def flash_device(self, dev, asc_filename, app_path=True):
+		if app_path:
+			asc_path = os.path.join(self.app_path, asc_filename)
+		else:
+			asc_path = os.path.join(self.local_path, asc_filename)
+		
+		config = IcecraftRawConfig.create_from_file(asc_path)
 		dev.configure(config)
 	
 	def test_measurement(self):
@@ -191,3 +199,47 @@ class HWSetupTest(TestCase):
 				data = measure_uc(req)
 			finally:
 				man.release(gen)
+	
+	def check_fpga(self, fpga):
+		# flash echo
+		self.flash_device(fpga, "echo.asc", app_path=False)
+		
+		# write and read data
+		for part_size, part_count in (list(itertools.product([1, 2, 3, 4, 15, 16], range(1, 3)))
+		+ list(itertools.product([32, 1024], (1, 2)))):
+			#print(f"{part_count} x {part_size} bytes")
+			part_list = [bytes(random.getrandbits(8) for _ in range(part_size)) for _ in range(part_count)]
+			# write parts
+			with self.subTest(part_size=part_size, part_count=part_count, mode="write chunks"):
+				fpga.reset()
+				for part in part_list:
+					write_count = fpga.write_bytes(part)
+					self.assertEqual(part_size, write_count)
+					
+					res = fpga.read_bytes(part_size)
+					self.assertEqual(part, res)
+			
+			# write once
+			with self.subTest(part_size=part_size, part_count=part_count, mode="write once"):
+				fpga.reset()
+				write_count = fpga.write_bytes(b"".join(part_list))
+				self.assertEqual(part_size*part_count, write_count)
+				for part in part_list:
+					res = fpga.read_bytes(part_size)
+					self.assertEqual(part, res)
+				
+	
+	def test_fpgas(self):
+		driver_sn, target_sn = self.detect_fpgas()
+		man = IcecraftManager()
+		
+		fpgas = []
+		fpgas.append(man.acquire(driver_sn))
+		fpgas.append(man.acquire(target_sn))
+		try:
+			for dev in fpgas:
+				self.check_fpga(dev)
+		finally:
+			for dev in fpgas:
+				man.release(dev)
+		
