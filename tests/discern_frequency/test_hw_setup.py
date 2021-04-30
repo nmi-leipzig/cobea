@@ -65,13 +65,8 @@ class HWSetupTest(TestCase):
 		
 		return setup
 	
-	def detect_setup(self):
-		# osci available
-		osci_list = list(usb.core.find(find_all=True, idVendor=0x1ab1, idProduct=0x0588))
-		if len(osci_list) != 1:
-			raise DetectSetupError()
-		
-		meter_sn = osci_list[0].serial_number
+	def detect_fpgas(self):
+		# return driver_sn, target_sn
 		
 		# two FPGAs available
 		sn_list = IcecraftManager.get_present_serial_numbers()
@@ -81,11 +76,19 @@ class HWSetupTest(TestCase):
 		# check which FPGA is the drive and which is the target
 		# for the moment just assume the one with the lower last 3 three digits is the target
 		if sn_list[0][-3:] < sn_list[1][-3:]:
-			target_sn = sn_list[0]
-			driver_sn = sn_list[1]
+			return sn_list[1], sn_list[0]
 		else:
-			target_sn = sn_list[1]
-			driver_sn = sn_list[0]
+			return sn_list[0], sn_list[1]
+	
+	def detect_setup(self):
+		# osci available
+		osci_list = list(usb.core.find(find_all=True, idVendor=0x1ab1, idProduct=0x0588))
+		if len(osci_list) != 1:
+			raise DetectSetupError()
+		
+		meter_sn = osci_list[0].serial_number
+		
+		driver_sn, target_sn = self.detect_fpgas()
 		
 		return (driver_sn, target_sn, meter_sn)
 	
