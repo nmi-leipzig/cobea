@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from contextlib import AbstractContextManager
 from typing import Any, Callable, Union, Mapping, Iterable, Sequence, Tuple
 
+from domain.base_structures import BitPos
 from domain.model import InputData, OutputData, Chromosome, Gene
 from domain.request_model import RequestObject, ParameterValues, ParameterUser, Parameter
 
@@ -9,6 +10,24 @@ class ElementPosition(ABC):
 	pass
 
 class TargetConfiguration(ABC):
+	@abstractmethod
+	def set_bit(self, bit: BitPos, value: bool) -> None:
+		raise NotImplementedError()
+	
+	@abstractmethod
+	def get_bit(self, bit: BitPos) -> bool:
+		raise NotImplementedError()
+	
+	def set_multi_bits(self, bit_seq: Sequence[BitPos], value_seq: Sequence[bool]) -> None:
+		if len(bit_seq) != len(value_seq):
+			raise ValueError("amount of bits and values mismatched")
+		
+		for bit, value in zip(bit_seq, value_seq):
+			self.set_bit(bit, value)
+	
+	def get_multi_bits(self, bit_seq: Sequence[BitPos]) -> Tuple[bool]:
+		return tuple(self.get_bit(b) for b in bit_seq)
+	
 	@abstractmethod
 	def to_text(self) -> str:
 		raise NotImplementedError()
