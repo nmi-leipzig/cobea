@@ -230,7 +230,11 @@ class HWSetupTest(TestCase):
 				
 	
 	def test_fpgas(self):
-		driver_sn, target_sn = self.detect_fpgas()
+		try:
+			driver_sn, target_sn = self.detect_fpgas()
+		except DetectSetupError:
+			self.skipTest("Couldn't detect hardware FPGAs.")
+		
 		man = IcecraftManager()
 		
 		fpgas = []
