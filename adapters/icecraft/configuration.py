@@ -6,8 +6,9 @@ from typing import Iterable, List, Tuple, Sequence
 sys.path.append("/usr/local/bin")
 import icebox
 
-from .ice_board import BRAMMode, Configuration, FPGABoard, TilePosition
+from .ice_board import BRAMMode, Configuration, FPGABoard, TilePosition, Bit
 
+from domain.base_structures import BitPos
 from domain.interfaces import TargetConfiguration
 
 from .misc import RAMMode, IcecraftPosition
@@ -33,6 +34,12 @@ class IcecraftRawConfig(TargetConfiguration):
 		with StringIO() as sio:
 			self._raw_config.write_asc(sio)
 			return sio.getvalue()
+	
+	def set_bit(self, bit: BitPos, value: bool) -> None:
+		self._raw_config.set_bits(TilePosition(bit.x, bit.y), [Bit(bit.group, bit.index)], [value])
+	
+	def get_bit(self, bit: BitPos) -> bool:
+		return self._raw_config.get_bits(TilePosition(bit.x, bit.y), [Bit(bit.group, bit.index)])[0]
 	
 	def write_asc(self, asc_name: str) -> None:
 		with open(asc_name, "w") as asc_file:
@@ -81,6 +88,23 @@ class IcecraftStormConfig(TargetConfiguration):
 		os.remove(asc_name)
 		
 		return asc_text
+	
+	def set_bit(self, bit: BitPos, value: bool) -> None:
+		tile_bits = self._ice_conf.tile(bit.x, bit.y)
+		grp_str = tile_bits[bit.group]
+		
+		if value:
+			str_value = '1'
+		else:
+			str_value = '0'
+		
+		new_grp_str = grp_str[0:bit.index] + str_value + grp_str[bit.index+1:]
+		
+		tile_bits[bit.group] = new_grp_str
+	
+	def get_bit(self, bit: BitPos) -> bool:
+		tile_bits = self._ice_conf.tile(bit.x, bit.y)
+		return tile_bits[bit.group][bit.index] == '1'
 	
 	def write_asc(self, asc_name: str) -> None:
 		self._ice_conf.write_file(asc_name)

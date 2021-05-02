@@ -1,15 +1,18 @@
 import os
+import random
 import sys
 import unittest
 import subprocess
+
+from typing import Iterable, Tuple
 
 sys.path.append("/usr/local/bin")
 import icebox
 
 import adapters.icecraft as icecraft
-from adapters.icecraft import RAMMode
+from adapters.icecraft import IcecraftBitPosition, RAMMode
 
-from .common import SEND_BRAM_META
+from .common import create_bits, SEND_BRAM_META
 
 class IcecraftStormConfigTest(unittest.TestCase):
 	target_cls = icecraft.IcecraftStormConfig
@@ -130,7 +133,136 @@ class IcecraftStormConfigTest(unittest.TestCase):
 				os.remove(tmp_asc)
 				
 				self.check_configuration(expected_ic, ic)
+	
+	def test_get_bit(self):
+		with self.subTest(desc="Empty"):
+			dut = self.target_cls.create_empty()
+			
+			for bit in [IcecraftBitPosition(16, 17, 4, 5), IcecraftBitPosition(0, 1, 14, 17)]:
+				res = dut.get_bit(bit)
+				self.assertFalse(res)
 		
+		for current in self.config_meta.values():
+			with self.subTest(asc=current.asc_filename):
+				dut = self.target_cls.create_from_file(current.asc_filename)
+				for tile, group_map in current.known_bits.items():
+					# append 0 in max to avoid "TypeError: 'int' object is not iterable" if list is empty
+					index_limit = max(18, *[max(g)+1 for g in group_map.values()], 0)
+					group_limit = max(16, *group_map, 0)
+					for grp in range(group_limit):
+						for idx in range(index_limit):
+							bit = IcecraftBitPosition(tile.x, tile.y, grp, idx)
+							exp = current.bit_value(bit)
+							
+							res = dut.get_bit(bit)
+							
+							self.assertEqual(exp, res)
+	
+	def check_initial_bit_values(self, bram_meta, bits, dut):
+		exp = tuple(bram_meta.bit_value(b) for b in bits)
+		res = dut.get_multi_bits(bits)
+		self.assertEqual(exp, res)
+		
+		# check sorted
+		sort = sorted(zip(bits, exp))
+		sort_bits = tuple(b for b, _ in sort)
+		sort_exp = tuple(e for _, e in sort)
+		sort_res = dut.get_multi_bits(sort_bits)
+		self.assertEqual(sort_exp, sort_res)
+	
+	def test_get_multi_bits(self):
+		with self.subTest(desc="Empty"):
+			dut = self.target_cls.create_empty()
+			
+			for bits in [(IcecraftBitPosition(16, 17, 4, 5), ), create_bits(0, 1, [(2, 3), (14, 17), (0, 0)])]:
+				res = dut.get_multi_bits(bits)
+				self.assertEqual((False, )*len(bits), res)
+		
+		for current in self.config_meta.values():
+			with self.subTest(asc=current.asc_filename):
+				dut = self.target_cls.create_from_file(current.asc_filename)
+				limits = {t:[
+					max(16, *gm, 0),
+					max(18, *[max(g)+1 for g in gm.values()], 0)
+				] for t, gm in current.known_bits.items()}
+				
+				for bit_count in [1, 2, 5, 8]:
+					for rounds in range(5):
+						# from single tile
+						tile = random.choice(list(limits.keys()))
+						bits = create_bits(
+							tile.x,
+							tile.y,
+							[(
+								random.randint(0, limits[tile][0]-1),
+								random.randint(0, limits[tile][1]-1),
+							) for i in range(bit_count)]
+						)
+						self.check_initial_bit_values(current, bits, dut)
+						
+						# from multiple tiles
+						bits = tuple(IcecraftBitPosition(
+							t.x,
+							t.y,
+							random.randint(0, limits[t][0]-1),
+							random.randint(0, limits[t][1]-1),
+						) for t in random.choices(list(limits.keys()), k=bit_count))
+						self.check_initial_bit_values(current, bits, dut)
+	
+	def test_set_bit(self):
+		set_seq = (
+			(IcecraftBitPosition(16, 17, 4, 5), False),
+			(IcecraftBitPosition(16, 17, 4, 5), True),
+			(IcecraftBitPosition(16, 17, 4, 5), False),
+		)
+		dut = self.target_cls.create_empty()
+		
+		for bit, value in set_seq:
+			dut.set_bit(bit, value)
+			
+			res = dut.get_bit(bit)
+			self.assertEqual(value, res)
+	
+	def test_set_multi_bits(self):
+		bits_1 = create_bits(4, 5, [(9, 6)])
+		bits_2 = create_bits(16, 17, [(12, 45), (0, 0)])
+		set_seq = (
+			(bits_1, (False, )),
+			(bits_1, (True, )),
+			(bits_1, (False, )),
+			(bits_2, (True, )*2),
+			(bits_2, (False, )*2),
+			(bits_2, (False, True)),
+		)
+		
+		dut = self.target_cls.create_empty()
+		
+		for bits, values in set_seq:
+			dut.set_multi_bits(bits, values)
+			
+			res = dut.get_multi_bits(bits)
+			self.assertEqual(values, res)
+			
+			# values should not depend on order
+			res = dut.get_multi_bits(tuple(reversed(bits)))
+			self.assertEqual(tuple(reversed(values)), res)
+	
+	@staticmethod
+	def extract_ones(asc_filename: str, coordinates: Iterable[Tuple[int, int]]) -> list:
+		ic = icebox.iceconfig()
+		ic.read_file(asc_filename)
+		ones = []
+		for x, y in coordinates:
+			tile_data = ic.tile(x, y)
+			tile_ones = []
+			ones.append([x, y, tile_ones])
+			for group, group_data in enumerate(tile_data):
+				group_ones = [i for i, v in enumerate(group_data) if v=="1"]
+				if len(group_ones):
+					tile_ones.append([group, group_ones])
+		
+		return ones
+
 class IcecraftRawConfigTest(IcecraftStormConfigTest):
 	target_cls = icecraft.IcecraftRawConfig
 
