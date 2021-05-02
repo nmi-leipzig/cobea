@@ -1,7 +1,7 @@
 import os
 import json
 from dataclasses import dataclass
-from typing import List, Iterable, Tuple
+from typing import Iterable, List, Mapping, Tuple
 
 from adapters.icecraft import IcecraftPosition, IcecraftBitPosition, RAMMode
 
@@ -20,16 +20,32 @@ class SendBRAMMeta:
 	ram_block: IcecraftPosition
 	initial_data: List[int]
 	mask: int
+	known_bits: Mapping[IcecraftPosition, Mapping[int, List[int]]]
 	
-	def __post_init__(self):
-		if isinstance(self.mode, str):
-			self.mode = RAMMode[f"RAM_{self.mode}"]
-		self.ram_block = IcecraftPosition(*self.ram_block)
-		self.asc_filename = os.path.join(TEST_DATA_DIR, self.asc_filename)
+	def bit_value(self, bit: IcecraftBitPosition) -> bool:
+		ones = self.known_bits[bit.tile]
+		try:
+			group_ones = ones[bit.group]
+		except KeyError:
+			# whole group has no one
+			return False
+		
+		return bit.index in group_ones
+	
+	@classmethod
+	def from_json_data(cls, json_data: list) -> "SendBRAMMeta":
+		return cls(
+			RAMMode[f"RAM_{json_data[0]}"],
+			os.path.join(TEST_DATA_DIR, json_data[1]),
+			IcecraftPosition(*json_data[2]),
+			json_data[3],
+			json_data[4],
+			{IcecraftPosition(x, y): {g: l for g, l in d} for x, y, d in json_data[5]}
+		)
 
 
 with open(os.path.join(TEST_DATA_DIR, "send_all_bram.json"), "r") as json_file:
-	SEND_BRAM_META = tuple([SendBRAMMeta(*s) for s in json.load(json_file)])
+	SEND_BRAM_META = tuple([SendBRAMMeta.from_json_data(s) for s in json.load(json_file)])
 
-def create_bits(x:int , y: int, bit_coords: Iterable[Tuple[int, int]]) -> Tuple[IcecraftBitPosition, ...]:
+def create_bits(x: int , y: int, bit_coords: Iterable[Tuple[int, int]]) -> Tuple[IcecraftBitPosition, ...]:
 	return tuple(IcecraftBitPosition(x, y, g, i) for g, i in bit_coords)
