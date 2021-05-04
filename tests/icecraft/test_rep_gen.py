@@ -23,6 +23,7 @@ from ..common import check_parameter_user
 
 from .common import TEST_DATA_DIR, create_bits
 from .data.chip_resources import NET_DATA, CON_DATA, LUT_DATA, LUT_CON
+from .data.rep_data import GEN_REQUEST, EXP_REP
 
 class Comparison(Enum):
 	DIFFERENT = auto()
@@ -68,6 +69,13 @@ class IcecraftRepGenTest(unittest.TestCase):
 		req["gene_constraints"] = []
 		
 		dut(req)
+	
+	def test_example(self):
+		dut = icecraft.IcecraftRepGen()
+		req = GEN_REQUEST
+		res = dut(req)
+		
+		self.assertEqual(EXP_REP, res)
 	
 	def parse_gene(self, raw_gene, desc=""):
 		tile = IcecraftPosition(*raw_gene[0])
