@@ -38,7 +38,12 @@ class IcecraftRep(Representation):
 		pass
 	
 	def decode(self, config: TargetConfiguration, chromo: Chromosome) -> None:
-		pass
+		if len(self.genes) != len(chromo.allele_indices):
+			raise ValueError(f"Length mismatch: {len(self.genes)} genes, but {len(chromo.allele_indices)} alleles")
+		
+		for gene, allele_index in zip(self.genes, chromo.allele_indices):
+			#print(f"set {[((b.x, b.y), b.group, b.index) for b in gene.bit_positions]} {gene.alleles[allele_index].values}")
+			config.set_multi_bits(gene.bit_positions, gene.alleles[allele_index].values)
 	
 	def iter_genes(self) -> Iterable[Gene]:
 		yield from self.genes
@@ -289,7 +294,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		position:
 		restraint of allesles only -> same position
 		reorder bits only -> same position
-		combination -> delete original genes, append siper gene
+		combination -> delete original genes, append super gene
 		
 		return number of super genes
 		"""

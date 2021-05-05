@@ -1,10 +1,14 @@
+from dataclasses import dataclass
 
 from adapters.icecraft.chip_data_utils import UNCONNECTED_NAME
 from adapters.icecraft.config_item import IndexedItem
 from adapters.icecraft.representation import IcecraftRep
-from adapters.icecraft.misc import IcecraftBitPosition, IcecraftGeneConstraint, IcecraftLUTPosition, IcecraftPosition, IcecraftResCon, IcecraftResource, LUTFunction, TILE_ALL, TILE_ALL_LOGIC
+from adapters.icecraft.misc import IcecraftBitPosition, IcecraftGeneConstraint, IcecraftLUTPosition, IcecraftPosition,\
+	IcecraftResCon, IcecraftResource, LUTFunction, TILE_ALL, TILE_ALL_LOGIC
 from domain.allele_sequence import Allele, AlleleAll, AlleleList
-from domain.model import Gene
+from typing import Dict, List
+
+from domain.model import Chromosome, Gene
 from domain.request_model import RequestObject
 
 from ..common import create_bits
@@ -553,3 +557,78 @@ EXP_REP = IcecraftRep(
 	], # colbufctrl
 	(IcecraftLUTPosition(16, 18, 5), ) # output
 ) # end of EXP_REP
+
+def is_one(bit: IcecraftBitPosition, ones: Dict[IcecraftPosition, Dict[int, List[int]]]) -> bool:
+	try:
+		tile_ones = ones[bit.tile]
+		group_ones = tile_ones[bit.group]
+	except KeyError:
+		return False
+	
+	return bit.index in group_ones
+
+# ones expected to be set in habitat by prepration
+EXP_PREP_ONES = {
+	IcecraftPosition(15, 17): {6: [17, 18]},
+	IcecraftPosition(16, 17): {},
+	IcecraftPosition(16, 18): {},
+	IcecraftPosition(15, 24): {9: [7]},
+	IcecraftPosition(16, 24): {9: [7]},
+}
+
+@dataclass
+class EncodeData:
+	desc: str
+	chromo: Chromosome
+	ones: Dict[IcecraftPosition, Dict[int, List[int]]]
+
+ENCODE_DATA = [
+	EncodeData(
+		"all lowest allele",
+		Chromosome(0, tuple(0 for g in EXP_REP.genes)),
+		{
+			IcecraftPosition(15, 17): {},
+			IcecraftPosition(16, 17): {},
+		}
+	),
+	EncodeData(
+		"all highest allele",
+		Chromosome(1, tuple(len(g.alleles)-1 for g in EXP_REP.genes)),
+		{
+			IcecraftPosition(15, 17): {
+				0:[0, 14, 26, 27, 28, 29, 31, 32, 33, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45],
+				1: [15, 17, 27, 28, 29, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
+				2: [0, 2, 17, 18],
+				3: [2],
+				4: [14],
+				5: [15, 17],
+				8: [1, 14],
+				9: [15, 17],
+				10: [15, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45],
+				11: [28, 29, 32, 33, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
+				12: [14],
+				13: [15, 17],
+				14: [0, 1, 15, 17, 18],
+				15: [0, 1],
+			},
+			IcecraftPosition(16, 17): {
+				0: [0, 14, 26, 27, 28, 29, 31, 32, 33, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45],
+				1: [15, 17, 27, 28, 29, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
+				2: [0, 2, 15, 17, 18],
+				3: [2],
+				4: [14],
+				5: [15, 17],
+				6: [15, 17, 18],
+				7: [],
+				8: [1, 14],
+				9: [17],
+				10: [17, 18, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45],
+				11: [28, 29, 32, 33, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
+				12: [14],
+				13: [17],
+				14: [0, 1, 17, 18],
+				15: [0, 1],
+			},
+		}
+	),
+]
