@@ -332,17 +332,21 @@ class IcecraftRepGen(RepresentationGenerator):
 			while len(bit_index_map) > 0:
 				next_bit = next(iter(bit_index_map.keys()))
 				
+				# find gene for next bit
 				try:
 					org_gene = bit_org_gene_map[next_bit]
 				except KeyError as ke:
 					raise IcecraftInputError(f"bit {next_bit} not found; not defined or used twice") from ke
 				
+				# handle gene description
 				if org_gene.description != "":
 					descs.append(org_gene.description)
 				
+				# process all bits of the gene
 				gene_pos = len(org_gene_list)
 				org_gene_list.append(org_gene)
 				for bit_pos, bit in enumerate(org_gene.bit_positions):
+					# remove from list of bits taht have to be matched for this constraint
 					try:
 						index = bit_index_map[bit]
 						del bit_index_map[bit]
@@ -351,6 +355,7 @@ class IcecraftRepGen(RepresentationGenerator):
 					
 					pos_origin_map[index] = BitOrigin(gene_pos, bit_pos)
 					
+					# remove from list of all available bits
 					try:
 						del bit_org_gene_map[bit]
 					except KeyError as ke:
@@ -366,21 +371,22 @@ class IcecraftRepGen(RepresentationGenerator):
 				# reset every time to avoid covering unset values by using values from previous runs
 				values_list = [[None]*len(g.bit_positions) for g in org_gene_list]
 				
+				# reconstruct values of original genes from constraint value
 				for bit_org, cur_val in zip(pos_origin_map, val):
 					values_list[bit_org.gene_pos][bit_org.bit_pos] = cur_val
 				
 				val_descs = []
 				val_descs_list.append(val_descs)
 				
-				for gene, org_val in zip(org_gene_list, values_list):
+				for o_gene, org_val in zip(org_gene_list, values_list):
 					assert all(v is not None for v in org_val)
 					
 					try:
-						i = gene.alleles.values_index(org_val)
+						o_allele_index = o_gene.alleles.values_index(org_val)
 					except ValueError as ve:
-						raise IcecraftInputError(f"invalid values for {gene.bit_positions}") from ve
+						raise IcecraftInputError(f"invalid values for {o_gene.bit_positions}") from ve
 					
-					allele = gene.alleles[i]
+					allele = o_gene.alleles[o_allele_index]
 					if allele.description != "":
 						val_descs.append(allele.description)
 			
