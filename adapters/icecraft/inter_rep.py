@@ -10,9 +10,9 @@ representation has different requirements (easy storage, simple access)
 than the during the creation of the representation (easy modification).
 
 The basic idea is to have a directed graph with potential connections
-between nets as edges configurabel elements as vertices (e.g. group of
+between nets as edges and configurable elements as vertices (e.g. group of
 all bits that define the driver of a net, a LUT). The configurable
-elements define how the output id derived from the input (e.g. by
+elements define how the output is derived from the input (e.g. by
 selecting an input).
 
 Multiedges are possible, if a net has two different names that both can
@@ -354,6 +354,8 @@ class LUTBits:
 class LUTVertex(Vertex):
 	lut_bits: LUTBits
 	functions: List[LUTFunction] = field(default_factory=list, init=False)
+	# carry enable is separate from lut_bits as it is set dynamically if needed, not by genes
+	carry_enable: Tuple[IcecraftBitPosition, ...]
 	# override fields that are the same for all LUTs
 	# set init=False to avoid TypeError: non-default argument follows default argument
 	configurable: bool = field(default=True, init=False)
@@ -364,6 +366,7 @@ class LUTVertex(Vertex):
 		tile = self.desig.tile
 		# LUTBits asserts that all tiles are the same, so only check one
 		assert self.lut_bits.dff_enable[0].tile == tile
+		assert all(b.tile==tile for b in self.carry_enable)
 		
 		for bits in self.lut_bits.as_tuple():
 			self.rep.register_bits(bits, self)
@@ -479,7 +482,8 @@ class LUTVertex(Vertex):
 		lut_bits = LUTBits.from_config_items(config_items)
 		tile = lut_bits.truth_table[0].tile
 		desig = VertexDesig.from_lut_index(tile, lut_index)
-		return cls(rep, (desig, ), lut_bits)
+		carry_enable = [i.bits for i in config_items if i.kind=="CarryEnable"][0]
+		return cls(rep, (desig, ), lut_bits, carry_enable)
 
 class InterRep:
 	def __init__(self, net_data_iter: Iterable[NetData], config_map: Mapping[IcecraftPosition, ConfigAssemblage]) -> None:
