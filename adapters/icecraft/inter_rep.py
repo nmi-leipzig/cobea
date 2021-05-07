@@ -199,11 +199,11 @@ class ConVertex(Vertex):
 		
 		self.rep.register_bits(src_grp.bits, self)
 	
-	def __post_init__(self):
+	def __post_init__(self) -> None:
 		assert len(self.desigs) > 0
 	
 	@property
-	def bit_count(self):
+	def bit_count(self) -> int:
 		return sum(len(s.bits) for s in self.src_grps)
 	
 	def get_bit_tuples(self) -> List[Tuple[IcecraftBitPosition, ...]]:
@@ -320,7 +320,7 @@ class LUTBits:
 	names: ClassVar[Tuple[str, ...]] = ("DffEnable", "Set_NoReset", "AsyncSetReset", "TruthTable")
 	index_name_map: ClassVar[Dict[str, int]] = {i: n for i, n in enumerate(names)}
 	
-	def __post_init__(self):
+	def __post_init__(self) -> None:
 		tile = self.dff_enable[0].tile
 		assert all(tile==b.tile for b in self.dff_enable)
 		assert all(tile==b.tile for b in self.set_no_reset)
@@ -361,7 +361,7 @@ class LUTVertex(Vertex):
 	configurable: bool = field(default=True, init=False)
 	drivers: Tuple[int, ...] = field(default=(0, ), init=False)
 	
-	def __post_init__(self):
+	def __post_init__(self) -> None:
 		assert len(self.desigs) == 1
 		tile = self.desig.tile
 		# LUTBits asserts that all tiles are the same, so only check one
@@ -383,11 +383,11 @@ class LUTVertex(Vertex):
 			self.rep.add_edge(out_edge)
 	
 	@property
-	def desig(self):
+	def desig(self) -> VertexDesig:
 		return self.desigs[0]
 	
 	@property
-	def bit_count(self):
+	def bit_count(self) -> int:
 		return sum(len(b) for b in self.lut_bits.as_tuple())
 	
 	def get_bit_tuples(self) -> List[Tuple[IcecraftBitPosition, ...]]:
