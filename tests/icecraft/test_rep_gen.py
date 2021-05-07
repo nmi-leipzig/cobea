@@ -18,6 +18,7 @@ from adapters.icecraft.config_item import ConnectionItem, IndexedItem, ConfigIte
 from adapters.icecraft.inter_rep import InterRep, VertexDesig, EdgeDesig, Vertex
 from adapters.icecraft.misc import IcecraftResource, IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftInputError, IcecraftGeneConstraint
 from adapters.icecraft.position_transformation import IcecraftPosTransLibrary
+from adapters.icecraft.representation import IcecraftRepGen
 
 from ..common import check_parameter_user
 
@@ -726,6 +727,42 @@ class IcecraftRepGenTest(unittest.TestCase):
 				with self.assertRaises(ed.exp_error):
 					res = icecraft.IcecraftRepGen.apply_gene_constraints(res_genes, ed.constraints, {})
 					
+	
+	def test_get_carry_data(self):
+		tiles = [IcecraftPosition(16, 17), IcecraftPosition(16, 18)]
+		
+		config_map = {t: get_config_items(t) for t in tiles}
+		
+		raw_nets = get_net_data(tiles)
+		IcecraftRepGen.carry_in_set_net(config_map, raw_nets)
+		
+		rep = InterRep(raw_nets, config_map)
+		res = IcecraftRepGen.get_carry_data(rep)
+		
+		for tile, carry_map in res.items():
+			self.assertEqual(8, len(carry_map))
+			for i in range(8):
+				self.assertIn(i, carry_map)
+			
+			for lut_index, carry_data in carry_map.items():
+				self.assertEqual(lut_index, carry_data.lut_index)
+			
+			carry_5 = carry_map[5]
+			self.assertEqual([(10, 44), ], [(b.group, b.index) for b in carry_5.carry_enable])
+			self.assertEqual(1, len(carry_5.carry_use))
+			use_5 = carry_5.carry_use[0]
+			self.assertEqual(
+				[(12, 31), (12, 32), (12, 33), (12, 34), (13, 31)],
+				[(b.group, b.index) for b in use_5.bits]
+			)
+			self.assertEqual((False, True, False, False, False), use_5.values)
+			
+			carry_7 = carry_map[7]
+			if tile in [IcecraftPosition(16, 18)]:
+				# highest tile
+				self.assertEqual(0, len(carry_7.carry_use))
+			else:
+				self.assertEqual(1, len(carry_7.carry_use))
 	
 	def test_get_colbufctrl_coordinates(self):
 		net_data_glb = [NetData(tuple(

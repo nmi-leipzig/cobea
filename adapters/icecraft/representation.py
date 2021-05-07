@@ -1,6 +1,6 @@
 import re
 from typing import Sequence, Mapping, List, Tuple, Iterable, Callable, Union, Set, NamedTuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from collections import defaultdict
 
 from domain.interfaces import Representation, RepresentationGenerator, TargetConfiguration
@@ -15,7 +15,7 @@ from .misc import IcecraftPosition, IcecraftLUTPosition, IcecraftColBufCtrl, \
 from .chip_data import get_config_items, get_net_data, get_colbufctrl, ConfigAssemblage
 from .chip_data_utils import NetData, SegEntryType, SegType, UNCONNECTED_NAME
 from .config_item import ConfigItem, ConnectionItem, IndexedItem
-from .inter_rep import InterRep, Vertex, Edge, VertexDesig, EdgeDesig
+from .inter_rep import InterRep, Vertex, Edge, VertexDesig, EdgeDesig, PartConf
 
 NetId = SegEntryType
 
@@ -48,6 +48,13 @@ class IcecraftRep(Representation):
 	def iter_genes(self) -> Iterable[Gene]:
 		yield from self.genes
 	
+
+@dataclass
+class CarryData:
+	"""data regarding carry of a single LUT"""
+	lut_index : int
+	carry_enable: Tuple[IcecraftBitPosition, ...]
+	carry_use: List[PartConf] = field(default_factory=list)
 
 class IcecraftRepGen(RepresentationGenerator):
 	"""Generate a representation for ice40 FPGAs
@@ -108,6 +115,8 @@ class IcecraftRepGen(RepresentationGenerator):
 		self.set_lut_functions(rep, request.lut_functions)
 		
 		#TODO: set used flag
+		
+		
 		
 		all_genes = self.create_genes(rep, config_map)
 		self.apply_gene_constraints(all_genes, request.gene_constraints, special_map)
@@ -415,6 +424,24 @@ class IcecraftRepGen(RepresentationGenerator):
 			genes.pop(d)
 			
 		return super_count
+	
+	@staticmethod
+	def get_carry_data(rep: InterRep) -> Mapping[IcecraftPosition, Mapping[int, CarryData]]:
+		tile_to_carry = {}
+		for lut_vtx in rep.iter_lut_vertices():
+			cd = CarryData(lut_vtx.lut_index, lut_vtx.carry_enable)
+			tile_to_carry.setdefault(cd.carry_enable[0].tile, {})[cd.lut_index] = cd
+			
+			for out_edge in lut_vtx.iter_out_edges():
+				if not out_edge.desig.dst.name.endswith("cout"):
+					continue
+				
+				cout_vtx = out_edge.dst
+				for out_edge in cout_vtx.out_edges:
+					part_conf = out_edge.dst.get_edge_config(out_edge.desig)
+					cd.carry_use.append(part_conf)
+				
+		return tile_to_carry
 	
 	@staticmethod
 	def get_colbufctrl_coordinates(rep: InterRep) -> List[IcecraftColBufCtrl]:
