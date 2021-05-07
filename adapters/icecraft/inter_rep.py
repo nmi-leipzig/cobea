@@ -352,6 +352,7 @@ class LUTBits:
 
 @dataclass
 class LUTVertex(Vertex):
+	lut_index: int
 	lut_bits: LUTBits
 	functions: List[LUTFunction] = field(default_factory=list, init=False)
 	# carry enable is separate from lut_bits as it is set dynamically if needed, not by genes
@@ -363,6 +364,7 @@ class LUTVertex(Vertex):
 	
 	def __post_init__(self) -> None:
 		assert len(self.desigs) == 1
+		assert int(self.desig.name.split(SEPARATOR)[-1]) == self.lut_index
 		tile = self.desig.tile
 		# LUTBits asserts that all tiles are the same, so only check one
 		assert self.lut_bits.dff_enable[0].tile == tile
@@ -483,7 +485,7 @@ class LUTVertex(Vertex):
 		tile = lut_bits.truth_table[0].tile
 		desig = VertexDesig.from_lut_index(tile, lut_index)
 		carry_enable = [i.bits for i in config_items if i.kind=="CarryEnable"][0]
-		return cls(rep, (desig, ), lut_bits, carry_enable)
+		return cls(rep, (desig, ), lut_index, lut_bits, carry_enable)
 
 class InterRep:
 	def __init__(self, net_data_iter: Iterable[NetData], config_map: Mapping[IcecraftPosition, ConfigAssemblage]) -> None:

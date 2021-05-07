@@ -1344,10 +1344,11 @@ class TestLUTVertex(unittest.TestCase):
 		desig = VertexDesig.from_lut_index(tile, index)
 		carry = (IcecraftBitPosition.from_tile(tile, 8, 6), )
 		
-		dut = LUTVertex(rep, (desig, ), bits, carry)
+		dut = LUTVertex(rep, (desig, ), index, bits, carry)
 		
 		self.assertEqual(carry, dut.carry_enable)
 		self.assertEqual(bits, dut.lut_bits)
+		self.assertEqual(index, dut.lut_index)
 		self.assertEqual(index, int(dut.desig.name[4:]))
 		self.assertEqual(desig, dut.desig)
 		self.assertEqual(rep, dut.rep)
@@ -1362,6 +1363,7 @@ class TestLUTVertex(unittest.TestCase):
 				
 				self.assertEqual(next(i.bits for i in lut_items if i.kind=="CarryEnable"), dut.carry_enable)
 				self.assertEqual(LUTBits.from_config_items(lut_items), dut.lut_bits)
+				self.assertEqual(lut_items[0].index, dut.lut_index)
 				self.assertEqual(lut_items[0].index, int(dut.desig.name[4:]))
 				self.assertEqual(lut_items[0].bits[0].tile, dut.desig.tile)
 				self.assertEqual(rep, dut.rep)
@@ -1413,24 +1415,29 @@ class TestLUTVertex(unittest.TestCase):
 			(IcecraftBitPosition.from_tile(tile, 6, 6), ),
 			(IcecraftBitPosition.from_tile(tile, 7, 8), IcecraftBitPosition.from_tile(tile, 7, 9))
 		)
-		desig = VertexDesig.from_lut_index(tile, 5)
+		index = 5
+		desig = VertexDesig.from_lut_index(tile, index)
 		carry = (IcecraftBitPosition.from_tile(tile, 8, 6), )
 		
 		with self.subTest(desc="no desig"):
 			with self.assertRaises(AssertionError):
-				dut = LUTVertex(rep, tuple(), bits, carry)
+				dut = LUTVertex(rep, tuple(), index, bits, carry)
 		
 		with self.subTest(desc="desig and bits inconsistent"):
 			other_desig = VertexDesig.from_lut_index(other_tile, 5)
 			
 			with self.assertRaises(AssertionError):
-				dut = LUTVertex(rep, (other_desig, ), bits, carry)
+				dut = LUTVertex(rep, (other_desig, ), index, bits, carry)
 		
 		with self.subTest(desc="carry and bits inconsistent"):
 			other_carry = (IcecraftBitPosition.from_tile(other_tile, 8, 6), )
 			
 			with self.assertRaises(AssertionError):
-				dut = LUTVertex(rep, (desig, ), bits, other_carry)
+				dut = LUTVertex(rep, (desig, ), index, bits, other_carry)
+		
+		with self.subTest(desc="wrong index"):
+			with self.assertRaises(AssertionError):
+				dut = LUTVertex(rep, (desig, ), 3, bits, carry)
 		
 		#with self.subTest(desc="inconsistent bits"):
 		#	other_bits = (IcecraftBitPosition.from_tile(tile, 4, 5), IcecraftBitPosition.from_tile(other_tile, 6, 5))
@@ -1495,10 +1502,11 @@ class TestLUTVertex(unittest.TestCase):
 					(IcecraftBitPosition.from_tile(tile, 6, 6), ),
 					tuple(IcecraftBitPosition.from_tile(tile, 7, j) for j in range(tt_width))
 				)
-				lut_desig = VertexDesig.from_lut_index(tile, 5)
+				lut_index = 5
+				lut_desig = VertexDesig.from_lut_index(tile, lut_index)
 				carry = (IcecraftBitPosition.from_tile(tile, 8, 6), )
 				
-				dut = LUTVertex(rep, (lut_desig, ), bits, carry)
+				dut = LUTVertex(rep, (lut_desig, ), lut_index, bits, carry)
 				rep._add_vertex(dut)
 				dut.connect(ElementInterface(tuple((tile.x, tile.y, n) for n in net_names), tuple()))
 				
