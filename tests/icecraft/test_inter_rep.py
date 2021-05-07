@@ -866,6 +866,24 @@ class TestConVertex(unittest.TestCase):
 			
 		self.assertEqual(set(bit_conf_map), seen)
 	
+	def test_get_edge_config(self):
+		config_map, bit_conf_map = self.create_bit_and_config_map()
+		
+		rep = InterRep(NET_DATA, config_map)
+		
+		for tile, config_assem in config_map.items():
+			for con_item in config_assem.connection:
+				with self.subTest(dst=con_item.dst_net, bit_one=con_item.bits[0]):
+					desig = VertexDesig.from_net_name(tile, con_item.dst_net)
+					dut = rep.get_vertex(desig)
+					
+					for src_name, exp_vals in zip(con_item.src_nets, con_item.values):
+						edge_desig = EdgeDesig.net_to_net(tile, src_name, con_item.dst_net)
+						res = dut.get_edge_config(edge_desig)
+						
+						self.assertEqual(con_item.bits, res.bits)
+						self.assertEqual(exp_vals, res.values)
+	
 	def check_con_genes(self, rep, bits_to_vals, unavailable, bits_to_uncon):
 		bit_to_bits = {b[0]: b for b in bits_to_vals}
 		seen_bits = set()

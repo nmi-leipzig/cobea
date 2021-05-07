@@ -176,6 +176,12 @@ class Vertex(InterElement):
 		raise NotImplementedError()
 
 @dataclass
+class PartConf:
+	"""specific bits with specific values, i.e. part of a configuration"""
+	bits: Tuple[IcecraftBitPosition, ...]
+	values: Tuple[bool, ...]
+
+@dataclass
 class ConVertex(Vertex):
 	src_grps: List[SourceGroup] = field(default_factory=list, init=False)
 	
@@ -211,6 +217,34 @@ class ConVertex(Vertex):
 			return []
 		else:
 			return [tuple(b for sg in self.src_grps for b in sg.bits)]
+	
+	def get_edge_config(self, edge_desig: EdgeDesig) -> PartConf:
+		"""get bits and their values to configure a certain edge as connection
+		
+		The number of bits and values may be 0 in case the connection is hardwired.
+		
+		The goal is to provide the necessary data to check if a connection is established by a configuration. Using this
+		data to create or alter configurations may lead to invalid configurations (see below).
+		
+		Only the relevant bits to set the edge as connection are returned. Other bits (from other source groups), that
+		may have to be set to UNCONNECTED are not returned. Therefore relying only on the return value to configure
+		connections may lead to invalid configurations taht can damage the device (short circuit).
+		"""
+		if self.configurable:
+			for src_grp in self.src_grps:
+				try:
+					vals = src_grp.srcs[edge_desig]
+				except KeyError:
+					continue
+				
+				return PartConf(src_grp.bits, vals)
+		else:
+			# hard wired -> just check if the edge is available
+			for edge in self.in_edges:
+				if edge.desig == edge_desig:
+					return PartConf(tuple(), tuple())
+			
+		raise ValueError(f"Edge {edge_desig} not foun in {self.desigs[0]}")
 	
 	def get_genes(self, desc: str="") -> List[Gene]:
 		if not self.available:
