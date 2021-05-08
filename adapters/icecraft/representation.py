@@ -1,5 +1,5 @@
 import re
-from typing import Sequence, Mapping, List, Tuple, Iterable, Callable, Union, Set, NamedTuple
+from typing import Sequence, Mapping, List, Tuple, Iterable, Callable, Union, Set, NamedTuple, NewType
 from dataclasses import dataclass, field
 from collections import defaultdict
 
@@ -23,6 +23,15 @@ NetId = SegEntryType
 CARRY_ONE_IN = "carry_one_in"
 
 @dataclass
+class CarryData:
+	"""data regarding carry of a single LUT"""
+	lut_index : int
+	carry_enable: Tuple[IcecraftBitPosition, ...]
+	carry_use: List[PartConf] = field(default_factory=list)
+
+CarryDataMap = NewType("CarryDataMap", Mapping[IcecraftPosition, Mapping[int, CarryData]])
+
+@dataclass
 class IcecraftRep(Representation):
 	genes: Sequence[Gene]
 	# constant genes, i.e. with exactly one allele
@@ -31,11 +40,19 @@ class IcecraftRep(Representation):
 	colbufctrl: Sequence[IndexedItem]
 	# output_lutffs
 	output: Sequence[IcecraftLUTPosition]
+	# carry enable
+	carry_data: CarryDataMap
 	
 	def prepare_config(self, config: TargetConfiguration) -> None:
 		# set constant bits
+		for gene in self.constant:
+			config.set_multi_bits(gene.bit_positions, gene.alleles[0].values)
+		
 		# set ColBufCtrl for global network input
-		pass
+		for cbc in self.colbufctrl:
+			config.set_multi_bits(cbc.bits, (True, )*len(cbc.bits))
+		
+		#TODO: connect output lutffs or expect habitat to be prepared that way?
 	
 	def decode(self, config: TargetConfiguration, chromo: Chromosome) -> None:
 		if len(self.genes) != len(chromo.allele_indices):
@@ -44,17 +61,36 @@ class IcecraftRep(Representation):
 		for gene, allele_index in zip(self.genes, chromo.allele_indices):
 			#print(f"set {[((b.x, b.y), b.group, b.index) for b in gene.bit_positions]} {gene.alleles[allele_index].values}")
 			config.set_multi_bits(gene.bit_positions, gene.alleles[allele_index].values)
+		
+		self.set_carry_enable(config, self.carry_data)
 	
 	def iter_genes(self) -> Iterable[Gene]:
 		yield from self.genes
 	
-
-@dataclass
-class CarryData:
-	"""data regarding carry of a single LUT"""
-	lut_index : int
-	carry_enable: Tuple[IcecraftBitPosition, ...]
-	carry_use: List[PartConf] = field(default_factory=list)
+	@staticmethod
+	def set_carry_enable(config: TargetConfiguration, carry_data: CarryDataMap) -> None:
+		for tile_carry in carry_data.values():
+			set_below = -1
+			for lut_index in range(7, -1, -1):
+				carry_entry = tile_carry[lut_index]
+				for part in carry_entry.carry_use:
+					cur_vals = config.get_multi_bits(part.bits)
+					if cur_vals == part.values:
+						set_below = lut_index
+						# break from part for loop
+						break
+				
+				if set_below >= 0:
+					# break from lut_index for loop
+					break
+				
+				# unset carry enable
+				config.set_multi_bits(carry_entry.carry_enable, (False, )*len(carry_entry.carry_enable))
+			
+			for lut_index in range(set_below, -1, -1):
+				carry_entry = tile_carry[lut_index]
+				config.set_multi_bits(carry_entry.carry_enable, (True, )*len(carry_entry.carry_enable))
+			
 
 class IcecraftRepGen(RepresentationGenerator):
 	"""Generate a representation for ice40 FPGAs
@@ -116,7 +152,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		#TODO: set used flag
 		
-		
+		carry_data = self.get_carry_data(rep)
 		
 		all_genes = self.create_genes(rep, config_map)
 		self.apply_gene_constraints(all_genes, request.gene_constraints, special_map)
@@ -126,7 +162,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		cbc_coords = self.get_colbufctrl_coordinates(rep)
 		cbc_conf = self.get_colbufctrl_config(cbc_coords)
 		
-		return IcecraftRep(genes, const_genes, cbc_conf, tuple(sorted(request.output_lutffs)))
+		return IcecraftRep(genes, const_genes, cbc_conf, tuple(sorted(request.output_lutffs)), carry_data)
 	
 	@staticmethod
 	def carry_in_set_net(config_map: Mapping[IcecraftPosition, ConfigAssemblage], raw_nets: List[NetData]) -> None:
@@ -426,12 +462,13 @@ class IcecraftRepGen(RepresentationGenerator):
 		return super_count
 	
 	@staticmethod
-	def get_carry_data(rep: InterRep) -> Mapping[IcecraftPosition, Mapping[int, CarryData]]:
+	def get_carry_data(rep: InterRep) -> CarryDataMap:
 		tile_to_carry = {}
 		for lut_vtx in rep.iter_lut_vertices():
 			cd = CarryData(lut_vtx.lut_index, lut_vtx.carry_enable)
 			tile_to_carry.setdefault(cd.carry_enable[0].tile, {})[cd.lut_index] = cd
 			
+			# the carry enable bit of a LUT has to be set when its carry output is used
 			for out_edge in lut_vtx.iter_out_edges():
 				if not out_edge.desig.dst.name.endswith("cout"):
 					continue

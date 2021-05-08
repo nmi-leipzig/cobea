@@ -2,7 +2,8 @@ from dataclasses import dataclass
 
 from adapters.icecraft.chip_data_utils import UNCONNECTED_NAME
 from adapters.icecraft.config_item import IndexedItem
-from adapters.icecraft.representation import IcecraftRep
+from adapters.icecraft.inter_rep import PartConf
+from adapters.icecraft.representation import CarryData, IcecraftRep
 from adapters.icecraft.misc import IcecraftBitPosition, IcecraftGeneConstraint, IcecraftLUTPosition, IcecraftPosition,\
 	IcecraftResCon, IcecraftResource, LUTFunction, TILE_ALL, TILE_ALL_LOGIC
 from domain.allele_sequence import Allele, AlleleAll, AlleleList
@@ -555,7 +556,71 @@ EXP_REP = IcecraftRep(
 		IndexedItem((IcecraftBitPosition(15, 24, 9, 7), ), 'ColBufCtrl', 0),
 		IndexedItem((IcecraftBitPosition(16, 24, 9, 7), ), 'ColBufCtrl', 0)
 	], # colbufctrl
-	(IcecraftLUTPosition(16, 18, 5), ) # output
+	(IcecraftLUTPosition(16, 18, 5), ), # output
+	{
+		IcecraftPosition(15, 17): {
+			0: CarryData(0, (IcecraftBitPosition(15, 17, 0, 44),), [PartConf(
+				create_bits(15, 17, ((2, 31), (2, 32), (2, 33), (2, 34), (3, 31))),
+				(False, True, False, False, False)
+			)]),
+			1: CarryData(1, (IcecraftBitPosition(15, 17, 2, 44),), [PartConf(
+				create_bits(15, 17, ((4, 31), (4, 32), (4, 33), (4, 34), (5, 31))),
+				(False, True, False, False, False)
+			)]),
+			2: CarryData(2, (IcecraftBitPosition(15, 17, 4, 44),), [PartConf(
+				create_bits(15, 17, ((6, 31), (6, 32), (6, 33), (6, 34), (7, 31))),
+				(False, True, False, False, False)
+			)]),
+			3: CarryData(3, (IcecraftBitPosition(15, 17, 6, 44),), [PartConf(
+				create_bits(15, 17, ((8, 31), (8, 32), (8, 33), (8, 34), (9, 31))),
+				(False, True, False, False, False)
+			)]),
+			4: CarryData(4, (IcecraftBitPosition(15, 17, 8, 44),), [PartConf(
+				create_bits(15, 17, ((10, 31), (10, 32), (10, 33), (10, 34), (11, 31))),
+				(False, True, False, False, False)
+			)]),
+			5: CarryData(5, (IcecraftBitPosition(15, 17, 10, 44),), [PartConf(
+				create_bits(15, 17, ((12, 31), (12, 32), (12, 33), (12, 34), (13, 31))),
+				(False, True, False, False, False)
+			)]),
+			6: CarryData(6, (IcecraftBitPosition(15, 17, 12, 44),), [PartConf(
+				create_bits(15, 17, ((14, 31), (14, 32), (14, 33), (14, 34), (15, 31))),
+				(False, True, False, False, False)
+			)]),
+			7: CarryData(7, (IcecraftBitPosition(15, 17, 14, 44),), [])
+		},
+		IcecraftPosition(16, 17): {
+			0: CarryData(0, (IcecraftBitPosition(16, 17, 0, 44),), [PartConf(
+				create_bits(16, 17, ((2, 31), (2, 32), (2, 33), (2, 34), (3, 31))),
+				(False, True, False, False, False)
+			)]),
+			1: CarryData(1, (IcecraftBitPosition(16, 17, 2, 44),), [PartConf(
+				create_bits(16, 17, ((4, 31), (4, 32), (4, 33), (4, 34), (5, 31))),
+				(False, True, False, False, False)
+			)]),
+			2: CarryData(2, (IcecraftBitPosition(16, 17, 4, 44),), [PartConf(
+				create_bits(16, 17, ((6, 31), (6, 32), (6, 33), (6, 34), (7, 31))),
+				(False, True, False, False, False)
+			)]),
+			3: CarryData(3, (IcecraftBitPosition(16, 17, 6, 44),), [PartConf(
+				create_bits(16, 17, ((8, 31), (8, 32), (8, 33), (8, 34), (9, 31))),
+				(False, True, False, False, False)
+			)]),
+			4: CarryData(4, (IcecraftBitPosition(16, 17, 8, 44),), [PartConf(
+				create_bits(16, 17, ((10, 31), (10, 32), (10, 33), (10, 34), (11, 31))),
+				(False, True, False, False, False)
+			)]),
+			5: CarryData(5, (IcecraftBitPosition(16, 17, 10, 44),), [PartConf(
+				create_bits(16, 17, ((12, 31), (12, 32), (12, 33), (12, 34), (13, 31))),
+				(False, True, False, False, False)
+			)]),
+			6: CarryData(6, (IcecraftBitPosition(16, 17, 12, 44),), [PartConf(
+				create_bits(16, 17, ((14, 31), (14, 32), (14, 33), (14, 34), (15, 31))),
+				(False, True, False, False, False)
+			)]),
+			7: CarryData(7, (IcecraftBitPosition(16, 17, 14, 44),), [])
+		}
+	} # carry data
 ) # end of EXP_REP
 
 def is_one(bit: IcecraftBitPosition, ones: Dict[IcecraftPosition, Dict[int, List[int]]]) -> bool:
