@@ -3,11 +3,14 @@ import random
 from dataclasses import dataclass, field
 from typing import Callable, List, Tuple
 
+import numpy as np
+
 from deap import tools
 from deap import creator
 from deap import base
 from deap import algorithms
 
+from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.interfaces import EvoAlgo, InputData, PRNG, Representation, TargetConfiguration, TargetDevice, UniqueID
 from domain.model import Chromosome
 from domain.request_model import RequestObject
@@ -50,6 +53,8 @@ class SimpleEA(EvoAlgo):
 		rep.prepare_config(habitat)
 		self._habitat = habitat
 		self._target = target
+		
+		self._driver_table = lexicographic_combinations(5, 5)
 	
 	def run(self) -> None:
 		# create toolbox
@@ -64,8 +69,11 @@ class SimpleEA(EvoAlgo):
 		return [Individual(self._init_uc(RequestObject())) for _ in range(count)]
 	
 	def _evaluate(self, indi: Individual) -> Tuple[int]:
+		comb_index = random.choice(range(len(self._driver_table)))
+		somb_seq = self._driver_table[comb_index]
+		
 		eval_req = RequestObject(
-			driver_data = InputData([0]),
+			driver_data = InputData([comb_index]),
 			retry = 0,
 			measure_timeout = None,
 		)
@@ -73,6 +81,9 @@ class SimpleEA(EvoAlgo):
 		self._rep.decode(self._habitat, indi.chromo)
 		self._target.configure(self._habitat)
 		data = self._measure_uc(eval_req)
+		nd = np.array(data)
+		
+		
 		
 		return (sum(indi)+sum(data), )
 	
