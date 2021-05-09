@@ -32,7 +32,7 @@ def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int]) -> Ice
 	tiles = tiles_from_corners(min_pos, max_pos)
 	# output ports are implicit as they depend on which neigh_op nets the habitat takes from the evolved region
 	in_port = XC6200Port(IcecraftPosition(10, 29), XC6200Direction.lft)
-	req = RequestObject(tiles=tiles, in_ports=[])
+	req = RequestObject(tiles=tiles, in_ports=[in_port])
 	
 	bef = time.perf_counter()
 	rep = rep_gen(req)
@@ -105,7 +105,8 @@ def run(args) -> None:
 	try:
 		measure_uc = Measure(driver, meter)
 		
-		hab_path = os.path.join(pkg_path, "dummy_hab.asc")
+		#hab_path = os.path.join(pkg_path, "dummy_hab.asc")
+		hab_path = os.path.join(pkg_path, "nhabitat.asc")
 		hab_config = IcecraftRawConfig.create_from_file(hab_path)
 		
 		#from tests.mocks import MockRepresentation
