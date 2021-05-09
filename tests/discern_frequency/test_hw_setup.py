@@ -6,6 +6,9 @@ import time
 
 from unittest import TestCase
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 try:
 	import usb.core
 except ImportError:
@@ -27,6 +30,7 @@ from adapters.icecraft import IcecraftManager
 from adapters.embed_driver import FixedEmbedDriver
 from adapters.gear.rigol import OsciDS1102E
 from adapters.icecraft import IcecraftManager, IcecraftRawConfig
+from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.interfaces import InputData
 from domain.request_model import RequestObject
 from domain.use_cases import Measure
@@ -55,7 +59,7 @@ class HWSetupTest(TestCase):
 		setup.ACQ.MODE.value_ = "RTIM"
 		
 		setup.TIM.SCAL.value_ = 0.5
-		setup.TIM.OFFS.value_ = 2
+		setup.TIM.OFFS.value_ = 2.5
 		
 		setup.TRIG.MODE.value_ = "EDGE"
 		setup.TRIG.EDGE.SOUR.value_ = "CHAN2"
@@ -104,6 +108,14 @@ class HWSetupTest(TestCase):
 		config = IcecraftRawConfig.create_from_file(asc_path)
 		dev.configure(config)
 	
+	def show_data(self, data):
+		fig, ax = plt.subplots(6, 2, sharex=True, sharey=True)
+		ax = ax.flatten()
+		for i, sub in enumerate(ax):
+			sub.plot(data[len(data)*i//len(ax):len(data)*(i+1)//len(ax)])
+		
+		plt.show()
+	
 	def test_measurement(self):
 		try:
 			driver_sn, target_sn, meter_sn = self.detect_setup()
@@ -112,11 +124,14 @@ class HWSetupTest(TestCase):
 		
 		man = IcecraftManager()
 		
+		idx_to_comb = lexicographic_combinations(5, 5)
+		
 		too_short = 0
 		gen = man.acquire(driver_sn)
 		target = man.acquire(target_sn)
 		try:
 			self.flash_device(gen, "freq_gen.asc")
+			#self.flash_device(gen, "ctr_drv_2_5.asc")
 			self.flash_device(target, "dummy_hab.asc")
 			
 			meter_setup = self.create_meter_setup()
@@ -132,7 +147,9 @@ class HWSetupTest(TestCase):
 				retry = 1,
 			)
 			
-			for _ in range(10):
+			for comb_index in [0, 175]:
+				req["driver_data"] = InputData([comb_index])
+				
 				bef = time.perf_counter()
 				data = measure_uc(req)
 				aft = time.perf_counter()
@@ -140,6 +157,15 @@ class HWSetupTest(TestCase):
 				if len(data) != 524288:
 					print(f"only got {len(data)} bytes")
 					too_short += 1
+				
+				trig_lev = 1.5
+				nd = np.array(data)
+				rising_at = np.flatnonzero(
+					((nd[:-1] <= trig_lev) & (nd[1:] > trig_lev)) |
+					((nd[:-1] >= trig_lev) & (nd[1:] < trig_lev))
+				)+1
+				print(rising_at[1:]-rising_at[:-1])
+				self.show_data(data)
 		finally:
 			man.release(target)
 			man.release(gen)
