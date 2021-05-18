@@ -113,6 +113,15 @@ class XC6200RepGen(RepresentationGenerator):
 		req["output_lutffs"] = []
 		req["lut_functions"] = []
 		req["gene_constraints"] = [
+			# NegClk
+			IcecraftGeneConstraint((IcecraftBitPosition(TILE_ALL_LOGIC, TILE_ALL_LOGIC, 0, 0), ), ((False, ), )),
+		] + [
+			# DffEnable, Set_NoReset, AsyncSetReset fixed for used LUTs
+			IcecraftGeneConstraint(
+				(IcecraftBitPosition(TILE_ALL_LOGIC, TILE_ALL_LOGIC, *b), ),
+				((False, ), )
+			) for b in [(2*l+o, i) for l in range(5) for o, i in [(0, 45), (1, 44), (1, 45)]]
+		] + [
 			IcecraftGeneConstraint(
 				tuple(IcecraftBitPosition(TILE_ALL_LOGIC, TILE_ALL_LOGIC, *c) for c in b),
 				tuple(
