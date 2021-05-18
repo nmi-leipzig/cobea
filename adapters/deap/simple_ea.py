@@ -60,9 +60,9 @@ class SimpleEA(EvoAlgo):
 		# create toolbox
 		toolbox = self.create_toolbox()
 		# create population
-		pop = self._init_pop(10)
+		pop = self._init_pop(50)
 		# run
-		algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.1, ngen=50)
+		algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.001756, ngen=600)
 		
 	
 	def _init_pop(self, count) -> List[Individual]:
@@ -70,7 +70,7 @@ class SimpleEA(EvoAlgo):
 	
 	def _evaluate(self, indi: Individual) -> Tuple[int]:
 		comb_index = random.choice(range(len(self._driver_table)))
-		somb_seq = self._driver_table[comb_index]
+		comb_seq = self._driver_table[comb_index]
 		
 		eval_req = RequestObject(
 			driver_data = InputData([comb_index]),
@@ -81,11 +81,34 @@ class SimpleEA(EvoAlgo):
 		self._rep.decode(self._habitat, indi.chromo)
 		self._target.configure(self._habitat)
 		data = self._measure_uc(eval_req)
-		nd = np.array(data)
+		h_div = (12*0.5) / len(data)
 		
+		data_parts = [data[i*len(data)//12: (i+1)*len(data)//12] for i in range(12)]
 		
+		# skip first second
+		data_parts = data_parts[2:]
 		
-		return (sum(indi)+sum(data), )
+		print(f"seq {comb_index} {comb_seq:010b}")
+		fast_sum = 0
+		slow_sum = 0
+		for i, data_part in enumerate(data_parts):
+			
+			nd = np.array(data_part)
+			auc = np.trapz(nd, dx=h_div)
+			#print(f"{i}: {auc}")
+			if ((comb_seq >> i) & 1):
+				fast_sum += auc
+			else:
+				slow_sum += auc
+			#spec = np.fft.rfft(nd)
+			
+			#m_freq = np.argmax(np.absolute(spec[1:]))+1
+			#print(f"{np.fft.rfftfreq(len(nd))[m_freq]}: {spec[m_freq]} [{abs(spec[m_freq])}")
+		
+		print(f"fast_sum = {fast_sum}, slow_sum = {slow_sum}")
+		fit = abs(slow_sum/30730.746 - fast_sum/30527.973)/10
+		print(f"fit = {fit}")
+		return (fit, )
 	
 	def create_toolbox(self) -> base.Toolbox:
 		#creator.create("TestFit", base.Fitness, weights=(1.0,))
