@@ -26,7 +26,23 @@ def lexicographic_combinations(s: int, t: int) -> List[int]:
 	
 	Each combination is represented as integer a_n-1 ... a_1 a_0.
 	"""
-	pos_lists = itertools.combinations(range(s+t), t)
+	pos_lists = itertools.combinations(reversed(range(s+t)), t)
 	bin_list = [position_to_binary(p) for p in pos_lists]
 	
-	return list(bin_list)
+	return list(reversed(bin_list))
+
+def combinations_count(s: int, t: int) -> int:
+	"""Compute number of (s, t)-combinations"""
+	if (s < 0) or (t < 0):
+		return 0
+	
+	n = s + t
+	k = min(s, t)
+	n_prod = 1
+	k_fak = 1
+	for i in range(1, k+1):
+		k_fak *= i
+		n_prod *= n
+		n -= 1
+	
+	return n_prod // k_fak
