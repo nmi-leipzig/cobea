@@ -108,11 +108,20 @@ class HWSetupTest(TestCase):
 		config = IcecraftRawConfig.create_from_file(asc_path)
 		dev.configure(config)
 	
-	def show_data(self, data):
+	def show_data(self, data, fft=False):
 		fig, ax = plt.subplots(6, 2, sharex=True, sharey=True)
 		ax = ax.flatten()
 		for i, sub in enumerate(ax):
-			sub.plot(data[len(data)*i//len(ax):len(data)*(i+1)//len(ax)])
+			sub_data = data[len(data)*i//len(ax):len(data)*(i+1)//len(ax)]
+			
+			if fft:
+				spec = np.fft.rfft(sub_data)
+				sub.plot(np.fft.rfftfreq(len(sub_data)), np.absolute(spec))
+				
+				m_freq = np.argmax(np.absolute(spec[1:]))+1
+				#print(f"{np.fft.rfftfreq(len(sub_data))[m_freq]}: {spec[m_freq]} [{abs(spec[m_freq])}")
+			else:
+				sub.plot(sub_data)
 		
 		plt.show()
 	
@@ -147,7 +156,9 @@ class HWSetupTest(TestCase):
 				retry = 1,
 			)
 			
-			for comb_index in [0, 175]:
+			for comb_index in [0, 14]:
+				comb = idx_to_comb[comb_index]
+				#print(f"{comb_index} {comb:010b}")
 				req["driver_data"] = InputData([comb_index])
 				
 				bef = time.perf_counter()
@@ -158,14 +169,39 @@ class HWSetupTest(TestCase):
 					print(f"only got {len(data)} bytes")
 					too_short += 1
 				
-				trig_lev = 1.5
-				nd = np.array(data)
-				rising_at = np.flatnonzero(
-					((nd[:-1] <= trig_lev) & (nd[1:] > trig_lev)) |
-					((nd[:-1] >= trig_lev) & (nd[1:] < trig_lev))
-				)+1
-				print(rising_at[1:]-rising_at[:-1])
-				self.show_data(data)
+				#trig_lev = 1.5
+				#nd = np.array(data)
+				#rising_at = np.flatnonzero(
+				#	((nd[:-1] <= trig_lev) & (nd[1:] > trig_lev)) |
+				#	((nd[:-1] >= trig_lev) & (nd[1:] < trig_lev))
+				#)+1
+				#print(rising_at[1:]-rising_at[:-1])
+				#self.show_data(data, True)
+				
+				# split
+				sub_data = [data[len(data)*i//12:len(data)*(i+1)//12] for i in range(12)]
+				# remove first and last
+				sub_data = sub_data[1:11]
+				# check fft
+				tmp_comb = comb
+				for sd in sub_data:
+					#nd = np.array(sd)
+					fast = tmp_comb & 1
+					tmp_comb >>= 1
+					
+					spec = np.fft.rfft(sd)
+					m_index = np.argmax(np.absolute(spec[1:]))+1
+					m_freq = np.fft.rfftfreq(len(sd))[m_index]
+					
+					if fast:
+						low = 0.09
+						high = 0.12
+					else:
+						low = 0.009
+						high = 0.012
+					
+					self.assertGreaterEqual(high, m_freq)
+					self.assertLessEqual(low, m_freq)
 		finally:
 			man.release(target)
 			man.release(gen)
