@@ -1,10 +1,12 @@
+import sys
 import unittest
 
-from typing import Mapping, Iterable, NamedTuple, List
 
-from domain.request_model import Parameter, NO_DEFAULT, ParameterValues, RequestObject, ParameterUser
+from typing import Any, Mapping, Iterable, NamedTuple, List
 
-from ..common import check_parameter_user
+from domain.request_model import Parameter, NO_DEFAULT, ParameterValues, RequestObject, ParameterUser, set_req_defaults
+
+from ..common import check_param_def_maps, check_parameter_user
 
 class ParameterTest(unittest.TestCase):
 	
@@ -82,18 +84,56 @@ class ParameterUserTest(unittest.TestCase):
 		def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 			return self._params
 		
-		def take_request(self, request: RequestObject) -> None:
-			pass
+		def take_request(self, request: RequestObject) -> int:
+			return request.some_val**2
+		
+		@set_req_defaults
+		def take_with_default(self, request: RequestObject) -> str:
+			return request.def_val
+	
+	def setUp(self):
+		self.params = {
+			"take_request": (Parameter("some_val", int, 2), ),
+			"take_with_default": (Parameter("def_val", str, ""), ),
+		}
 	
 	def test_creation(self):
 		dut = self.PUImpl()
 	
 	def test_parameter_user(self):
-		params = {"take_request": (
-			Parameter("some_val", int, 2),
-		)}
-		dut = self.PUImpl(params)
+		dut = self.PUImpl(self.params)
 		check_parameter_user(self, dut)
+	
+	def test_defaults(self):
+		dut = self.PUImpl(self.params)
+		
+		with self.subTest(desc="without setting defaults"):
+			req = RequestObject()
+			with self.assertRaises(AttributeError):
+				dut.take_request(req)
+		
+		with self.subTest(desc="with setting defaults"):
+			req = RequestObject()
+			res = dut.take_with_default(req)
+			
+			self.assertIn("def_val", req)
+			self.assertEqual(self.params["take_with_default"][0].default, req.def_val, res)
+	
+	def test_extract_defaults(self):
+		test_data = [
+			("empty", {}, {}),
+			("no params", {"a": tuple()}, {"a": {}}),
+			("no defaults", {"a": (Parameter("n", int), )}, {"a": {}}),
+			("mixed", {"a": (Parameter("n", int), Parameter("d", int, 3))}, {"a": {"d": 3}}),
+			("local", self.params, {"take_request": {"some_val": 2}, "take_with_default": {"def_val": ""}}),
+		]
+		
+		for desc, params, exp in test_data:
+			with self.subTest(desc=desc):
+				res = ParameterUser.extract_defaults(params)
+				
+				check_param_def_maps(self, params, res)
+				self.assertEqual(exp, res)
 	
 	def test_meld_parameters(self):
 		class MeldTC(NamedTuple):
@@ -136,3 +176,84 @@ class ParameterUserTest(unittest.TestCase):
 			with self.subTest(desc=tc.desc):
 				with self.assertRaises(tc.error):
 					res = ParameterUser.meld_parameters(tc.a, tc.b)
+	
+	def check_def_in_req(self, def_map, req):
+		"""check default values in request"""
+		for name, val in def_map.items():
+			self.assertIn(name, req)
+			self.assertEqual(req[name], val)
+	
+	def test_set_req_defaults(self):
+		class DummyDef(NamedTuple):
+			default_parameters: Mapping[str, Mapping[str, Any]] = {}
+		
+		def_map = {"a": 3}
+		dd = DummyDef({"func": def_map})
+		
+		# positional syntax doesn't work below Python 3.8
+		#with self.subTest(desc="positional"):
+		#	def func(s, req: RequestObject, /) -> None:
+		#		# positional
+		#		pass
+		with self.subTest(desc="positional or keyword"):
+			def func(s, req: RequestObject) -> RequestObject:
+				# positional or keyword
+				return req
+			
+			def_func = set_req_defaults(func)
+			
+			# positional
+			req = RequestObject()
+			res = def_func(dd, req)
+			
+			self.check_def_in_req(def_map, res)
+			self.check_def_in_req(def_map, req)
+			
+			# keyword
+			req = RequestObject()
+			res = def_func(dd, req=req)
+			
+			self.check_def_in_req(def_map, res)
+			self.check_def_in_req(def_map, req)
+		
+		with self.subTest(desc="keyword"):
+			def func(s, *, req: RequestObject) -> RequestObject:
+				# keyword
+				return req
+			
+			def_func = set_req_defaults(func)
+			
+			req = RequestObject()
+			res = def_func(dd, req=req)
+			
+			self.check_def_in_req(def_map, res)
+			self.check_def_in_req(def_map, req)
+		
+		with self.subTest(desc="no req"):
+			def func(s, req):
+				return req
+			
+			with self.assertRaises(ValueError):
+				def_func = set_req_defaults(func)
+		
+		with self.subTest(desc="two reqs"):
+			def func(s, req: RequestObject, r2: RequestObject) -> RequestObject:
+				return req
+			
+			with self.assertRaises(ValueError):
+				def_func = set_req_defaults(func)
+		
+		with self.subTest(desc="args req"):
+			def func(s, *args: RequestObject) -> RequestObject:
+				return args[0]
+			
+			with self.assertRaises(ValueError):
+				def_func = set_req_defaults(func)
+		
+		with self.subTest(desc="kwargs req"):
+			def func(s, **kwargs: RequestObject) -> RequestObject:
+				return kwargs[req]
+			
+			with self.assertRaises(ValueError):
+				def_func = set_req_defaults(func)
+			

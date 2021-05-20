@@ -6,9 +6,10 @@ from domain.model import OutputData, Chromosome
 from domain.interfaces import DataSink, Driver, EvoAlgo, FitnessFunction, MeasureTimeout, Meter, Preprocessing,\
 PreprocessingLibrary, PosTrans, PosTransLibrary, PRNG, RepresentationGenerator, Representation, TargetConfiguration,\
 TargetManager, UniqueID
-from domain.request_model import RequestObject, ParameterUser, Parameter
+from domain.request_model import RequestObject, ParameterUser, Parameter, set_req_defaults
 
 class UseCase(ParameterUser):
+	@set_req_defaults
 	def __call__(self, request: RequestObject) -> Any:
 		result = self.perform(request)
 		return result
