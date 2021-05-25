@@ -26,8 +26,9 @@ class ParameterValues(Dict[str, Any]):
 class RequestObject(ParameterValues):
 	pass
 
-def set_req_defaults(func: Callable) -> Callable:
-	"""set defaults in request"""
+def create_get_req(func: Callable) -> Callable[..., RequestObject]:
+	"""create a function that extracts the Request from call parameters for a function"""
+	
 	req_index = None
 	req_par = None
 	for i, par in enumerate(inspect.signature(func).parameters.values()):
@@ -61,6 +62,13 @@ def set_req_defaults(func: Callable) -> Callable:
 		get_req = keyword
 	else:
 		raise ValueError(f"callable has RequestObject annotated on wrong kind of parameter: {req_par.kind}")
+	
+	return get_req
+
+def set_req_defaults(func: Callable) -> Callable:
+	"""set defaults in request"""
+	
+	get_req = create_get_req(func)
 	
 	@functools.wraps(func)
 	def wrap(*args, **kwargs):
