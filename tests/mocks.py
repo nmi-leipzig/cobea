@@ -1,6 +1,8 @@
-from typing import Any, Union, Mapping, Iterable
+from types import TracebackType
+from typing import Any, Iterable, Mapping, Optional, Union, Type
 
 from domain.base_structures import BitPos
+from domain.data_sink import DataSink, DoneReq
 from domain.interfaces import MeasureTimeout, Meter, PRNG, Representation, TargetConfiguration, TargetDevice,\
 TargetManager, UniqueID
 from domain.model import OutputData, Gene, Chromosome
@@ -126,3 +128,35 @@ class MockRepresentation(Representation):
 	
 	def iter_genes(self) -> Iterable[Gene]:
 		yield from self._gene_list
+
+class MockDataSink(DataSink):
+	"""calls to the write functions are recorded
+	
+	all_list with tuples (write_type, index__func) in order of the call, index_func is the number of the call of the
+	specific write function
+	all_map from write_type to list of data for each call
+	"""
+	def __init__(self) -> None:
+		self.clear()
+	
+	def write_metadata(self, name: str, data: Any, data_type: type, multiple=False) -> None:
+		self.all_list.append(("meta", len(self.all_map["meta"])))
+		self.all_map["meta"].append((name, data, data_type, multiple))
+	
+	def write_request(self, req_data: DoneReq) -> None:
+		self.all_list.append(("req", len(self.all_map["req"])))
+		self.all_map["req"].append(req_data)
+	
+	def clear(self):
+		self.all_list = []
+		self.all_map = {"meta": [], "req": []}
+	
+	def __enter__(self) -> "MockDataSink":
+		self.clear()
+	
+	def __exit__(self,
+		exc_type: Optional[Type[BaseException]],
+		exc_value: Optional[BaseException],
+		exc_traceback: Optional[TracebackType]
+	) -> bool:
+		pass

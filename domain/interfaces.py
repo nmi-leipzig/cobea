@@ -3,6 +3,7 @@ from contextlib import AbstractContextManager
 from typing import Any, Callable, Union, Mapping, Iterable, Sequence, Tuple
 
 from domain.base_structures import BitPos
+from domain.data_sink import DataSink
 from domain.model import InputData, OutputData, Chromosome, Gene
 from domain.request_model import RequestObject, ParameterValues, ParameterUser, Parameter
 
@@ -155,11 +156,6 @@ class PosTransLibrary(ABC):
 class EvoAlgo(ABC):
 	@abstractmethod
 	def run(self) -> None:
-		raise NotImplementedError()
-
-class DataSink(AbstractContextManager):
-	@abstractmethod
-	def write_metadata(self, name: str, data: Any, data_type: type, multiple=False) -> None:
 		raise NotImplementedError()
 
 class PRNG(ABC):
