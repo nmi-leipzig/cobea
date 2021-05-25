@@ -1,8 +1,18 @@
 """Dummies that do nothing"""
 
+from typing import Any
+
+from domain.data_sink import DataSink, DoneReq
 from domain.interfaces import Driver, Meter
 from domain.model import OutputData
 from domain.request_model import RequestObject
+
+class DummyDataSink(DataSink):
+	def write_metadata(self, name: str, data: Any, data_type: type, multiple=False) -> None:
+		pass
+	
+	def write_request(self, req_data: DoneReq) -> None:
+		pass
 
 class DummyDriver(Driver):
 	@property
