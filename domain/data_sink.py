@@ -48,12 +48,13 @@ def sink_request(func: Callable) -> Callable:
 	
 	@functools.wraps(func)
 	def wrap(*args, **kwargs):
-		req = get_req(*args, **kwargs)
 		# first arg should be self, i.e. the object that the functon belongs to
 		obj = args[0]
 		func_name = func.__name__
 		params = obj.parameters[func_name]
 		class_name = type(obj).__name__
+		
+		req = get_req(*args, **kwargs)
 		
 		# copy data from request
 		values = tuple(ReqVal(p.name, req[p.name], p.data_type, p.multiple) for p in params)
@@ -69,7 +70,9 @@ def sink_request(func: Callable) -> Callable:
 		)
 		
 		# write request to data sink
-		obj.data_sink.write_request(done)
+		sink = obj.data_sink
+		if sink is not None:
+			sink.write_request(done)
 		
 		return res
 	
