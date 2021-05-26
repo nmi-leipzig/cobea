@@ -2,13 +2,14 @@ from abc import ABC, abstractmethod
 from functools import reduce
 from typing import Any, Dict, Mapping, Iterable
 
+from domain.data_sink import DataSink, DataSinkUser, sink_request
 from domain.model import OutputData, Chromosome
 from domain.interfaces import DataSink, Driver, EvoAlgo, FitnessFunction, MeasureTimeout, Meter, Preprocessing,\
 PreprocessingLibrary, PosTrans, PosTransLibrary, PRNG, RepresentationGenerator, Representation, TargetConfiguration,\
 TargetManager, UniqueID
 from domain.request_model import RequestObject, ParameterUser, Parameter, set_req_defaults
 
-class UseCase(ParameterUser):
+class UseCase(ParameterUser, DataSinkUser):
 	@set_req_defaults
 	def __call__(self, request: RequestObject) -> Any:
 		result = self.perform(request)
@@ -19,6 +20,10 @@ class UseCase(ParameterUser):
 		res = dict(self._parameters)
 		res["__call__"] = res["perform"]
 		return res
+	
+	@property
+	def data_sink(self) -> DataSink:
+		return self._data_sink
 	
 	@abstractmethod
 	def perform(self, request: RequestObject) -> Any:
@@ -34,6 +39,8 @@ class Measure(UseCase):
 			meter.parameters["prepare"], meter.parameters["measure"]
 		]
 		self._parameters = {"perform": reduce(self.meld_parameters, sub_params)}
+		
+		self._data_sink = None
 	
 	def perform(self, request: RequestObject) -> OutputData:
 		attempt = 0
@@ -77,6 +84,8 @@ class MeasureFitness(UseCase):
 				# not needed
 				pass
 		self._parameters = {"perform": perf_params}
+		
+		self._data_sink = None
 	
 	def perform(self, request: RequestObject) -> float:
 		request["configuration"] = self._rep.decode(request.configuration, request.chromosome)
@@ -103,6 +112,8 @@ class GenChromo(UseCase):
 		self._parameters = {
 			"perform": [Parameter("allele_indices", int, multiple=True)]
 		}
+		
+		self._data_sink = None
 	
 	def perform(self, request: RequestObject) -> Chromosome:
 		new_id = self._uid_gen.get_id()
@@ -119,6 +130,8 @@ class RandomChromo(UseCase):
 		self._chromo_gen = GenChromo(uid_gen)
 		
 		self._parameters = {"perform": []}
+		
+		self._data_sink = None
 	
 	def perform(self, request: RequestObject) -> Chromosome:
 		indices = [self._prng.randint(0, len(g.alleles)-1) for g in self._rep.iter_genes()]
