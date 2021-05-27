@@ -1,6 +1,6 @@
 """Dummies that do nothing"""
 
-from typing import Any
+from typing import Any, Mapping
 
 from domain.data_sink import DataSink, DoneReq
 from domain.interfaces import Driver, Meter
