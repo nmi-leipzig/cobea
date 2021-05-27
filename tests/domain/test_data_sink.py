@@ -1,4 +1,5 @@
-from typing import Iterable, Mapping, NamedTuple
+from dataclasses import dataclass
+from typing import Iterable, Mapping
 from unittest import TestCase
 
 from domain.data_sink import sink_request, DataSink, DataSinkUser
@@ -16,9 +17,14 @@ class SinkRequestTest(TestCase):
 	
 	def test_wrapped_call(self):
 		# construct an object that has data_sink 
-		class DSU(NamedTuple):
-			data_sink: DataSink
+		@dataclass
+		class DSU(DataSinkUser):
+			sink: DataSink
 			parameters: Mapping[str, Iterable[Parameter]]
+			
+			@property
+			def data_sink(self) -> DataSink:
+				return self.sink
 		
 		sink = MockDataSink()
 		params = {"req_func": []}

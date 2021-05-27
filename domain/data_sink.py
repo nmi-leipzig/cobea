@@ -16,6 +16,11 @@ class DataSinkUser(ABC):
 	@abstractproperty
 	def data_sink(self) -> DataSink:
 		raise NotImplementedError()
+	
+	def write_to_sink(self, sub_name: str, data_dict: Mapping[str, Any]) -> None:
+		if self.data_sink is None:
+			return
+		self.data_sink.write(f"{type(self).__name__}.{sub_name}", data_dict)
 
 def sink_request(func: Callable) -> Callable:
 	"""Decorator for functions with request parameter to send request to a DataSink
@@ -33,7 +38,6 @@ def sink_request(func: Callable) -> Callable:
 		obj = args[0]
 		func_name = func.__name__
 		params = obj.parameters[func_name]
-		class_name = type(obj).__name__
 		
 		req = get_req(*args, **kwargs)
 		
@@ -49,9 +53,7 @@ def sink_request(func: Callable) -> Callable:
 		values["return"] = res
 		
 		# write request to data sink
-		sink = obj.data_sink
-		if sink is not None:
-			sink.write(f"{class_name}.{func_name}", values)
+		sink = obj.write_to_sink(func_name, values)
 		
 		return res
 	
