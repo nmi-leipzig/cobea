@@ -27,9 +27,6 @@ class DataSink(AbstractContextManager):
 	def write(self, source: str, data_dict: Mapping[str, Any]) -> None:
 		raise NotImplementedError()
 	
-	def write_metadata(self, name: str, data: Any, data_type: type, multiple=False) -> None:
-		self.write(name, {name: data})
-	
 	def write_request(self, req_data: DoneReq) -> None:
 		dd = {v.name: v.value for v in req_data.values}
 		assert "return" not in dd
