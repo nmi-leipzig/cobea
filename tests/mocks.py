@@ -3,7 +3,7 @@ from types import TracebackType
 from typing import Any, Iterable, Mapping, Optional, Union, Type
 
 from domain.base_structures import BitPos
-from domain.data_sink import DataSink, DoneReq
+from domain.data_sink import DataSink
 from domain.interfaces import MeasureTimeout, Meter, PRNG, Representation, TargetConfiguration, TargetDevice,\
 TargetManager, UniqueID
 from domain.model import OutputData, Gene, Chromosome

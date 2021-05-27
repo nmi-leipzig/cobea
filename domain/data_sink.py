@@ -7,21 +7,6 @@ from typing import Any, Callable, Mapping, Tuple
 
 from domain.request_model import create_get_req
 
-@dataclass(frozen=True)
-class ReqVal:
-	"""Represent a value of a parameter in a request"""
-	name: str
-	value: Any
-	data_type: type
-	multiple: bool
-
-@dataclass(frozen=True)
-class DoneReq:
-	"""Represent finished request"""
-	values: Tuple[ReqVal]
-	result: Any
-	creator: str
-
 class DataSink(AbstractContextManager):
 	@abstractmethod
 	def write(self, source: str, data_dict: Mapping[str, Any]) -> None:

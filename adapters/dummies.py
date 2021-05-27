@@ -2,7 +2,7 @@
 
 from typing import Any, Mapping
 
-from domain.data_sink import DataSink, DoneReq
+from domain.data_sink import DataSink
 from domain.interfaces import Driver, Meter
 from domain.model import OutputData
 from domain.request_model import RequestObject

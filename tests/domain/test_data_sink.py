@@ -1,7 +1,7 @@
 from typing import Iterable, Mapping, NamedTuple
 from unittest import TestCase
 
-from domain.data_sink import sink_request, DataSink, DataSinkUser, DoneReq, ReqVal
+from domain.data_sink import sink_request, DataSink, DataSinkUser
 from domain.request_model import Parameter, ParameterUser, RequestObject, set_req_defaults
 
 from ..mocks import MockDataSink
