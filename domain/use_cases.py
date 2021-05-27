@@ -30,7 +30,7 @@ class UseCase(ParameterUser, DataSinkUser):
 		raise NotImplementedError()
 
 class Measure(UseCase):
-	def __init__(self, driver: Driver, meter: Meter) -> None:
+	def __init__(self, driver: Driver, meter: Meter, data_sink: DataSink=None) -> None:
 		self._driver = driver
 		self._meter = meter
 		sub_params = [
@@ -40,8 +40,9 @@ class Measure(UseCase):
 		]
 		self._parameters = {"perform": reduce(self.meld_parameters, sub_params)}
 		
-		self._data_sink = None
+		self._data_sink = data_sink
 	
+	@sink_request
 	def perform(self, request: RequestObject) -> OutputData:
 		attempt = 0
 		while True:
@@ -64,7 +65,12 @@ class Measure(UseCase):
 		return output_data
 
 class MeasureFitness(UseCase):
-	def __init__(self, rep: Representation, measure_uc: Measure, fit_func: FitnessFunction) -> None:
+	def __init__(self,
+		rep: Representation,
+		measure_uc: Measure,
+		fit_func: FitnessFunction,
+		data_sink: DataSink=None
+	) -> None:
 		self._rep = rep
 		self._measure_uc = measure_uc
 		self._fit_func = fit_func
@@ -85,21 +91,23 @@ class MeasureFitness(UseCase):
 				pass
 		self._parameters = {"perform": perf_params}
 		
-		self._data_sink = None
+		self._data_sink = data_sink
 	
+	@sink_request
 	def perform(self, request: RequestObject) -> float:
 		request["configuration"] = self._rep.decode(request.configuration, request.chromosome)
 		request["output_data"] = self._measure_uc(request)
 		return self._fit_func.compute(request)
 
 class RunEvoAlgo(UseCase):
-	def __init__(self, evo_algo: EvoAlgo, data_sink: DataSink) -> None:
+	def __init__(self, evo_algo: EvoAlgo, data_sink: DataSink=None) -> None:
 		self._evo_algo = evo_algo
 		self._target_manager = target_manager
 		self._meter = meter
 		self._data_sink = data_sink
 		self._parameters = {"perform": []}
 	
+	@sink_request
 	def perform(self, request: RequestObject) -> None:
 		with self._data_sink:
 			self._evo_algo.run()
@@ -107,14 +115,15 @@ class RunEvoAlgo(UseCase):
 class GenChromo(UseCase):
 	"""Generate Chromosome"""
 	
-	def __init__(self, uid_gen: UniqueID) -> None:
+	def __init__(self, uid_gen: UniqueID, data_sink: DataSink=None) -> None:
 		self._uid_gen = uid_gen
 		self._parameters = {
 			"perform": [Parameter("allele_indices", int, multiple=True)]
 		}
 		
-		self._data_sink = None
+		self._data_sink = data_sink
 	
+	@sink_request
 	def perform(self, request: RequestObject) -> Chromosome:
 		new_id = self._uid_gen.get_id()
 		indices = tuple(request.allele_indices)
@@ -124,15 +133,16 @@ class GenChromo(UseCase):
 class RandomChromo(UseCase):
 	"""Generate a random chromosome"""
 	
-	def __init__(self, prng: PRNG, rep: Representation, uid_gen: UniqueID) -> None:
+	def __init__(self, prng: PRNG, rep: Representation, uid_gen: UniqueID, data_sink: DataSink=None) -> None:
 		self._prng = prng
 		self._rep = rep
 		self._chromo_gen = GenChromo(uid_gen)
 		
 		self._parameters = {"perform": []}
 		
-		self._data_sink = None
+		self._data_sink = data_sink
 	
+	@sink_request
 	def perform(self, request: RequestObject) -> Chromosome:
 		indices = [self._prng.randint(0, len(g.alleles)-1) for g in self._rep.iter_genes()]
 		return self._chromo_gen(RequestObject(allele_indices=indices))
