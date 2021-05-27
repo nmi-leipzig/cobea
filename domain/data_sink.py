@@ -3,7 +3,7 @@ import functools
 from abc import ABC, abstractmethod, abstractproperty
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Mapping, Tuple
 
 from domain.request_model import create_get_req
 
@@ -24,12 +24,18 @@ class DoneReq:
 
 class DataSink(AbstractContextManager):
 	@abstractmethod
-	def write_metadata(self, name: str, data: Any, data_type: type, multiple=False) -> None:
+	def write(self, source: str, data_dict: Mapping[str, Any]) -> None:
 		raise NotImplementedError()
 	
-	@abstractmethod
+	def write_metadata(self, name: str, data: Any, data_type: type, multiple=False) -> None:
+		self.write(name, {name: data})
+	
 	def write_request(self, req_data: DoneReq) -> None:
-		raise NotImplementedError()
+		dd = {v.name: v.value for v in req_data.values}
+		assert "return" not in dd
+		# use 'return' so it is easy to avoid conflicts with other parameter names by prohibting Python keywords
+		dd["return"] = req_data.result
+		self.write(req_data.creator, dd)
 
 class DataSinkUser(ABC):
 	@abstractproperty

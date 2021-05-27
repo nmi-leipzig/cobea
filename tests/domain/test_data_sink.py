@@ -33,12 +33,10 @@ class SinkRequestTest(TestCase):
 		req = RequestObject()
 		dut(obj, req)
 		
-		self.assertEqual(1, len(sink.all_list), "Wrong number of calls to data sink")
-		self.assertEqual("req", sink.all_list[0][0])
-		done_req = sink.all_map["req"][0]
-		self.assertEqual(tuple(), done_req.values)
-		self.assertEqual(None, done_req.result)
-		self.assertEqual("DSU.req_func", done_req.creator)
+		self.assertEqual(1, len(sink.write_list), "Wrong number of calls to data sink")
+		source, values = sink.write_list[0]
+		self.assertEqual({"return": None}, values)
+		self.assertEqual("DSU.req_func", source)
 		
 		# test None as sink
 		obj = DSU(None, params)
@@ -80,9 +78,9 @@ class SinkRequestTest(TestCase):
 			res = dut.sink_req(req)
 			self.assertEqual(num, res)
 			
-			exp = DoneReq((ReqVal("num", num, int, False), ), num, "FullDSU.sink_req")
-			self.assertEqual(1, len(sink.all_list), "Wrong number of calls to data sink")
-			self.assertEqual([exp], sink.all_map["req"])
+			exp = ("FullDSU.sink_req", {"num": num, "return": num})
+			self.assertEqual(1, len(sink.write_list), "Wrong number of calls to data sink")
+			self.assertEqual([exp], sink.write_list)
 		
 		with self.subTest(desc="call with sink and default"):
 			sink.clear()
@@ -92,26 +90,18 @@ class SinkRequestTest(TestCase):
 			res = dut.def_sink_req(req)
 			self.assertEqual(9, res)
 			
-			exp = DoneReq(
-				(ReqVal("base", base, float, False), ReqVal("power", 2, int, False)),
-				9,
-				"FullDSU.def_sink_req"
-			)
-			self.assertEqual(1, len(sink.all_list), "Wrong number of calls to data sink")
-			self.assertEqual([exp], sink.all_map["req"])
+			exp = ("FullDSU.def_sink_req", {"base": base, "power": 2, "return": 9})
+			self.assertEqual(1, len(sink.write_list), "Wrong number of calls to data sink")
+			self.assertEqual([exp], sink.write_list)
 			
 			power = 4
 			req = RequestObject(base=base, power=power)
 			res = dut.def_sink_req(req)
 			self.assertEqual(81, res)
 			
-			exp2 = DoneReq(
-				(ReqVal("base", base, float, False), ReqVal("power", 4, int, False)),
-				81,
-				"FullDSU.def_sink_req"
-			)
-			self.assertEqual(2, len(sink.all_list), "Wrong number of calls to data sink")
-			self.assertEqual([exp, exp2], sink.all_map["req"])
+			exp2 = ("FullDSU.def_sink_req", {"base": base, "power": 4, "return": 81})
+			self.assertEqual(2, len(sink.write_list), "Wrong number of calls to data sink")
+			self.assertEqual([exp, exp2], sink.write_list)
 		
 		with self.subTest(desc="sink is None"):
 			dut_none = FullDSU(None)

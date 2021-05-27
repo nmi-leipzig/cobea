@@ -1,3 +1,4 @@
+from copy import deepcopy
 from types import TracebackType
 from typing import Any, Iterable, Mapping, Optional, Union, Type
 
@@ -139,17 +140,11 @@ class MockDataSink(DataSink):
 	def __init__(self) -> None:
 		self.clear()
 	
-	def write_metadata(self, name: str, data: Any, data_type: type, multiple=False) -> None:
-		self.all_list.append(("meta", len(self.all_map["meta"])))
-		self.all_map["meta"].append((name, data, data_type, multiple))
-	
-	def write_request(self, req_data: DoneReq) -> None:
-		self.all_list.append(("req", len(self.all_map["req"])))
-		self.all_map["req"].append(req_data)
+	def write(self, source: str, data_dict: Mapping[str, Any]) -> None:
+		self.write_list.append((source, deepcopy(data_dict)))
 	
 	def clear(self):
-		self.all_list = []
-		self.all_map = {"meta": [], "req": []}
+		self.write_list = []
 	
 	def __enter__(self) -> "MockDataSink":
 		self.clear()
