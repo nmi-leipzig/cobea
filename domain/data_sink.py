@@ -26,13 +26,6 @@ class DataSink(AbstractContextManager):
 	@abstractmethod
 	def write(self, source: str, data_dict: Mapping[str, Any]) -> None:
 		raise NotImplementedError()
-	
-	def write_request(self, req_data: DoneReq) -> None:
-		dd = {v.name: v.value for v in req_data.values}
-		assert "return" not in dd
-		# use 'return' so it is easy to avoid conflicts with other parameter names by prohibting Python keywords
-		dd["return"] = req_data.result
-		self.write(req_data.creator, dd)
 
 class DataSinkUser(ABC):
 	@abstractproperty
@@ -60,22 +53,20 @@ def sink_request(func: Callable) -> Callable:
 		req = get_req(*args, **kwargs)
 		
 		# copy data from request
-		values = tuple(ReqVal(p.name, req[p.name], p.data_type, p.multiple) for p in params)
+		values = {p.name: req[p.name] for p in params}
 		
 		# execute decorated function
 		res = func(*args, **kwargs)
 		
 		# copy result
-		done = DoneReq(
-			values,
-			res,
-			f"{class_name}.{func_name}"
-		)
+		# use 'return' so it is easy to avoid conflicts with other parameter names by prohibting Python keywords
+		# which are already banned for RequestObject
+		values["return"] = res
 		
 		# write request to data sink
 		sink = obj.data_sink
 		if sink is not None:
-			sink.write_request(done)
+			sink.write(f"{class_name}.{func_name}", values)
 		
 		return res
 	
