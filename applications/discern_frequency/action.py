@@ -7,9 +7,11 @@ from adapters.embed_driver import FixedEmbedDriver
 from adapters.deap.simple_ea import SimpleEA
 from adapters.dummies import DummyDriver, DummyMeter
 from adapters.gear.rigol import OsciDS1102E
+from adapters.hdf5_sink import HDF5Sink, ParamAim
 from adapters.icecraft import IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen, IcecraftManager,\
 IcecraftRawConfig, XC6200Port, XC6200Direction
 from adapters.prng import BuiltInPRNG
+from adapters.simple_sink import TextfileSink
 from adapters.unique_id import SimpleUID
 from domain.interfaces import TargetDevice, TargetManager, InputData
 from domain.model import AlleleAll, Gene
@@ -40,6 +42,14 @@ def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int]) -> Ice
 	print(f"rep gen took in {aft-bef} s")
 	
 	return rep
+
+def is_rep_fitting(rep: IcecraftRep, chromo_bits: int) -> bool:
+	"""check if representation fits in a certain number of bits"""
+	for gene in rep.iter_genes():
+		if len(gene.alleles) > 1<<chromo_bits:
+			return False
+	
+	return True
 
 # flash FPGAs
 def prepare_generator(gen: TargetDevice, asc_path: str) -> None:
@@ -82,41 +92,71 @@ def run(args) -> None:
 	
 	use_dummy = False
 	
-	man = IcecraftManager()
-	if use_dummy:
-		meter = DummyMeter()
-		driver = DummyDriver()
-		from unittest.mock import MagicMock
-		#target = DummyTargetDevice()
-		target = MagicMock()
-	else:
-		gen = man.acquire(args.generator)
-		target = man.acquire(args.target)
-		
-		prepare_generator(gen, os.path.join(pkg_path, "freq_gen.asc"))
-		
-		#target.configure(hab_config)
-		
-		meter_setup = create_meter_setup()
-		meter = OsciDS1102E(meter_setup)
-		
-		driver = FixedEmbedDriver(gen, "B")
+	rep = create_xc6200_rep((10, 23), (19, 32))
+	chromo_bits = 16
+	if not is_rep_fitting(rep, chromo_bits):
+		raise ValueError(f"representation needs more than {chromo_bits} bits")
 	
-	try:
-		measure_uc = Measure(driver, meter)
+	man = IcecraftManager()
+	#sink = TextfileSink("tmp.out.txt")
+	chromo_aim = [
+		ParamAim(
+			"return", f"uint{chromo_bits}", "chromosome", as_attr=False, shape=(len(rep.genes), ),
+			alter=lambda x: x.allele_indices
+		),
+		ParamAim("return", "uint64", "chromo_id", as_attr=False, alter=lambda x: x.identifier),
+	]
+	
+	write_map = {
+		"Measure.perform": [
+			ParamAim("driver_data", "uint8", "s_t_index", as_attr=False),
+			ParamAim("return", "float64", "measurement", as_attr=False, shape=(2**19, )),
+		],
+		"SimpleEA.fitness": [
+			ParamAim("fit", "float64", "fitness", as_attr=False),
+			ParamAim("fast_sum", "float64", "fast_sum", as_attr=False),
+			ParamAim("slow_sum", "float64", "slow_sum", as_attr=False),
+			ParamAim("chromo_index", "uint64", "fitness_chromo_id", as_attr=False),
+		],
+		"RandomChromo.perform": chromo_aim,
+		"GenChromo.perform": chromo_aim,
+	}
+	
+	sink = HDF5Sink(write_map)
+	with sink:
+		if use_dummy:
+			meter = DummyMeter()
+			driver = DummyDriver()
+			from unittest.mock import MagicMock
+			#target = DummyTargetDevice()
+			target = MagicMock()
+		else:
+			gen = man.acquire(args.generator)
+			target = man.acquire(args.target)
+			
+			prepare_generator(gen, os.path.join(pkg_path, "freq_gen.asc"))
+			
+			#target.configure(hab_config)
+			
+			meter_setup = create_meter_setup()
+			meter = OsciDS1102E(meter_setup)
+			
+			driver = FixedEmbedDriver(gen, "B")
 		
-		#hab_path = os.path.join(pkg_path, "dummy_hab.asc")
-		hab_path = os.path.join(pkg_path, "nhabitat.asc")
-		hab_config = IcecraftRawConfig.create_from_file(hab_path)
-		
-		#from tests.mocks import MockRepresentation
-		#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
-		rep = create_xc6200_rep((10, 23), (19, 32))
-		ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target)
-		
-		ea.run()
-	finally:
-		if not use_dummy:
-			man.release(target)
-			man.release(gen)
+		try:
+			measure_uc = Measure(driver, meter, sink)
+			
+			#hab_path = os.path.join(pkg_path, "dummy_hab.asc")
+			hab_path = os.path.join(pkg_path, "nhabitat.asc")
+			hab_config = IcecraftRawConfig.create_from_file(hab_path)
+			
+			#from tests.mocks import MockRepresentation
+			#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
+			ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target, sink)
+			
+			ea.run()
+		finally:
+			if not use_dummy:
+				man.release(target)
+				man.release(gen)
 
