@@ -3,19 +3,22 @@ import h5py
 
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Any, Callable, List, Mapping, Optional, Tuple, Type
+from typing import Any, Callable, List, Mapping, Optional, Sequence, Tuple, Type
 
 from domain.data_sink import DataSink
+from domain.model import Gene
 
 @dataclass
 class ParamAim:
+	# there can be multiple ParamAim instance with the same name
+	# to create multiple entries in the HDF5 from the same data 
 	name: str
 	data_type: type
 	h5_name: str
 	h5_path: str = "/"
 	as_attr: bool = True
 	shape: Tuple[Optional[int], ...] = tuple()
-	transform: Callable[[Any], Any] = lambda x: x
+	alter: Callable[[Any], Any] = lambda x: x
 
 class HDF5Sink(DataSink):
 	def __init__(self,
@@ -92,7 +95,7 @@ class HDF5Sink(DataSink):
 			return
 		
 		for pa in aim_list:
-			value = data_dict[pa.name]
+			value = pa.alter(data_dict[pa.name])
 			entity = self._hdf5_file[pa.h5_path]
 			
 			if pa.as_attr:
