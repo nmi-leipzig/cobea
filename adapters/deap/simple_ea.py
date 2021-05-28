@@ -11,6 +11,7 @@ from deap import base
 from deap import algorithms
 
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
+from domain.data_sink import DataSink, DataSinkUser
 from domain.interfaces import EvoAlgo, InputData, PRNG, Representation, TargetConfiguration, TargetDevice, UniqueID
 from domain.model import Chromosome
 from domain.request_model import RequestObject
@@ -44,17 +45,22 @@ class Individual:
 		
 		return wrapped_func
 
-class SimpleEA(EvoAlgo):
-	def __init__(self, rep: Representation, measure_uc: Measure, uid_gen: UniqueID, prng: PRNG, habitat: TargetConfiguration, target: TargetDevice) -> None:
+class SimpleEA(EvoAlgo, DataSinkUser):
+	def __init__(self, rep: Representation, measure_uc: Measure, uid_gen: UniqueID, prng: PRNG, habitat: TargetConfiguration, target: TargetDevice, data_sink: DataSink) -> None:
 		self._rep = rep
 		self._measure_uc = measure_uc
-		self._init_uc = RandomChromo(prng, rep, uid_gen)
-		self._chromo_gen = GenChromo(uid_gen)
+		self._init_uc = RandomChromo(prng, rep, uid_gen, data_sink)
+		self._chromo_gen = GenChromo(uid_gen, data_sink)
 		rep.prepare_config(habitat)
 		self._habitat = habitat
 		self._target = target
+		self._data_sink = data_sink
 		
 		self._driver_table = lexicographic_combinations(5, 5)
+	
+	@property
+	def data_sink(self) -> DataSink:
+		return self._data_sink
 	
 	def run(self) -> None:
 		# create toolbox
@@ -74,7 +80,7 @@ class SimpleEA(EvoAlgo):
 		
 		eval_req = RequestObject(
 			driver_data = InputData([comb_index]),
-			retry = 0,
+			#retry = 0,
 			measure_timeout = None,
 		)
 		
@@ -108,6 +114,12 @@ class SimpleEA(EvoAlgo):
 		print(f"fast_sum = {fast_sum}, slow_sum = {slow_sum}")
 		fit = abs(slow_sum/30730.746 - fast_sum/30527.973)/10
 		print(f"fit = {fit}")
+		self.write_to_sink("fitness", {
+			"fit": fit,
+			"fast_sum": fast_sum,
+			"slow_sum": slow_sum,
+			"chromo_index": indi.chromo.identifier
+		})
 		return (fit, )
 	
 	def create_toolbox(self) -> base.Toolbox:
