@@ -8,6 +8,10 @@ from typing import Any, Callable, List, Mapping, Optional, Sequence, Tuple, Type
 from domain.data_sink import DataSink
 from domain.model import Gene
 
+class IgnoreValue(Exception):
+	"""Exception that indicades that a value should not be further processed and be ignored"""
+	pass
+
 @dataclass
 class ParamAim:
 	# there can be multiple ParamAim instance with the same name
@@ -95,7 +99,12 @@ class HDF5Sink(DataSink):
 			return
 		
 		for pa in aim_list:
-			value = pa.alter(data_dict[pa.name])
+			try:
+				value = pa.alter(data_dict[pa.name])
+			except IgnoreValue:
+				# don't process this value any further
+				continue
+			
 			entity = self._hdf5_file[pa.h5_path]
 			
 			if pa.as_attr:
