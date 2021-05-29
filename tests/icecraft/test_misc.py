@@ -30,6 +30,7 @@ class IcecraftBitPositionTest(unittest.TestCase):
 		self.assertEqual(y, dut.y)
 		self.assertEqual(group, dut.group)
 		self.assertEqual(index, dut.index)
+		self.assertEqual((x, y, group, index), dut.to_ints())
 	
 	def test_values(self):
 		x = 3
