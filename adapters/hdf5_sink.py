@@ -13,6 +13,13 @@ class IgnoreValue(Exception):
 	"""Exception that indicades that a value should not be further processed and be ignored"""
 	pass
 
+class InvalidStructure(Exception):
+	"""Exception that indicates invalid combination of groups, dataset and attributes
+	
+	Example: group and dataset with the same name and parent required
+	"""
+	pass
+
 @dataclass
 class ParamAim:
 	# there can be multiple ParamAim instance with the same name
@@ -57,9 +64,23 @@ class HDF5Sink(DataSink):
 				if not pa.as_attr:
 					try:
 						ds = grp[pa.h5_name]
-						assert ds.dtype == pa.data_type
-						assert ds.shape[1:] == pa.shape
-						assert ds.maxshape == (None, *pa.shape)
+						if not isinstance(ds, h5py.Dataset):
+							raise InvalidStructure(f"group and dataset with same name '{pa.h5_name}' required")
+						if ds.dtype != pa.data_type:
+							raise InvalidStructure(
+								f"different data types required for {pa.h5_name}: {ds.dtype} != {pa.data_type}"
+							)
+						
+						if ds.shape[1:] != pa.shape:
+							raise InvalidStructure(
+								f"different shape required for {pa.h5_name}: {ds.shape} != {pa.shape}"
+							)
+						
+						if ds.maxshape != (None, *pa.shape):
+							raise InvalidStructure(
+								f"different maxshape required for {pa.h5_name}: {ds.maxshape} != {(None, *pa.shape)}"
+							)
+						
 					except KeyError:
 						ds = grp.create_dataset(
 							pa.h5_name,
