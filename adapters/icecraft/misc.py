@@ -42,6 +42,9 @@ class IcecraftPosition(ElementPosition):
 class IcecraftBitPosition(BitPos, IcecraftPosition):
 	group: int
 	index: int
+	
+	def to_ints(self) -> Tuple[int, ...]:
+		return (self.x, self.y, self.group, self.index)
 
 @dataclass(frozen=True, order=True)
 class IcecraftLUTPosition(IcecraftPosition):
