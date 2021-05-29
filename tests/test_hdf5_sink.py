@@ -3,6 +3,7 @@ import numpy as np
 import os
 import unittest
 
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, Iterable, List, Mapping, NamedTuple, Tuple
 
@@ -31,6 +32,7 @@ class HDF5SinkTest(unittest.TestCase):
 			for entity_name, attr_dict in exp_attrs.items():
 				self.assertIn(entity_name, h5_file)
 				entity = h5_file[entity_name]
+				
 				for name, value in attr_dict.items():
 					self.assertIn(name, entity.attrs)
 					
@@ -109,6 +111,16 @@ class HDF5SinkTest(unittest.TestCase):
 				[("src7", {"var": 235}), ("src7", {"var": "hi"})],
 				{"v": {"my_str": "hi", "my_int": 235}},
 				{}
+			),
+			WriteData(
+				"dataset attr",
+				OrderedDict({
+					"attr_setter": [ParamAim("meta", None, "meta_int", "ds")],
+					"data_setter": [ParamAim("data", "uint8", "ds", as_attr=False)]
+				}),
+				[("attr_setter", {"meta": 7}), ("data_setter", {"data": 23}), ("data_setter", {"data": 47})],
+				{"ds": {"meta_int": 7}},
+				{"ds": np.array([23, 47])}
 			),
 			WriteData(
 				"create_gene_aims",

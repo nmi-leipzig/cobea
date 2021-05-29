@@ -54,14 +54,21 @@ class HDF5Sink(DataSink):
 	
 	def prepare_structure(self) -> None:
 		"""Prepare groups and datasets"""
+		implied_entities = []
 		for pa_list in self._write_map.values():
 			for pa in pa_list:
-				try:
-					grp = self._hdf5_file[pa.h5_path]
-				except KeyError:
-					grp = self._hdf5_file.create_group(pa.h5_path)
-				
-				if not pa.as_attr:
+				if pa.as_attr:
+					# store entities implied by exisitence of attibutes for later
+					# as we don't know if this entities are groups or datasets
+					implied_entities.append(pa.h5_path)
+				else:
+					# get or create group
+					try:
+						grp = self._hdf5_file[pa.h5_path]
+					except KeyError:
+						grp = self._hdf5_file.create_group(pa.h5_path)
+					
+					# check or create dataset
 					try:
 						ds = grp[pa.h5_name]
 						if not isinstance(ds, h5py.Dataset):
@@ -89,6 +96,11 @@ class HDF5Sink(DataSink):
 							maxshape=(None, *pa.shape),
 							compression = "gzip",
 						)
+		
+		for entity_path in implied_entities:
+			if entity_path not in self._hdf5_file:
+				# every entity that is not yet created has to be a group
+				self._hdf5_file.create_group(entity_path)
 	
 	def open(self) -> None:
 		if self._hdf5_file is not None:
