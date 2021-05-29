@@ -3,9 +3,26 @@ import numpy as np
 import os
 import unittest
 
-from typing import Any, List, Mapping, NamedTuple, Tuple
+from dataclasses import dataclass
+from typing import Any, Iterable, List, Mapping, NamedTuple, Tuple
 
 from adapters.hdf5_sink import HDF5Sink, IgnoreValue, ParamAim
+from domain.allele_sequence import Allele, AlleleAll, AlleleList, AllelePow
+from domain.base_structures import BitPos
+from domain.model import Gene
+
+@dataclass
+class SimpleBitPos(BitPos):
+	x: int
+	y: int
+	i: int
+	
+	def to_ints(self) -> Tuple[int, ...]:
+		return (self.x, self.y, self.i)
+	
+	@classmethod
+	def from_ints(cls, ints: Iterable[Tuple[int, int, int]]):
+		return tuple(cls(*i) for i in ints)
 
 class HDF5SinkTest(unittest.TestCase):
 	def check_hdf5(self, filename, exp_attrs, exp_data):
@@ -91,6 +108,48 @@ class HDF5SinkTest(unittest.TestCase):
 				]},
 				[("src7", {"var": 235}), ("src7", {"var": "hi"})],
 				{"v": {"my_str": "hi", "my_int": 235}},
+				{}
+			),
+			WriteData(
+				"create_gene_aims",
+				{"dna": HDF5Sink.create_gene_aims("genes", 3, h5_path="my_genes")},
+				[("dna", {"genes": [
+					Gene(
+						SimpleBitPos.from_ints([(105, 238, 198), (148, 46, 11), (141, 158, 195), (130, 151, 70)]),
+						AlleleAll(4),
+						"AlleleAll gene"
+					),
+					Gene(
+						SimpleBitPos.from_ints([(77, 79, 195), (77, 80, 195)]),
+						AlleleList([Allele((False, False), "neutral"), Allele((False, True), "on")]),
+						"AlleleList gene"
+					),
+					Gene(
+						SimpleBitPos.from_ints([(247, 181, 71), (247, 181, 154), (247, 181, 198)]),
+						AllelePow(3, [1]),
+						"AllelePow gene"
+					),
+				]})],
+				{
+					"my_genes/gene_00000": {
+						"description": "AlleleAll gene",
+						"bits": [[105, 238, 198], [148, 46, 11], [141, 158, 195], [130, 151, 70]],
+						"allele_type": "AlleleAll",
+					},
+					"my_genes/gene_00001": {
+						"description": "AlleleList gene",
+						"bits": [[77, 79, 195], [77, 80, 195]],
+						"allele_type": "AlleleList",
+						"alleles": [[False, False], [False, True]],
+					},
+					"my_genes/gene_00002": {
+						"description": "AllelePow gene",
+						"bits": [[247, 181, 71], [247, 181, 154], [247, 181, 198]],
+						"allele_type": "AllelePow",
+						"input_count": 3,
+						"unused_inputs": [1],
+					}
+				},
 				{}
 			),
 		]
