@@ -170,6 +170,14 @@ class AllelePow(AlleleSequence):
 		output_map.reverse()
 		return output_map
 	
+	@property
+	def input_count(self) -> int:
+		return self._input_count
+	
+	@property
+	def unused_inputs(self) -> Tuple[int, ...]:
+		return self._unused
+	
 	def __len__(self) -> int:
 		return pow(2, self._pos_outputs)
 	
