@@ -31,7 +31,7 @@ class Individual:
 		return self.chromo.allele_indices[index]
 	
 	@classmethod
-	def wrap_alteration(cls, func, in_count, chromo_gen: GenChromo) -> Callable[..., Tuple["Individual", ...]]:
+	def wrap_alteration(cls, func, in_count, chromo_gen: GenChromo, data_sink: DataSink) -> Callable[..., Tuple["Individual", ...]]:
 		
 		def wrapped_func(*args, **kwargs) -> Tuple["Individual", ...]:
 			res = func(*[list(args[i].chromo.allele_indices) for i in range(in_count)], *args[in_count:], **kwargs)
@@ -41,6 +41,10 @@ class Individual:
 			for allele_indices in res:
 				req["allele_indices"] = allele_indices
 				chromos.append(chromo_gen(req))
+			data_sink.write(f"{cls.__name__}.wrap.{func.__name__}", {
+				"in": [a.chromo.identifier for a in args[:in_count]],
+				"out": [c.identifier for c in chromos]
+			})
 			return tuple(Individual(c) for c in chromos)
 		
 		return wrapped_func
@@ -132,10 +136,10 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		#toolbox.register("init_individual", tools.initRepeat, creator.Chromo, toolbox.rand_bool, 20)
 		#toolbox.register("init_pop", tools.initRepeat, list, toolbox.init_individual)
 		
-		toolbox.register("mate", Individual.wrap_alteration(tools.cxTwoPoint, 2, self._chromo_gen))
+		toolbox.register("mate", Individual.wrap_alteration(tools.cxTwoPoint, 2, self._chromo_gen, self._data_sink))
 		toolbox.register(
 			"mutate",
-			Individual.wrap_alteration(tools.mutUniformInt, 1, self._chromo_gen),
+			Individual.wrap_alteration(tools.mutUniformInt, 1, self._chromo_gen, self._data_sink),
 			low=0, up=[len(g.alleles)-1 for g in self._rep.iter_genes()], indpb=0.05)
 		toolbox.register("select", tools.selTournament, tournsize=3)
 		toolbox.register("evaluate", self._evaluate)
