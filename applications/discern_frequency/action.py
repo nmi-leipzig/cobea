@@ -128,6 +128,7 @@ def run(args) -> None:
 				as_attr=False,
 				shape=(len(list(rep.iter_carry_bits())), )
 			),
+			ParamAim("time", "float64", "fitness_time", as_attr=False, alter=lambda x: x.timestamp()),
 		],
 		"SimpleEA.ea_params": [
 			ParamAim("pop_size", "uint64", "pop_size"),
@@ -189,8 +190,8 @@ def run(args) -> None:
 			#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
 			ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target, sink)
 			
-			#ea.run(2, 2, 0.7, 0.001756)
-			ea.run(50, 600, 0.7, 0.001756)
+			ea.run(2, 2, 0.7, 0.001756)
+			#ea.run(50, 600, 0.7, 0.001756)
 		finally:
 			if not use_dummy:
 				man.release(target)
