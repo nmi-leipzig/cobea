@@ -66,13 +66,19 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 	def data_sink(self) -> DataSink:
 		return self._data_sink
 	
-	def run(self) -> None:
+	def run(self, pop_size: int, gen_count: int, crossover_prob: float, mutation_prob: float) -> None:
+		self.write_to_sink("ea_params", {
+			"pop_size": pop_size,
+			"gen_count": gen_count,
+			"crossover_prob": crossover_prob,
+			"mutation_prob": mutation_prob,
+		})
 		# create toolbox
 		toolbox = self.create_toolbox()
 		# create population
-		pop = self._init_pop(50)
+		pop = self._init_pop(pop_size)
 		# run
-		algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.001756, ngen=600)
+		algorithms.eaSimple(pop, toolbox, cxpb=crossover_prob, mutpb=mutation_prob, ngen=gen_count)
 		
 	
 	def _init_pop(self, count) -> List[Individual]:
