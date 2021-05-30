@@ -106,6 +106,10 @@ def run(args) -> None:
 		),
 		ParamAim("return", "uint64", "chromo_id", as_attr=False, alter=lambda x: x.identifier),
 	]
+	rep_src = "Action.rep"
+	rep_genes = "genes"
+	rep_const = "const"
+	rep_ce = "carry_bits"
 	
 	write_map = {
 		"Measure.perform": [
@@ -117,13 +121,44 @@ def run(args) -> None:
 			ParamAim("fast_sum", "float64", "fast_sum", as_attr=False),
 			ParamAim("slow_sum", "float64", "slow_sum", as_attr=False),
 			ParamAim("chromo_index", "uint64", "fitness_chromo_id", as_attr=False),
+			ParamAim(
+				"carry_enable",
+				bool,
+				"carry_enable",
+				as_attr=False,
+				shape=(len(list(rep.iter_carry_bits())), )
+			),
+		],
+		"SimpleEA.ea_params": [
+			ParamAim("pop_size", "uint64", "pop_size"),
+			ParamAim("gen_count", "uint64", "gen_count"),
+			ParamAim("crossover_prob", "float64", "crossover_prob"),
+			ParamAim("mutation_prob", "float64", "mutation_prob"),
 		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
+		rep_src: HDF5Sink.create_gene_aims(rep_genes, len(rep.genes), h5_path="genes")+\
+			HDF5Sink.create_gene_aims(rep_const, len(rep.constant), h5_path="constant")+[
+				ParamAim(rep_ce, "uint16", "bits", "carry_enable",
+					alter=lambda x: [b.to_ints() for b in x]),
+			],
+		"Individual.wrap.cxTwoPoint": [
+			ParamAim("in", "uint64", "crossover_parents", as_attr=False, shape=(2, )),
+			ParamAim("out", "uint64", "crossover_child", as_attr=False, alter=lambda x: x[0]),
+		],
+		"Individual.wrap.mutUniformInt": [
+			ParamAim("in", "uint64", "mutation_parent", as_attr=False, alter=lambda x: x[0]),
+			ParamAim("out", "uint64", "mutation_child", as_attr=False, alter=lambda x: x[0]),
+		]
 	}
 	
 	sink = HDF5Sink(write_map)
 	with sink:
+		sink.write(rep_src, {
+			rep_genes: rep.genes,
+			rep_const: rep.constant,
+			rep_ce: list(rep.iter_carry_bits()),
+		})
 		if use_dummy:
 			meter = DummyMeter()
 			driver = DummyDriver()
@@ -154,7 +189,8 @@ def run(args) -> None:
 			#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
 			ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target, sink)
 			
-			ea.run()
+			#ea.run(2, 2, 0.7, 0.001756)
+			ea.run(50, 600, 0.7, 0.001756)
 		finally:
 			if not use_dummy:
 				man.release(target)
