@@ -87,9 +87,10 @@ class InvalidMsgError(Exception):
 	pass
 
 class OsciDS1102E(Meter):
-	def __init__(self, setup: SetupCmd, serial_number: Optional[str]=None) -> None:
+	def __init__(self, setup: SetupCmd, serial_number: Optional[str]=None, data_chan: int=1) -> None:
 		self._setup = setup
 		self._serial_number = serial_number
+		self._data_chan = data_chan
 		self._is_open = False
 		self._res_man = None
 		self._dev_str = None
@@ -161,7 +162,7 @@ class OsciDS1102E(Meter):
 		while self._osci.query(":TRIG:STAT?") != "STOP":
 			time.sleep(self._delay)
 		
-		raw_data = self._read_data(1)
+		raw_data = self._read_data(self._data_chan)
 		
 		scale = self._setup.CHAN1.SCAL.value_
 		offset = self._setup.CHAN1.OFFS.value_
