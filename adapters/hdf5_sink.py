@@ -42,7 +42,7 @@ class HDF5Sink(DataSink):
 		mode: mode for opening the file (r, r+, w, x, a)
 		"""
 		if hdf5_filename is None:
-			cur_date = datetime.datetime.today()
+			cur_date = datetime.datetime.now(datetime.timezone.utc)
 			hdf5_filename = f"evo-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
 		self._hdf5_filename = hdf5_filename
 		assert mode in ("r", "r+", "w", "x", "a")
