@@ -1,3 +1,4 @@
+import datetime
 import random
 
 from dataclasses import dataclass, field
@@ -99,6 +100,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		for bit in self._rep.iter_carry_bits():
 			carry_enable_state.append(self._habitat.get_bit(bit))
 		self._target.configure(self._habitat)
+		cur_time = datetime.datetime.now(datetime.timezone.utc)
 		data = self._measure_uc(eval_req)
 		h_div = (12*0.5) / len(data)
 		
@@ -133,6 +135,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			"slow_sum": slow_sum,
 			"chromo_index": indi.chromo.identifier,
 			"carry_enable": carry_enable_state,
+			"time": cur_time,
 		})
 		return (fit, )
 	
