@@ -94,7 +94,7 @@ class OsciDS1102E(Meter):
 		self._res_man = None
 		self._dev_str = None
 		self._osci = None
-		self._delay = 0.01
+		self._delay = 0.1
 		
 		self.open()
 		self.apply(self._osci, self._setup, self._delay)
@@ -116,7 +116,7 @@ class OsciDS1102E(Meter):
 		# -> use chunk size that fits largest block 1024*1024+10
 		self._osci.chunk_size = 2*1024*1024
 		# large chunks can take a long time -> increase timeout
-		self._osci.timeout = 30000
+		self._osci.timeout = 60000
 		
 		self._is_open = True
 	
