@@ -89,6 +89,9 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		)
 		
 		self._rep.decode(self._habitat, indi.chromo)
+		carry_enable_state = []
+		for bit in self._rep.iter_carry_bits():
+			carry_enable_state.append(self._habitat.get_bit(bit))
 		self._target.configure(self._habitat)
 		data = self._measure_uc(eval_req)
 		h_div = (12*0.5) / len(data)
@@ -122,7 +125,8 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			"fit": fit,
 			"fast_sum": fast_sum,
 			"slow_sum": slow_sum,
-			"chromo_index": indi.chromo.identifier
+			"chromo_index": indi.chromo.identifier,
+			"carry_enable": carry_enable_state,
 		})
 		return (fit, )
 	
