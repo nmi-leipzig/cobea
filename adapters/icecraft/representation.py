@@ -41,6 +41,7 @@ class IcecraftRep(Representation):
 	# output_lutffs
 	output: Sequence[IcecraftLUTPosition]
 	# carry enable
+	# map: tile_pos -> (map: lut_index -> CarryData)
 	carry_data: CarryDataMap
 	
 	def prepare_config(self, config: TargetConfiguration) -> None:
@@ -66,6 +67,11 @@ class IcecraftRep(Representation):
 	
 	def iter_genes(self) -> Iterable[Gene]:
 		yield from self.genes
+	
+	def iter_carry_bits(self) -> Iterable[IcecraftBitPosition]:
+		for tile in sorted(self.carry_data):
+			for lut_index in sorted(self.carry_data[tile]):
+				yield from self.carry_data[tile][lut_index].carry_enable
 	
 	@staticmethod
 	def set_carry_enable(config: TargetConfiguration, carry_data: CarryDataMap) -> None:
