@@ -2,7 +2,7 @@ import os
 import numpy as np
 import time
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import List, Tuple
 
 from adapters.embed_driver import FixedEmbedDriver
@@ -115,11 +115,11 @@ def calibrate(driver: Driver) -> CalibrationData:
 	
 	nd = np.array(data)
 	trig_lev = 1.5
-	rise = np.flatnonzero(((nd[:-1] <= trig_lev) & (nd[1:] > trig_lev)))
+	rise = np.flatnonzero(((nd[:-1] <= trig_lev) & (nd[1:] > trig_lev))) + 1
 	if len(rise) != 1:
 		raise CalibrationError(f"Couldn't find unique rising edge: {rise}")
 	rise = rise[0]
-	fall = np.flatnonzero(((nd[:-1] >= trig_lev) & (nd[1:] < trig_lev)))
+	fall = np.flatnonzero(((nd[:-1] >= trig_lev) & (nd[1:] < trig_lev))) + 1
 	if len(fall) != 1:
 		raise CalibrationError(f"Couldn't find unique fallng edge: {fall}")
 	fall = fall[0]
@@ -199,7 +199,14 @@ def run(args) -> None:
 		"Individual.wrap.mutUniformInt": [
 			ParamAim("in", "uint64", "mutation_parent", as_attr=False, alter=lambda x: x[0]),
 			ParamAim("out", "uint64", "mutation_child", as_attr=False, alter=lambda x: x[0]),
-		]
+		],
+		"calibration": [
+			ParamAim("data", "float64", "calibration", as_attr=False),
+			ParamAim("rising_edge", "uint64", "rising_edge", "calibration"),
+			ParamAim("falling_edge", "uint64", "falling_edge", "calibration"),
+			ParamAim("trig_len", "uint64", "trig_len", "calibration"),
+			ParamAim("offset", "float64", "offset", "calibration"),
+		],
 	}
 	
 	sink = HDF5Sink(write_map)
@@ -226,6 +233,7 @@ def run(args) -> None:
 			prepare_generator(gen, os.path.join(pkg_path, "freq_gen.asc"))
 			driver = FixedEmbedDriver(gen, "B")
 			cal_data = calibrate(driver)
+			sink.write("calibration", asdict(cal_data))
 			
 			meter_setup = create_meter_setup()
 			meter_setup.TIM.OFFS.value_ = cal_data.offset
