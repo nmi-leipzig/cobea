@@ -241,7 +241,7 @@ def run(args) -> None:
 			
 			#from tests.mocks import MockRepresentation
 			#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
-			ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target, sink)
+			ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target, cal_data.trig_len, sink)
 			
 			ea.run(2, 2, 0.7, 0.001756)
 			#ea.run(50, 600, 0.7, 0.001756)

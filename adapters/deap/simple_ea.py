@@ -51,7 +51,7 @@ class Individual:
 		return wrapped_func
 
 class SimpleEA(EvoAlgo, DataSinkUser):
-	def __init__(self, rep: Representation, measure_uc: Measure, uid_gen: UniqueID, prng: PRNG, habitat: TargetConfiguration, target: TargetDevice, data_sink: DataSink) -> None:
+	def __init__(self, rep: Representation, measure_uc: Measure, uid_gen: UniqueID, prng: PRNG, habitat: TargetConfiguration, target: TargetDevice, trig_len: int, data_sink: DataSink) -> None:
 		self._rep = rep
 		self._measure_uc = measure_uc
 		self._init_uc = RandomChromo(prng, rep, uid_gen, data_sink)
@@ -59,6 +59,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		rep.prepare_config(habitat)
 		self._habitat = habitat
 		self._target = target
+		self._trig_len = trig_len
 		self._data_sink = data_sink
 		
 		self._driver_table = lexicographic_combinations(5, 5)
@@ -102,12 +103,13 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		self._target.configure(self._habitat)
 		cur_time = datetime.datetime.now(datetime.timezone.utc)
 		data = self._measure_uc(eval_req)
+		# skip before trigger
+		data = data[-self._trig_len:]
+		
 		h_div = (12*0.5) / len(data)
 		
-		data_parts = [data[i*len(data)//12: (i+1)*len(data)//12] for i in range(12)]
-		
-		# skip first second
-		data_parts = data_parts[2:]
+		data_parts = [data[i*len(data)//10: (i+1)*len(data)//10] for i in range(10)]
+		print([len(p) for p in data_parts], self._trig_len)
 		
 		print(f"seq {comb_index} {comb_seq:010b}")
 		fast_sum = 0
