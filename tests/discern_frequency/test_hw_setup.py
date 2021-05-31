@@ -138,13 +138,14 @@ class HWSetupTest(TestCase):
 		too_short = 0
 		gen = man.acquire(driver_sn)
 		target = man.acquire(target_sn)
+		
+		meter_setup = self.create_meter_setup()
+		meter = OsciDS1102E(meter_setup)
 		try:
 			self.flash_device(gen, "freq_gen.asc")
 			#self.flash_device(gen, "ctr_drv_2_5.asc")
 			self.flash_device(target, "dummy_hab.asc")
 			
-			meter_setup = self.create_meter_setup()
-			meter = OsciDS1102E(meter_setup)
 			
 			driver = FixedEmbedDriver(gen, "B")
 		
@@ -205,6 +206,7 @@ class HWSetupTest(TestCase):
 		finally:
 			man.release(target)
 			man.release(gen)
+			meter.close()
 		
 		self.assertEqual(0, too_short)
 	
@@ -232,37 +234,38 @@ class HWSetupTest(TestCase):
 		meter_setup.TIM.SCAL.value_ = 0.05
 		meter_setup.TIM.OFFS.value_ = 3*meter_setup.TIM.SCAL.value_
 		
-		meter = OsciDS1102E(meter_setup)
+		meter = OsciDS1102E(meter_setup, meter_sn)
 		
-		mp = multiprocessing.get_context("spawn")
-		for i in range(3):
-			p = mp.Process(target=self.create_and_write, args=(driver_sn, ))
-			p.start()
-			time.sleep(3)
-			p.terminate()
-			
-			man = IcecraftManager()
-			
-			man.stuck_workaround(driver_sn)
-			
-			gen = man.acquire(driver_sn)
-			try:
-				# flash trigger
-				self.flash_device(gen, "freq_gen.asc")
-				#time.sleep(7)
+		with meter:
+			mp = multiprocessing.get_context("spawn")
+			for i in range(3):
+				p = mp.Process(target=self.create_and_write, args=(driver_sn, ))
+				p.start()
+				time.sleep(3)
+				p.terminate()
 				
-				driver = FixedEmbedDriver(gen, "B")
-				print("start measure")
-				measure_uc = Measure(driver, meter)
+				man = IcecraftManager()
 				
-				req = RequestObject(
-					driver_data = InputData([0]),
-					retry = 3,
-					measure_timeout = 3,
-				)
-				data = measure_uc(req)
-			finally:
-				man.release(gen)
+				man.stuck_workaround(driver_sn)
+				
+				gen = man.acquire(driver_sn)
+				try:
+					# flash trigger
+					self.flash_device(gen, "freq_gen.asc")
+					#time.sleep(7)
+					
+					driver = FixedEmbedDriver(gen, "B")
+					print("start measure")
+					measure_uc = Measure(driver, meter)
+					
+					req = RequestObject(
+						driver_data = InputData([0]),
+						retry = 3,
+						measure_timeout = 3,
+					)
+					data = measure_uc(req)
+				finally:
+					man.release(gen)
 	
 	def check_fpga(self, fpga):
 		# flash echo
@@ -310,4 +313,3 @@ class HWSetupTest(TestCase):
 		finally:
 			for dev in fpgas:
 				man.release(dev)
-		
