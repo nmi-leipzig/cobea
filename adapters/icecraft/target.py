@@ -79,6 +79,16 @@ class IcecraftManager(TargetManager):
 		self._in_use.remove(target.serial_number)
 		target.close()
 	
+	def stuck_workaround(self, serial_number: str) -> None:
+		"""Workaround for stuck FPGAs.
+		
+		The problem seems to occur when not correctly releasing FPGAs in combination with writes. Therefore it is 
+		assumed that the cause are messed up transfer buffers.
+		"""
+		tar = self.acquire(serial_number)
+		tar.write_bytes(b"\x00")
+		self.release(tar)
+	
 	@staticmethod
 	def get_present_serial_numbers() -> List[str]:
 		return FPGABoard.get_suitable_serial_numbers()

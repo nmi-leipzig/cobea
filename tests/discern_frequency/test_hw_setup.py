@@ -243,6 +243,8 @@ class HWSetupTest(TestCase):
 			
 			man = IcecraftManager()
 			
+			man.stuck_workaround(driver_sn)
+			
 			gen = man.acquire(driver_sn)
 			try:
 				# flash trigger
