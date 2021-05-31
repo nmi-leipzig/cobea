@@ -1,5 +1,6 @@
 import datetime
 import h5py
+import numpy as np
 
 from dataclasses import dataclass
 from types import TracebackType
@@ -29,6 +30,7 @@ class ParamAim:
 	h5_name: str
 	h5_path: str = "/"
 	as_attr: bool = True
+	# for datasets: shape of a single entry, not the whole dataset
 	shape: Tuple[Optional[int], ...] = tuple()
 	alter: Callable[[Any], Any] = lambda x: x
 
@@ -150,9 +152,16 @@ class HDF5Sink(DataSink):
 					entity.attrs.create(pa.h5_name, value, dtype=pa.data_type)
 			else:
 				dataset = entity[pa.h5_name]
-				new_shape = (dataset.shape[0]+1, *dataset.shape[1:])
-				dataset.resize(new_shape)
-				dataset[-1] = value
+				if len(dataset.shape) == len(np.shape(value)):
+					# multiple values
+					new_count = len(value)
+					new_shape = (dataset.shape[0]+new_count, *dataset.shape[1:])
+					dataset.resize(new_shape)
+					dataset[-new_count:] = value
+				else:
+					new_shape = (dataset.shape[0]+1, *dataset.shape[1:])
+					dataset.resize(new_shape)
+					dataset[-1] = value
 				
 	
 	@staticmethod

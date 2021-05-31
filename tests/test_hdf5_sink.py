@@ -123,6 +123,13 @@ class HDF5SinkTest(unittest.TestCase):
 				{"ds": np.array([23, 47])}
 			),
 			WriteData(
+				"multiple dataset entries",
+				{"mde": [ParamAim("data", "uint8", "md", as_attr=False)]},
+				[("mde", {"data": 8}), ("mde", {"data": [8, 9]})],
+				{},
+				{"md": np.array([8, 8, 9])}
+			),
+			WriteData(
 				"create_gene_aims",
 				{"dna": HDF5Sink.create_gene_aims("genes", 3, h5_path="my_genes")},
 				[("dna", {"genes": [
