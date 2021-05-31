@@ -1,6 +1,8 @@
 import os
+import numpy as np
 import time
 
+from dataclasses import dataclass
 from typing import List, Tuple
 
 from adapters.embed_driver import FixedEmbedDriver
@@ -13,10 +15,14 @@ IcecraftRawConfig, XC6200Port, XC6200Direction
 from adapters.prng import BuiltInPRNG
 from adapters.simple_sink import TextfileSink
 from adapters.unique_id import SimpleUID
-from domain.interfaces import TargetDevice, TargetManager, InputData
+from domain.interfaces import Driver, InputData, TargetDevice, TargetManager
 from domain.model import AlleleAll, Gene
 from domain.request_model import RequestObject
 from domain.use_cases import Measure
+
+class CalibrationError(Exception):
+	"""Indicates an error during calibration"""
+	pass
 
 # generate tiles
 def tiles_from_corners(min_pos: Tuple[int, int], max_pos: Tuple[int, int]) -> List[IcecraftPosition]:
@@ -82,6 +88,49 @@ def create_meter_setup():
 	setup.TRIG.EDGE.LEV.value_ = 1
 	
 	return setup
+
+
+@dataclass
+class CalibrationData:
+	data: np.ndarray
+	rising_edge: int
+	falling_edge: int
+	trig_len: int
+	offset: float
+
+def calibrate(driver: Driver) -> CalibrationData:
+	meter_setup = create_meter_setup()
+	meter_setup.TIM.OFFS.value_ = 2.5
+	
+	meter = OsciDS1102E(meter_setup, data_chan=2)
+	with meter:
+		measure_uc = Measure(driver, meter)
+		
+		eval_req = RequestObject(
+			driver_data = InputData([0]),
+			retry = 2,
+			measure_timeout = 20,
+		)
+		data = measure_uc(eval_req)
+	
+	nd = np.array(data)
+	trig_lev = 1.5
+	rise = np.flatnonzero(((nd[:-1] <= trig_lev) & (nd[1:] > trig_lev)))
+	if len(rise) != 1:
+		raise CalibrationError(f"Couldn't find unique rising edge: {rise}")
+	rise = rise[0]
+	fall = np.flatnonzero(((nd[:-1] >= trig_lev) & (nd[1:] < trig_lev)))
+	if len(fall) != 1:
+		raise CalibrationError(f"Couldn't find unique fallng edge: {fall}")
+	fall = fall[0]
+	
+	if abs(rise - 524288//12) > 5:
+		raise CalibrationError(f"rising edge at {rise} too far of off expected point {524288//12}")
+	
+	trig_len = fall - 524288//12
+	offset = (trig_len/2**18 - 1) * 0.5 * 6
+	
+	return CalibrationData(nd, rise, fall, trig_len, offset)
 
 # measure
 
@@ -176,10 +225,10 @@ def run(args) -> None:
 			
 			prepare_generator(gen, os.path.join(pkg_path, "freq_gen.asc"))
 			driver = FixedEmbedDriver(gen, "B")
-			
-			#target.configure(hab_config)
+			cal_data = calibrate(driver)
 			
 			meter_setup = create_meter_setup()
+			meter_setup.TIM.OFFS.value_ = cal_data.offset
 			meter = OsciDS1102E(meter_setup)
 			
 		

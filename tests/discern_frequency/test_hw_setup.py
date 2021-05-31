@@ -4,6 +4,7 @@ import os
 import random
 import time
 
+from dataclasses import asdict
 from unittest import TestCase
 
 import matplotlib.pyplot as plt
@@ -30,6 +31,7 @@ from adapters.icecraft import IcecraftManager
 from adapters.embed_driver import FixedEmbedDriver
 from adapters.gear.rigol import OsciDS1102E
 from adapters.icecraft import IcecraftManager, IcecraftRawConfig
+from applications.discern_frequency.action import calibrate
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.interfaces import InputData
 from domain.request_model import RequestObject
@@ -313,3 +315,22 @@ class HWSetupTest(TestCase):
 		finally:
 			for dev in fpgas:
 				man.release(dev)
+	
+	def test_calibrate(self):
+		try:
+			driver_sn, target_sn, meter_sn = self.detect_setup()
+		except DetectSetupError:
+			self.skipTest("Couldn't detect hardware FPGAs.")
+		
+		man = IcecraftManager()
+		man.stuck_workaround(driver_sn)
+		
+		gen = man.acquire(driver_sn)
+		
+		#target = man.acquire(args.target)
+		
+		self.flash_device(gen, "freq_gen.asc")
+		driver = FixedEmbedDriver(gen, "B")
+		
+		res = calibrate(driver)
+		#print(asdict(res))
