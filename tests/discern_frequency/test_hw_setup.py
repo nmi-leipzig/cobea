@@ -110,11 +110,19 @@ class HWSetupTest(TestCase):
 		config = IcecraftRawConfig.create_from_file(asc_path)
 		dev.configure(config)
 	
-	def show_data(self, data, fft=False):
+	def show_data(self, data, fft=False, trig_len=None):
 		fig, ax = plt.subplots(6, 2, sharex=True, sharey=True)
 		ax = ax.flatten()
-		for i, sub in enumerate(ax):
-			sub_data = data[len(data)*i//len(ax):len(data)*(i+1)//len(ax)]
+		if trig_len is None:
+			data_parts = [data[len(data)*i//len(ax):len(data)*(i+1)//len(ax)] for i in range(len(ax))]
+		else:
+			trig = len(data)//12
+			after_trig = data[trig:trig+trig_len]
+			after = len(ax) - 2
+			data_parts = [data[:trig]] + [
+				after_trig[trig_len*i//after:trig_len*(i+1)//after] for i in range(after)
+			] + [data[trig+trig_len:]]
+		for i, (sub, sub_data) in enumerate(zip(ax, data_parts)):
 			
 			if fft:
 				spec = np.fft.rfft(sub_data)
@@ -150,6 +158,10 @@ class HWSetupTest(TestCase):
 			
 			
 			driver = FixedEmbedDriver(gen, "B")
+			
+			#meter.close()
+			#cal_data = calibrate(driver)
+			#meter = OsciDS1102E(meter_setup)
 		
 			measure_uc = Measure(driver, meter)
 			
@@ -179,7 +191,11 @@ class HWSetupTest(TestCase):
 				#	((nd[:-1] >= trig_lev) & (nd[1:] < trig_lev))
 				#)+1
 				#print(rising_at[1:]-rising_at[:-1])
+				#self.show_data(data)
+				#self.show_data(data, trig_len=cal_data.trig_len)
 				#self.show_data(data, True)
+				#self.show_data(data, True, cal_data.trig_len)
+				
 				
 				# split
 				sub_data = [data[len(data)*i//12:len(data)*(i+1)//12] for i in range(12)]
