@@ -167,17 +167,21 @@ def run(args) -> None:
 			#target = DummyTargetDevice()
 			target = MagicMock()
 		else:
+			# workaround for stuck serial buffer
+			man.stuck_workaround(args.generator)
+			
 			gen = man.acquire(args.generator)
+			
 			target = man.acquire(args.target)
 			
 			prepare_generator(gen, os.path.join(pkg_path, "freq_gen.asc"))
+			driver = FixedEmbedDriver(gen, "B")
 			
 			#target.configure(hab_config)
 			
 			meter_setup = create_meter_setup()
 			meter = OsciDS1102E(meter_setup)
 			
-			driver = FixedEmbedDriver(gen, "B")
 		
 		try:
 			measure_uc = Measure(driver, meter, sink)
@@ -196,4 +200,5 @@ def run(args) -> None:
 			if not use_dummy:
 				man.release(target)
 				man.release(gen)
+				meter.close()
 
