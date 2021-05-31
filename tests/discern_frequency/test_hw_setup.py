@@ -279,7 +279,7 @@ class HWSetupTest(TestCase):
 			#print(f"{part_count} x {part_size} bytes")
 			part_list = [bytes(random.getrandbits(8) for _ in range(part_size)) for _ in range(part_count)]
 			# write parts
-			with self.subTest(part_size=part_size, part_count=part_count, mode="write chunks"):
+			with self.subTest(fpga=fpga.serial_number, part_size=part_size, part_count=part_count, mode="write chunks"):
 				fpga.reset()
 				for part in part_list:
 					write_count = fpga.write_bytes(part)
@@ -305,6 +305,8 @@ class HWSetupTest(TestCase):
 			self.skipTest("Couldn't detect hardware FPGAs.")
 		
 		man = IcecraftManager()
+		man.stuck_workaround(driver_sn)
+		man.stuck_workaround(target_sn)
 		
 		fpgas = []
 		fpgas.append(man.acquire(driver_sn))
