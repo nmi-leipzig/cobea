@@ -21,6 +21,9 @@ class InvalidStructure(Exception):
 	"""
 	pass
 
+def noop(x: Any) -> Any:
+	return x
+
 @dataclass
 class ParamAim:
 	# there can be multiple ParamAim instance with the same name
@@ -32,7 +35,7 @@ class ParamAim:
 	as_attr: bool = True
 	# for datasets: shape of a single entry, not the whole dataset
 	shape: Tuple[Optional[int], ...] = tuple()
-	alter: Callable[[Any], Any] = lambda x: x
+	alter: Callable[[Any], Any] = noop
 
 class HDF5Sink(DataSink):
 	def __init__(self,
