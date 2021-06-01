@@ -36,10 +36,10 @@ class IcecraftRawConfig(TargetConfiguration):
 			return sio.getvalue()
 	
 	def set_bit(self, bit: BitPos, value: bool) -> None:
-		self._raw_config.set_bits(TilePosition(bit.x, bit.y), [Bit(bit.group, bit.index)], [value])
+		self._raw_config.set_bit(bit.x, bit.y, bit.group, bit.index, value)
 	
 	def get_bit(self, bit: BitPos) -> bool:
-		return self._raw_config.get_bits(TilePosition(bit.x, bit.y), [Bit(bit.group, bit.index)])[0]
+		return self._raw_config.get_bit(bit.x, bit.y, bit.group, bit.index)
 	
 	def write_asc(self, asc_name: str) -> None:
 		with open(asc_name, "w") as asc_file:
