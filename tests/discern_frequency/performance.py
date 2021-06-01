@@ -7,9 +7,12 @@
 - store repeating data, skip datasets touched once
 """
 
+import datetime
 import os
 import pickle
 import sys
+
+from operator import attrgetter, itemgetter, methodcaller
 
 sys.path.append(
 	os.path.dirname(
@@ -25,6 +28,7 @@ from adapters.deap.simple_ea import SimpleEA
 from adapters.dummies import DummyDriver
 from adapters.hdf5_sink import HDF5Sink, ParamAim
 from adapters.icecraft import IcecraftManager, IcecraftRawConfig, IcecraftRep
+from adapters.parallel_sink import ParallelSink
 from adapters.prng import BuiltInPRNG
 from adapters.unique_id import SimpleUID
 from applications.discern_frequency.action import create_xc6200_rep
@@ -52,9 +56,9 @@ def run_algo(rep: IcecraftRep) -> None:
 	chromo_aim = [
 		ParamAim(
 			"return", f"uint{chromo_bits}", "chromosome", as_attr=False, shape=(len(rep.genes), ),
-			alter=lambda x: x.allele_indices
+			alter=attrgetter("allele_indices")
 		),
-		ParamAim("return", "uint64", "chromo_id", as_attr=False, alter=lambda x: x.identifier),
+		ParamAim("return", "uint64", "chromo_id", as_attr=False, alter=attrgetter("identifier")),
 	]
 	
 	write_map = {
@@ -74,7 +78,7 @@ def run_algo(rep: IcecraftRep) -> None:
 				as_attr=False,
 				shape=(len(list(rep.iter_carry_bits())), )
 			),
-			ParamAim("time", "float64", "fitness_time", as_attr=False, alter=lambda x: x.timestamp()),
+			ParamAim("time", "float64", "fitness_time", as_attr=False, alter=methodcaller("timestamp")),
 		],
 		"SimpleEA.ea_params": [
 			ParamAim("pop_size", "uint64", "pop_size"),
@@ -86,15 +90,16 @@ def run_algo(rep: IcecraftRep) -> None:
 		"GenChromo.perform": chromo_aim,
 		"Individual.wrap.cxTwoPoint": [
 			ParamAim("in", "uint64", "crossover_parents", as_attr=False, shape=(2, )),
-			ParamAim("out", "uint64", "crossover_child", as_attr=False, alter=lambda x: x[0]),
+			ParamAim("out", "uint64", "crossover_child", as_attr=False, alter=itemgetter(0)),
 		],
 		"Individual.wrap.mutUniformInt": [
-			ParamAim("in", "uint64", "mutation_parent", as_attr=False, alter=lambda x: x[0]),
-			ParamAim("out", "uint64", "mutation_child", as_attr=False, alter=lambda x: x[0]),
+			ParamAim("in", "uint64", "mutation_parent", as_attr=False, alter=itemgetter(0)),
+			ParamAim("out", "uint64", "mutation_child", as_attr=False, alter=itemgetter(0)),
 		],
 	}
 	
-	sink = HDF5Sink(write_map, "perf.h5")
+	cur_date = datetime.datetime.now(datetime.timezone.utc)
+	sink = ParallelSink(HDF5Sink, (write_map, f"perf-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"))
 	man = IcecraftManager()
 	target = man.acquire()
 	with sink:
