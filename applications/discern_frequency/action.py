@@ -45,7 +45,7 @@ def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int]) -> Ice
 	bef = time.perf_counter()
 	rep = rep_gen(req)
 	aft = time.perf_counter()
-	print(f"rep gen took in {aft-bef} s")
+	print(f"rep gen took in {aft-bef} s, {sum(g.alleles.size_in_bits() for g in rep.genes)} bits")
 	
 	return rep
 
@@ -251,7 +251,7 @@ def run(args) -> None:
 			#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
 			ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target, cal_data.trig_len, sink)
 			
-			ea.run(2, 2, 0.7, 0.001756)
+			ea.run(4, 8, 0.7, 0.001756)
 			#ea.run(50, 600, 0.7, 0.001756)
 		finally:
 			if not use_dummy:

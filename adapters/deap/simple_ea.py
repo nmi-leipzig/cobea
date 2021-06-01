@@ -24,6 +24,7 @@ creator.create("SimpleFit", base.Fitness, weights=(1.0, ))
 class Individual:
 	chromo: Chromosome
 	fitness: creator.SimpleFit=field(default_factory=creator.SimpleFit, init=False)
+	rank_prob: creator.SimpleFit=field(default_factory=creator.SimpleFit, init=False)
 	
 	def __len__(self) -> int:
 		return len(self.chromo.allele_indices)
@@ -80,8 +81,41 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		# create population
 		pop = self._init_pop(pop_size)
 		# run
-		algorithms.eaSimple(pop, toolbox, cxpb=crossover_prob, mutpb=mutation_prob, ngen=gen_count)
+		#algorithms.eaSimple(pop, toolbox, cxpb=crossover_prob, mutpb=mutation_prob, ngen=gen_count)
+		self.org_ea(pop, toolbox, crossover_prob, mutation_prob, gen_count)
+	
+	@staticmethod
+	def evaluate_invalid(pop: List[Individual], toolbox: base.Toolbox) -> None:
+		"""Evaluate fitness for all indiviuals with invalid fitness"""
+		invalid_list = [i for i in pop if not i.fitness.valid]
+		fitness_list = toolbox.map(toolbox.evaluate, invalid_list)
+		for indi, fit in zip(invalid_list, fitness_list):
+			indi.fitness.values = fit
+	
+	@classmethod
+	def org_ea(cls, pop: List[Individual], toolbox: base.Toolbox, cxpb: float, mutpb: float, ngen: int) -> None:
+		pop_size = len(pop)
+		# prepare rank probabilities
+		s = 2.0
+		prob_list = [(2-s)/pop_size+2*i*(s-1)/(pop_size*(pop_size-1)) for i in range(pop_size)]
+		print(f"prop_list {prob_list}")
 		
+		# initial evaluation
+		cls.evaluate_invalid(pop, toolbox)
+		
+		for gen_nr in range(ngen):
+			# find probability based on rank
+			ranked = sorted(pop, key=lambda x:x.fitness)
+			for indi, rp in zip(ranked, prob_list):
+				indi.rank_prob.values = (rp, )
+			
+			elite = ranked[-1:]
+			progeny = toolbox.select(pop, pop_size-1, fit_attr="rank_prob")
+			progeny = algorithms.varAnd(progeny, toolbox, cxpb, mutpb)
+			
+			cls.evaluate_invalid(progeny, toolbox)
+			
+			pop = elite + progeny
 	
 	def _init_pop(self, count) -> List[Individual]:
 		return [Individual(self._init_uc(RequestObject())) for _ in range(count)]
@@ -156,7 +190,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			"mutate",
 			Individual.wrap_alteration(tools.mutUniformInt, 1, self._chromo_gen, self._data_sink),
 			low=0, up=[len(g.alleles)-1 for g in self._rep.iter_genes()], indpb=0.05)
-		toolbox.register("select", tools.selTournament, tournsize=3)
+		toolbox.register("select", tools.selRoulette)
 		toolbox.register("evaluate", self._evaluate)
 		
 		return toolbox
