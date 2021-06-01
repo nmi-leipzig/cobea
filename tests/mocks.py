@@ -1,3 +1,6 @@
+import random
+import time
+
 from copy import deepcopy
 from types import TracebackType
 from typing import Any, Iterable, Mapping, Optional, Union, Type
@@ -88,6 +91,22 @@ class MockMeter(Meter):
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 		return {"measure": [], "prepare": []}
 	
+
+class RandomMeter(Meter):
+	def __init__(self, output_len: int, measure_delay: float) -> None:
+		self._output_len = output_len
+		self._measure_delay = measure_delay
+	
+	def prepare(self, request: RequestObject) -> None:
+		return None
+	
+	def measure(self, request: RequestObject) -> OutputData:
+		time.sleep(self._measure_delay)
+		return OutputData([random.random() for _ in range(self._output_len)])
+	
+	@property
+	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
+		return {"measure": [], "prepare": []}
 
 class MockUniqueID(UniqueID):
 	"""IDs are passed to the constructor and returned in the order given"""
