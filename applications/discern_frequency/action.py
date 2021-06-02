@@ -240,6 +240,9 @@ def run(args) -> None:
 			ParamAim("git_commit", str, "git_commit"), 
 			ParamAim("python_version", str, "python_version"),
 		],
+		"habitat": [
+			ParamAim("text", "uint8", "habitat", as_attr=False, alter=partial(bytearray, encoding="utf-8")),
+		],
 	}
 	
 	sink = ParallelSink(HDF5Sink, (write_map, ))
@@ -283,6 +286,9 @@ def run(args) -> None:
 			#hab_path = os.path.join(pkg_path, "dummy_hab.asc")
 			hab_path = os.path.join(pkg_path, "nhabitat.asc")
 			hab_config = IcecraftRawConfig.create_from_file(hab_path)
+			sink.write("habitat", {
+				"text": hab_config.to_text(),
+			})
 			
 			#from tests.mocks import MockRepresentation
 			#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
