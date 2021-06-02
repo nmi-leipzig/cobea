@@ -189,6 +189,16 @@ def run(args) -> None:
 			ParamAim("crossover_prob", "float64", "crossover_prob"),
 			ParamAim("mutation_prob", "float64", "mutation_prob"),
 		],
+		"SimpleEA.random_initial": [
+			ParamAim("state", "int64", "random_initial_version", alter=itemgetter(0)),
+			ParamAim("state", "int64", "random_initial_mt_state", alter=itemgetter(1)),
+			ParamAim("state", "float64", "random_initial_next_gauss", alter=itemgetter(2)),
+		],
+		"SimpleEA.random_final": [
+			ParamAim("state", "int64", "random_final_version", alter=itemgetter(0)),
+			ParamAim("state", "int64", "random_final_mt_state", alter=itemgetter(1)),
+			ParamAim("state", "float64", "random_final_next_gauss", alter=itemgetter(2)),
+		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
 		rep_src: HDF5Sink.create_gene_aims(rep_genes, len(rep.genes), h5_path="genes")+\
