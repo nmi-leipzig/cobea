@@ -152,6 +152,7 @@ def run(args) -> None:
 	pkg_path = os.path.dirname(os.path.abspath(__file__))
 	
 	use_dummy = False
+	pop_size = 4
 	
 	rep = create_xc6200_rep((10, 23), (19, 32))
 	chromo_bits = 16
@@ -207,6 +208,9 @@ def run(args) -> None:
 			ParamAim("state", "int64", "random_final_version", alter=itemgetter(0)),
 			ParamAim("state", "int64", "random_final_mt_state", alter=itemgetter(1)),
 			ParamAim("state", "float64", "random_final_next_gauss", alter=itemgetter(2)),
+		],
+		"SimpleEA.gen":[
+			ParamAim("pop", "int64", "population", as_attr=False, shape=(pop_size, )),
 		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
@@ -296,8 +300,8 @@ def run(args) -> None:
 			prng = BuiltInPRNG(seed)
 			ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
 			
-			ea.run(4, 2, 0.7, 0.001756)
-			#ea.run(50, 600, 0.7, 0.001756)
+			ea.run(pop_size, 2, 0.7, 0.001756)
+			#ea.run(pop_size, 600, 0.7, 0.001756)
 			sink.write("prng", {"seed": seed, "final_state": prng.get_state()})
 		finally:
 			if not use_dummy:
