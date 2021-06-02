@@ -3,6 +3,7 @@ import os
 import time
 
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from functools import partial
 from operator import attrgetter, itemgetter, methodcaller
 from typing import Any, Iterable, List, Tuple
@@ -210,6 +211,12 @@ def run(args) -> None:
 			ParamAim("trig_len", "uint64", "trig_len", "calibration"),
 			ParamAim("offset", "float64", "offset", "calibration"),
 		],
+		"prng": [
+			ParamAim("seed", "int64", "prng_seed"),
+			ParamAim("final_state", "int64", "prng_final_version", alter=itemgetter(0)),
+			ParamAim("final_state", "int64", "prng_final_mt_state", alter=itemgetter(1)),
+			ParamAim("final_state", "float64", "prng_final_next_gauss", alter=itemgetter(2)),
+		]
 	}
 	
 	sink = ParallelSink(HDF5Sink, (write_map, ))
@@ -252,10 +259,13 @@ def run(args) -> None:
 			
 			#from tests.mocks import MockRepresentation
 			#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
-			ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target, cal_data.trig_len, sink)
+			seed = int(datetime.utcnow().timestamp())
+			prng = BuiltInPRNG(seed)
+			ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
 			
-			ea.run(4, 8, 0.7, 0.001756)
+			ea.run(4, 2, 0.7, 0.001756)
 			#ea.run(50, 600, 0.7, 0.001756)
+			sink.write("prng", {"seed": seed, "final_state": prng.get_state()})
 		finally:
 			if not use_dummy:
 				man.release(target)
