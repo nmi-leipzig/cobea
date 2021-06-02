@@ -1,17 +1,20 @@
-import os
 import numpy as np
+import os
 import time
 
 from dataclasses import asdict, dataclass
-from typing import List, Tuple
+from functools import partial
+from operator import attrgetter, itemgetter, methodcaller
+from typing import Any, Iterable, List, Tuple
 
 from adapters.embed_driver import FixedEmbedDriver
 from adapters.deap.simple_ea import SimpleEA
 from adapters.dummies import DummyDriver, DummyMeter
 from adapters.gear.rigol import OsciDS1102E
-from adapters.hdf5_sink import HDF5Sink, ParamAim
+from adapters.hdf5_sink import compose, HDF5Sink, ParamAim
 from adapters.icecraft import IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen, IcecraftManager,\
 IcecraftRawConfig, XC6200Port, XC6200Direction
+from adapters.parallel_sink import ParallelSink
 from adapters.prng import BuiltInPRNG
 from adapters.simple_sink import TextfileSink
 from adapters.unique_id import SimpleUID
@@ -134,7 +137,6 @@ def calibrate(driver: Driver) -> CalibrationData:
 
 # measure
 
-# 
 def run(args) -> None:
 	# prepare
 	pkg_path = os.path.dirname(os.path.abspath(__file__))
@@ -148,12 +150,13 @@ def run(args) -> None:
 	
 	man = IcecraftManager()
 	#sink = TextfileSink("tmp.out.txt")
+	# use attrgetter and so on to allow pickling for multiprocessing
 	chromo_aim = [
 		ParamAim(
 			"return", f"uint{chromo_bits}", "chromosome", as_attr=False, shape=(len(rep.genes), ),
-			alter=lambda x: x.allele_indices
+			alter=attrgetter("allele_indices")
 		),
-		ParamAim("return", "uint64", "chromo_id", as_attr=False, alter=lambda x: x.identifier),
+		ParamAim("return", "uint64", "chromo_id", as_attr=False, alter=attrgetter("identifier")),
 	]
 	rep_src = "Action.rep"
 	rep_genes = "genes"
@@ -177,7 +180,7 @@ def run(args) -> None:
 				as_attr=False,
 				shape=(len(list(rep.iter_carry_bits())), )
 			),
-			ParamAim("time", "float64", "fitness_time", as_attr=False, alter=lambda x: x.timestamp()),
+			ParamAim("time", "float64", "fitness_time", as_attr=False, alter=methodcaller("timestamp")),
 		],
 		"SimpleEA.ea_params": [
 			ParamAim("pop_size", "uint64", "pop_size"),
@@ -190,15 +193,15 @@ def run(args) -> None:
 		rep_src: HDF5Sink.create_gene_aims(rep_genes, len(rep.genes), h5_path="genes")+\
 			HDF5Sink.create_gene_aims(rep_const, len(rep.constant), h5_path="constant")+[
 				ParamAim(rep_ce, "uint16", "bits", "carry_enable",
-					alter=lambda x: [b.to_ints() for b in x]),
+					alter=partial(compose, funcs=[partial(map, methodcaller("to_ints")), list])),
 			],
 		"Individual.wrap.cxTwoPoint": [
 			ParamAim("in", "uint64", "crossover_parents", as_attr=False, shape=(2, )),
-			ParamAim("out", "uint64", "crossover_child", as_attr=False, alter=lambda x: x[0]),
+			ParamAim("out", "uint64", "crossover_child", as_attr=False, alter=itemgetter(0)),
 		],
 		"Individual.wrap.mutUniformInt": [
-			ParamAim("in", "uint64", "mutation_parent", as_attr=False, alter=lambda x: x[0]),
-			ParamAim("out", "uint64", "mutation_child", as_attr=False, alter=lambda x: x[0]),
+			ParamAim("in", "uint64", "mutation_parent", as_attr=False, alter=itemgetter(0)),
+			ParamAim("out", "uint64", "mutation_child", as_attr=False, alter=itemgetter(0)),
 		],
 		"calibration": [
 			ParamAim("data", "float64", "calibration", as_attr=False),
@@ -209,7 +212,7 @@ def run(args) -> None:
 		],
 	}
 	
-	sink = HDF5Sink(write_map)
+	sink = ParallelSink(HDF5Sink, (write_map, ))
 	with sink:
 		sink.write(rep_src, {
 			rep_genes: rep.genes,
