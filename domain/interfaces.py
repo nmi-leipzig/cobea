@@ -161,8 +161,10 @@ class EvoAlgo(ABC):
 class PRNG(ABC):
 	"""Interface for pseudo random number generator"""
 	
+	# no seed method as seeding should only be done once in __init__
+	
 	@abstractmethod
-	def seed(self, int) -> None:
+	def get_state(self) -> Any:
 		raise NotImplementedError()
 	
 	@abstractmethod

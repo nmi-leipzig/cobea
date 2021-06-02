@@ -128,8 +128,8 @@ class MockRandInt(PRNG):
 		self._int_list = list(int_iter)
 		self._int_list.reverse()
 	
-	def seed(self, int) -> None:
-		pass
+	def get_state(self) -> Any:
+		return self._int_list
 	
 	def randint(self, a: int, b: int) -> int:
 		return self._int_list.pop()
