@@ -159,7 +159,7 @@ class HDF5Sink(DataSink):
 				if pa.data_type is None:
 					entity.attrs[pa.h5_name] = value
 				elif pa.data_type == str:
-					entity.attrs[pa.h5_name] = "{}".format(meta.data)
+					entity.attrs[pa.h5_name] = "{}".format(value)
 				else:
 					entity.attrs.create(pa.h5_name, value, dtype=pa.data_type)
 			else:
