@@ -1,5 +1,7 @@
 import numpy as np
 import os
+import subprocess
+import sys
 import time
 
 from dataclasses import asdict, dataclass
@@ -136,6 +138,13 @@ def calibrate(driver: Driver) -> CalibrationData:
 	
 	return CalibrationData(nd, rise, fall, trig_len, offset)
 
+def get_git_commit() -> str:
+	try:
+		label = subprocess.check_output(["git", "describe", "--always"], universal_newlines=True).strip()
+		return label
+	except:
+		return "UNKNOWN"
+
 # measure
 
 def run(args) -> None:
@@ -226,7 +235,11 @@ def run(args) -> None:
 			ParamAim("final_state", "int64", "prng_final_version", alter=itemgetter(0)),
 			ParamAim("final_state", "int64", "prng_final_mt_state", alter=itemgetter(1)),
 			ParamAim("final_state", "float64", "prng_final_next_gauss", alter=itemgetter(2)),
-		]
+		],
+		"misc": [
+			ParamAim("git_commit", str, "git_commit"), 
+			ParamAim("python_version", str, "python_version"),
+		],
 	}
 	
 	sink = ParallelSink(HDF5Sink, (write_map, ))
@@ -235,6 +248,10 @@ def run(args) -> None:
 			rep_genes: rep.genes,
 			rep_const: rep.constant,
 			rep_ce: list(rep.iter_carry_bits()),
+		})
+		sink.write("misc", {
+			"git_commit": get_git_commit(),
+			"python_version": sys.version,
 		})
 		if use_dummy:
 			meter = DummyMeter()
