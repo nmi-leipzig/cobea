@@ -112,6 +112,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		self.evaluate_invalid(pop, toolbox)
 		
 		for gen_nr in range(ngen):
+			self.write_to_sink("gen", {"pop": [p.chromo.identifier for p in pop]})
 			# find probability based on rank
 			ranked = sorted(pop, key=lambda x:x.fitness)
 			for indi, rp in zip(ranked, prob_list):
@@ -124,6 +125,8 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			self.evaluate_invalid(progeny, toolbox)
 			
 			pop = elite + progeny
+		
+		self.write_to_sink("gen", {"pop": [p.chromo.identifier for p in pop]})
 	
 	def _init_pop(self, count) -> List[Individual]:
 		return [Individual(self._init_uc(RequestObject())) for _ in range(count)]
