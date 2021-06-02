@@ -2,3 +2,6 @@ __pycache__
 *.pyc
 tmp.*
 *.h5
+*.dot
+*.stats
+
