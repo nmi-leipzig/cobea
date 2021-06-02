@@ -98,7 +98,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		# prepare rank probabilities
 		s = 2.0
 		prob_list = [(2-s)/pop_size+2*i*(s-1)/(pop_size*(pop_size-1)) for i in range(pop_size)]
-		print(f"prop_list {prob_list}")
+		print(f"prob_list {prob_list}")
 		
 		# initial evaluation
 		cls.evaluate_invalid(pop, toolbox)
