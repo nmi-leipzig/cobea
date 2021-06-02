@@ -101,8 +101,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		for indi, fit in zip(invalid_list, fitness_list):
 			indi.fitness.values = fit
 	
-	@classmethod
-	def org_ea(cls, pop: List[Individual], toolbox: base.Toolbox, cxpb: float, mutpb: float, ngen: int) -> None:
+	def org_ea(self, pop: List[Individual], toolbox: base.Toolbox, cxpb: float, mutpb: float, ngen: int) -> None:
 		pop_size = len(pop)
 		# prepare rank probabilities
 		s = 2.0
@@ -110,7 +109,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		print(f"prob_list {prob_list}")
 		
 		# initial evaluation
-		cls.evaluate_invalid(pop, toolbox)
+		self.evaluate_invalid(pop, toolbox)
 		
 		for gen_nr in range(ngen):
 			# find probability based on rank
@@ -122,7 +121,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			progeny = toolbox.select(pop, pop_size-1, fit_attr="rank_prob")
 			progeny = algorithms.varAnd(progeny, toolbox, cxpb, mutpb)
 			
-			cls.evaluate_invalid(progeny, toolbox)
+			self.evaluate_invalid(progeny, toolbox)
 			
 			pop = elite + progeny
 	
