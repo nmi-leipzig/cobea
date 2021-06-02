@@ -76,13 +76,22 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			"crossover_prob": crossover_prob,
 			"mutation_prob": mutation_prob,
 		})
+		# DEAP uses random directly, so store it's inital state
+		self.write_to_sink("random_initial", {"state": random.getstate()})
+		
 		# create toolbox
 		toolbox = self.create_toolbox()
+		
 		# create population
 		pop = self._init_pop(pop_size)
+		
 		# run
 		#algorithms.eaSimple(pop, toolbox, cxpb=crossover_prob, mutpb=mutation_prob, ngen=gen_count)
 		self.org_ea(pop, toolbox, crossover_prob, mutation_prob, gen_count)
+		
+		# DEAP uses random directly, so store it's inital state
+		self.write_to_sink("random_final", {"state": random.getstate()})
+		
 	
 	@staticmethod
 	def evaluate_invalid(pop: List[Individual], toolbox: base.Toolbox) -> None:
