@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from functools import partial
 from operator import attrgetter, itemgetter, methodcaller
-from typing import Any, Iterable, List, Tuple
+from typing import Any, Iterable, List, Mapping, Tuple
 
 from adapters.embed_driver import FixedEmbedDriver
 from adapters.deap.simple_ea import SimpleEA
@@ -145,23 +145,7 @@ def get_git_commit() -> str:
 	except:
 		return "UNKNOWN"
 
-# measure
-
-def run(args) -> None:
-	# prepare
-	pkg_path = os.path.dirname(os.path.abspath(__file__))
-	
-	use_dummy = False
-	pop_size = 4
-	
-	rep = create_xc6200_rep((10, 23), (19, 32))
-	chromo_bits = 16
-	if not is_rep_fitting(rep, chromo_bits):
-		raise ValueError(f"representation needs more than {chromo_bits} bits")
-	
-	man = IcecraftManager()
-	#sink = TextfileSink("tmp.out.txt")
-	# use attrgetter and so on to allow pickling for multiprocessing
+def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mapping[str, List[ParamAim]]:
 	chromo_aim = [
 		ParamAim(
 			"return", f"uint{chromo_bits}", "chromosome", "individual", as_attr=False, shape=(len(rep.genes), ),
@@ -169,11 +153,6 @@ def run(args) -> None:
 		),
 		ParamAim("return", "uint64", "chromo_id", "individual", as_attr=False, alter=attrgetter("identifier")),
 	]
-	rep_src = "Action.rep"
-	rep_genes = "genes"
-	rep_const = "const"
-	rep_ce = "carry_bits"
-	
 	write_map = {
 		"Measure.perform": [
 			ParamAim("driver_data", "uint8", "s_t_index", "fitness", as_attr=False),
@@ -215,9 +194,9 @@ def run(args) -> None:
 		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
-		rep_src: HDF5Sink.create_gene_aims(rep_genes, len(rep.genes), h5_path="mapping/genes")+\
-			HDF5Sink.create_gene_aims(rep_const, len(rep.constant), h5_path="mapping/constant")+[
-				ParamAim(rep_ce, "uint16", "bits", "fitness/carry_enable",
+		"Action.rep": HDF5Sink.create_gene_aims("genes", len(rep.genes), h5_path="mapping/genes")+\
+			HDF5Sink.create_gene_aims("const", len(rep.constant), h5_path="mapping/constant")+[
+				ParamAim("carry_bits", "uint16", "bits", "fitness/carry_enable",
 					alter=partial(compose, funcs=[partial(map, methodcaller("to_ints")), list])),
 			],
 		"Individual.wrap.cxTwoPoint": [
@@ -250,12 +229,33 @@ def run(args) -> None:
 		],
 	}
 	
+	return write_map
+
+# measure
+
+def run(args) -> None:
+	# prepare
+	pkg_path = os.path.dirname(os.path.abspath(__file__))
+	
+	use_dummy = False
+	pop_size = 4
+	
+	rep = create_xc6200_rep((10, 23), (19, 32))
+	chromo_bits = 16
+	if not is_rep_fitting(rep, chromo_bits):
+		raise ValueError(f"representation needs more than {chromo_bits} bits")
+	
+	man = IcecraftManager()
+	#sink = TextfileSink("tmp.out.txt")
+	# use attrgetter and so on to allow pickling for multiprocessing
+	write_map = create_write_map(rep, pop_size, chromo_bits)
+	
 	sink = ParallelSink(HDF5Sink, (write_map, ))
 	with sink:
-		sink.write(rep_src, {
-			rep_genes: rep.genes,
-			rep_const: rep.constant,
-			rep_ce: list(rep.iter_carry_bits()),
+		sink.write("Action.rep", {
+			"genes": rep.genes,
+			"const": rep.constant,
+			"carry_bits": list(rep.iter_carry_bits()),
 		})
 		sink.write("misc", {
 			"git_commit": get_git_commit(),
