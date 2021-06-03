@@ -164,10 +164,10 @@ def run(args) -> None:
 	# use attrgetter and so on to allow pickling for multiprocessing
 	chromo_aim = [
 		ParamAim(
-			"return", f"uint{chromo_bits}", "chromosome", as_attr=False, shape=(len(rep.genes), ),
+			"return", f"uint{chromo_bits}", "chromosome", "individual", as_attr=False, shape=(len(rep.genes), ),
 			alter=attrgetter("allele_indices")
 		),
-		ParamAim("return", "uint64", "chromo_id", as_attr=False, alter=attrgetter("identifier")),
+		ParamAim("return", "uint64", "chromo_id", "individual", as_attr=False, alter=attrgetter("identifier")),
 	]
 	rep_src = "Action.rep"
 	rep_genes = "genes"
@@ -176,22 +176,23 @@ def run(args) -> None:
 	
 	write_map = {
 		"Measure.perform": [
-			ParamAim("driver_data", "uint8", "s_t_index", as_attr=False),
-			ParamAim("return", "float64", "measurement", as_attr=False, shape=(2**19, )),
+			ParamAim("driver_data", "uint8", "s_t_index", "fitness", as_attr=False),
+			ParamAim("return", "float64", "measurement", "fitness", as_attr=False, shape=(2**19, )),
 		],
 		"SimpleEA.fitness": [
-			ParamAim("fit", "float64", "fitness", as_attr=False),
-			ParamAim("fast_sum", "float64", "fast_sum", as_attr=False),
-			ParamAim("slow_sum", "float64", "slow_sum", as_attr=False),
-			ParamAim("chromo_index", "uint64", "fitness_chromo_id", as_attr=False),
+			ParamAim("fit", "float64", "value", "fitness", as_attr=False),
+			ParamAim("fast_sum", "float64", "fast_sum", "fitness", as_attr=False),
+			ParamAim("slow_sum", "float64", "slow_sum", "fitness", as_attr=False),
+			ParamAim("chromo_index", "uint64", "chromo_id", "fitness", as_attr=False),
 			ParamAim(
 				"carry_enable",
 				bool,
 				"carry_enable",
+				"fitness",
 				as_attr=False,
 				shape=(len(list(rep.iter_carry_bits())), )
 			),
-			ParamAim("time", "float64", "fitness_time", as_attr=False, alter=methodcaller("timestamp")),
+			ParamAim("time", "float64", "time", "fitness", as_attr=False, alter=methodcaller("timestamp")),
 		],
 		"SimpleEA.ea_params": [
 			ParamAim("pop_size", "uint64", "pop_size"),
@@ -214,18 +215,18 @@ def run(args) -> None:
 		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
-		rep_src: HDF5Sink.create_gene_aims(rep_genes, len(rep.genes), h5_path="genes")+\
-			HDF5Sink.create_gene_aims(rep_const, len(rep.constant), h5_path="constant")+[
-				ParamAim(rep_ce, "uint16", "bits", "carry_enable",
+		rep_src: HDF5Sink.create_gene_aims(rep_genes, len(rep.genes), h5_path="mapping/genes")+\
+			HDF5Sink.create_gene_aims(rep_const, len(rep.constant), h5_path="mapping/constant")+[
+				ParamAim(rep_ce, "uint16", "bits", "fitness/carry_enable",
 					alter=partial(compose, funcs=[partial(map, methodcaller("to_ints")), list])),
 			],
 		"Individual.wrap.cxTwoPoint": [
-			ParamAim("in", "uint64", "crossover_parents", as_attr=False, shape=(2, )),
-			ParamAim("out", "uint64", "crossover_child", as_attr=False, alter=itemgetter(0)),
+			ParamAim("in", "uint64", "parents", "crossover", as_attr=False, shape=(2, )),
+			ParamAim("out", "uint64", "children", "crossover", as_attr=False, alter=itemgetter(0)),
 		],
 		"Individual.wrap.mutUniformInt": [
-			ParamAim("in", "uint64", "mutation_parent", as_attr=False, alter=itemgetter(0)),
-			ParamAim("out", "uint64", "mutation_child", as_attr=False, alter=itemgetter(0)),
+			ParamAim("in", "uint64", "parent", "mutation", as_attr=False, alter=itemgetter(0)),
+			ParamAim("out", "uint64", "child", "mutation", as_attr=False, alter=itemgetter(0)),
 		],
 		"calibration": [
 			ParamAim("data", "float64", "calibration", as_attr=False),
