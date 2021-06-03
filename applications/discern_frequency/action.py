@@ -146,6 +146,9 @@ def get_git_commit() -> str:
 		return "UNKNOWN"
 
 def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mapping[str, List[ParamAim]]:
+	if not is_rep_fitting(rep, chromo_bits):
+		raise ValueError(f"representation needs more than {chromo_bits} bits")
+	
 	chromo_aim = [
 		ParamAim(
 			"return", f"uint{chromo_bits}", "chromosome", "individual", as_attr=False, shape=(len(rep.genes), ),
@@ -242,8 +245,6 @@ def run(args) -> None:
 	
 	rep = create_xc6200_rep((10, 23), (19, 32))
 	chromo_bits = 16
-	if not is_rep_fitting(rep, chromo_bits):
-		raise ValueError(f"representation needs more than {chromo_bits} bits")
 	
 	man = IcecraftManager()
 	#sink = TextfileSink("tmp.out.txt")
