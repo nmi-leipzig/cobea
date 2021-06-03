@@ -80,7 +80,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		self.write_to_sink("random_initial", {"state": random.getstate()})
 		
 		# create toolbox
-		toolbox = self.create_toolbox()
+		toolbox = self.create_toolbox(mutation_prob)
 		
 		# create population
 		pop = self._init_pop(pop_size)
@@ -120,7 +120,8 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			
 			elite = ranked[-1:]
 			progeny = toolbox.select(pop, pop_size-1, fit_attr="rank_prob")
-			progeny = algorithms.varAnd(progeny, toolbox, cxpb, mutpb)
+			# set probability that mutation function is applied to 1 as the mutation itself applies a probability per 
+			progeny = algorithms.varAnd(progeny, toolbox, cxpb, 1.0)
 			
 			self.evaluate_invalid(progeny, toolbox)
 			
@@ -186,7 +187,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		})
 		return (fit, )
 	
-	def create_toolbox(self) -> base.Toolbox:
+	def create_toolbox(self, mutation_prob: float) -> base.Toolbox:
 		#creator.create("TestFit", base.Fitness, weights=(1.0,))
 		#creator.create("Chromo", list, fitness=creator.TestFit)
 		
@@ -200,7 +201,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		toolbox.register(
 			"mutate",
 			Individual.wrap_alteration(tools.mutUniformInt, 1, self._chromo_gen, self._data_sink),
-			low=0, up=[len(g.alleles)-1 for g in self._rep.iter_genes()], indpb=0.05)
+			low=0, up=[len(g.alleles)-1 for g in self._rep.iter_genes()], indpb=mutation_prob)
 		toolbox.register("select", tools.selRoulette)
 		toolbox.register("evaluate", self._evaluate)
 		
