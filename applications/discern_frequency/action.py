@@ -152,29 +152,32 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 	chromo_aim = [
 		ParamAim(
 			"return", f"uint{chromo_bits}", "chromosome", "individual", as_attr=False, shape=(len(rep.genes), ),
-			alter=attrgetter("allele_indices")
+			alter=attrgetter("allele_indices"), comp_opt=9, shuffle=True
 		),
-		ParamAim("return", "uint64", "chromo_id", "individual", as_attr=False, alter=attrgetter("identifier")),
+		ParamAim("return", "uint64", "chromo_id", "individual", as_attr=False, alter=attrgetter("identifier"),
+			comp_opt=9, shuffle=True),
 	]
 	write_map = {
 		"Measure.perform": [
-			ParamAim("driver_data", "uint8", "s_t_index", "fitness", as_attr=False),
-			ParamAim("return", "float64", "measurement", "fitness", as_attr=False, shape=(2**19, )),
+			ParamAim("driver_data", "uint8", "s_t_index", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim("return", "float64", "measurement", "fitness", as_attr=False, shape=(2**19, ), shuffle=False),
 		],
 		"SimpleEA.fitness": [
-			ParamAim("fit", "float64", "value", "fitness", as_attr=False),
-			ParamAim("fast_sum", "float64", "fast_sum", "fitness", as_attr=False),
-			ParamAim("slow_sum", "float64", "slow_sum", "fitness", as_attr=False),
-			ParamAim("chromo_index", "uint64", "chromo_id", "fitness", as_attr=False),
+			ParamAim("fit", "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim("fast_sum", "float64", "fast_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim("slow_sum", "float64", "slow_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim("chromo_index", "uint64", "chromo_id", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 			ParamAim(
 				"carry_enable",
 				bool,
 				"carry_enable",
 				"fitness",
 				as_attr=False,
-				shape=(len(list(rep.iter_carry_bits())), )
+				shape=(len(list(rep.iter_carry_bits())), ),
+				comp_opt=4,
 			),
-			ParamAim("time", "float64", "time", "fitness", as_attr=False, alter=methodcaller("timestamp")),
+			ParamAim("time", "float64", "time", "fitness", as_attr=False, alter=methodcaller("timestamp"), comp_opt=9,
+				shuffle=True),
 		],
 		"SimpleEA.ea_params": [
 			ParamAim("pop_size", "uint64", "pop_size"),
@@ -193,7 +196,7 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 			ParamAim("state", "float64", "random_final_next_gauss", alter=itemgetter(2)),
 		],
 		"SimpleEA.gen":[
-			ParamAim("pop", "int64", "population", as_attr=False, shape=(pop_size, )),
+			ParamAim("pop", "uint64", "population", as_attr=False, shape=(pop_size, ), shuffle=True),
 		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
@@ -203,15 +206,15 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 					alter=partial(compose, funcs=[partial(map, methodcaller("to_ints")), list])),
 			],
 		"Individual.wrap.cxOnePoint": [
-			ParamAim("in", "uint64", "parents", "crossover", as_attr=False, shape=(2, )),
-			ParamAim("out", "uint64", "children", "crossover", as_attr=False, shape=(2, )),
+			ParamAim("in", "uint64", "parents", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
+			ParamAim("out", "uint64", "children", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
 		],
 		"Individual.wrap.mutUniformInt": [
-			ParamAim("in", "uint64", "parent", "mutation", as_attr=False, alter=itemgetter(0)),
-			ParamAim("out", "uint64", "child", "mutation", as_attr=False, alter=itemgetter(0)),
+			ParamAim("in", "uint64", "parent", "mutation", as_attr=False, alter=itemgetter(0), comp_opt=9,shuffle=True),
+			ParamAim("out", "uint64", "child", "mutation", as_attr=False, alter=itemgetter(0), comp_opt=9,shuffle=True),
 		],
 		"calibration": [
-			ParamAim("data", "float64", "calibration", as_attr=False),
+			ParamAim("data", "float64", "calibration", as_attr=False, shuffle=False),
 			ParamAim("rising_edge", "uint64", "rising_edge", "calibration"),
 			ParamAim("falling_edge", "uint64", "falling_edge", "calibration"),
 			ParamAim("trig_len", "uint64", "trig_len", "calibration"),
@@ -228,7 +231,7 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 			ParamAim("python_version", str, "python_version"),
 		],
 		"habitat": [
-			ParamAim("text", "uint8", "habitat", as_attr=False, alter=partial(bytearray, encoding="utf-8")),
+			ParamAim("text", "uint8", "habitat", as_attr=False, alter=partial(bytearray, encoding="utf-8"), comp_opt=9),
 		],
 	}
 	
