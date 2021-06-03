@@ -36,22 +36,34 @@ class Individual:
 	def wrap_alteration(cls, func, in_count, chromo_gen: GenChromo, data_sink: DataSink) -> Callable[..., Tuple["Individual", ...]]:
 		
 		def wrapped_func(*args, **kwargs) -> Tuple["Individual", ...]:
-			res = func(*[list(args[i].chromo.allele_indices) for i in range(in_count)], *args[in_count:], **kwargs)
+			in_indis = args[:in_count]
 			
-			chromos = []
+			res = func(*[list(i.chromo.allele_indices) for i in in_indis], *args[in_count:], **kwargs)
+			
+			out_indis = []
 			req = RequestObject()
 			for allele_indices in res:
-				req["allele_indices"] = allele_indices
-				chromos.append(chromo_gen(req))
+				allele_indices_tup = tuple(allele_indices)
+				new_indi = None
+				# found in input?
+				for old in in_indis:
+					if old.chromo.allele_indices == allele_indices_tup:
+						new_indi = old
+						break
+				if new_indi is None:
+					# create new chromosome
+					req["allele_indices"] = allele_indices_tup
+					chromo = chromo_gen(req)
+					new_indi = Individual(chromo)
+				out_indis.append(new_indi)
 			
-			if data_sink is None:
-				return tuple(Individual(c) for c in chromos)
+			if data_sink is not None:
+				data_sink.write(f"{cls.__name__}.wrap.{func.__name__}", {
+					"in": [i.chromo.identifier for i in in_indis],
+					"out": [i.chromo.identifier for i in out_indis]
+				})
 			
-			data_sink.write(f"{cls.__name__}.wrap.{func.__name__}", {
-				"in": [a.chromo.identifier for a in args[:in_count]],
-				"out": [c.identifier for c in chromos]
-			})
-			return tuple(Individual(c) for c in chromos)
+			return tuple(out_indis)
 		
 		return wrapped_func
 
@@ -124,6 +136,9 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			
 			elite = ranked[-1:]
 			progeny = toolbox.select(pop, pop_size-1, fit_attr="rank_prob")
+			# no need to invalidate fitness explicitly as the Individual.wrap_alteration already creates new 
+			# Individual instances for altered chromosomes
+			
 			# set probability that mutation function is applied to 1 as the mutation itself applies a probability per 
 			progeny = algorithms.varAnd(progeny, toolbox, cxpb, 1.0)
 			
