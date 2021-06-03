@@ -222,7 +222,7 @@ def run(args) -> None:
 			],
 		"Individual.wrap.cxTwoPoint": [
 			ParamAim("in", "uint64", "parents", "crossover", as_attr=False, shape=(2, )),
-			ParamAim("out", "uint64", "children", "crossover", as_attr=False, alter=itemgetter(0)),
+			ParamAim("out", "uint64", "children", "crossover", as_attr=False, shape=(2, )),
 		],
 		"Individual.wrap.mutUniformInt": [
 			ParamAim("in", "uint64", "parent", "mutation", as_attr=False, alter=itemgetter(0)),
