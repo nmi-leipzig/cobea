@@ -77,27 +77,27 @@ class HDF5SinkTest(unittest.TestCase):
 			exp_data: Mapping[str, Any]
 		
 		def alter_str(x):
-			if not isinstance(x, str):
+			if not isinstance(x[0], str):
 				raise IgnoreValue()
-			return x
+			return x[0]
 		
 		def alter_int(x):
-			if not isinstance(x, int):
+			if not isinstance(x[0], int):
 				raise IgnoreValue()
-			return x
+			return x[0]
 		
 		test_data = [
 			WriteData("all empty", {}, [], {}, {}),
 			WriteData(
 				"attr",
-				{"src1": [ParamAim("d1", None, "d1.0")]},
+				{"src1": [ParamAim(["d1"], None, "d1.0")]},
 				[("src1", {"d1": [1, 2, 3], "d2": 5})],
 				{"/": {"d1.0": ([1, 2, 3])}},
 				{}
 			),
 			WriteData(
 				"dataset",
-				{"src1": [ParamAim("d1", "uint8", "d1.0", as_attr=False, shape=(3, ))]},
+				{"src1": [ParamAim(["d1"], "uint8", "d1.0", as_attr=False, shape=(3, ))]},
 				[("src1", {"d1": [1, 2, 3]}), ("src1", {"d1": [0, 0, 0]})],
 				{},
 				{"d1.0": np.array([[1, 2, 3], [0, 0, 0]])}
@@ -105,8 +105,8 @@ class HDF5SinkTest(unittest.TestCase):
 			WriteData(
 				"ignore value",
 				{"src7": [
-					ParamAim("var", None, "my_str", "v", alter=alter_str),
-					ParamAim("var", None, "my_int", "v", alter=alter_int),
+					ParamAim(["var"], None, "my_str", "v", alter=alter_str),
+					ParamAim(["var"], None, "my_int", "v", alter=alter_int),
 				]},
 				[("src7", {"var": 235}), ("src7", {"var": "hi"})],
 				{"v": {"my_str": "hi", "my_int": 235}},
@@ -115,8 +115,8 @@ class HDF5SinkTest(unittest.TestCase):
 			WriteData(
 				"dataset attr",
 				OrderedDict({
-					"attr_setter": [ParamAim("meta", None, "meta_int", "ds")],
-					"data_setter": [ParamAim("data", "uint8", "ds", as_attr=False)]
+					"attr_setter": [ParamAim(["meta"], None, "meta_int", "ds")],
+					"data_setter": [ParamAim(["data"], "uint8", "ds", as_attr=False)]
 				}),
 				[("attr_setter", {"meta": 7}), ("data_setter", {"data": 23}), ("data_setter", {"data": 47})],
 				{"ds": {"meta_int": 7}},
@@ -124,7 +124,7 @@ class HDF5SinkTest(unittest.TestCase):
 			),
 			WriteData(
 				"multiple dataset entries",
-				{"mde": [ParamAim("data", "uint8", "md", as_attr=False)]},
+				{"mde": [ParamAim(["data"], "uint8", "md", as_attr=False)]},
 				[("mde", {"data": 8}), ("mde", {"data": [8, 9]})],
 				{},
 				{"md": np.array([8, 8, 9])}

@@ -37,14 +37,16 @@ def compose(x: Any, funcs: Iterable[Callable]) -> Any:
 class ParamAim:
 	# there can be multiple ParamAim instance with the same name
 	# to create multiple entries in the HDF5 from the same data 
-	name: str
+	names: List[str] # multiple names to allow compound data types and write one value depending on another
 	data_type: type
 	h5_name: str
 	h5_path: str = "/"
 	as_attr: bool = True
 	# for datasets: shape of a single entry, not the whole dataset
 	shape: Tuple[Optional[int], ...] = tuple()
-	alter: Callable[[Any], Any] = noop
+	# by default return first value
+	# good for cases where ther is only one name
+	alter: Callable[[list], Any] = itemgetter(0)
 	compress: str = "gzip"
 	comp_opt: int = 7
 	shuffle: bool = False
@@ -153,7 +155,7 @@ class HDF5Sink(DataSink):
 		
 		for pa in aim_list:
 			try:
-				value = pa.alter(data_dict[pa.name])
+				value = pa.alter([data_dict[n] for n in pa.names])
 			except IgnoreValue:
 				# don't process this value any further
 				continue
@@ -182,8 +184,8 @@ class HDF5Sink(DataSink):
 				
 	
 	@staticmethod
-	def extract_list(genes: Sequence[Gene], idx: int) -> List[Tuple[bool, ...]]:
-		allele_seq = genes[idx].alleles
+	def extract_list(genes: List[Sequence[Gene]], idx: int) -> List[Tuple[bool, ...]]:
+		allele_seq = genes[0][idx].alleles
 		# only process AlleleList
 		if not isinstance(allele_seq, AlleleList):
 			raise IgnoreValue()
@@ -191,8 +193,8 @@ class HDF5Sink(DataSink):
 		return [a.values for a in allele_seq]
 	
 	@staticmethod
-	def extract_input_count(genes: Sequence[Gene], idx: int) -> int:
-		allele_seq = genes[idx].alleles
+	def extract_input_count(genes: List[Sequence[Gene]], idx: int) -> int:
+		allele_seq = genes[0][idx].alleles
 		# only process AllelePow
 		if not isinstance(allele_seq, AllelePow):
 			raise IgnoreValue()
@@ -200,8 +202,8 @@ class HDF5Sink(DataSink):
 		return allele_seq.input_count
 	
 	@staticmethod
-	def extract_unused_inputs(genes: Sequence[Gene], idx: int) -> int:
-		allele_seq = genes[idx].alleles
+	def extract_unused_inputs(genes: List[Sequence[Gene]], idx: int) -> int:
+		allele_seq = genes[0][idx].alleles
 		# only process AllelePow
 		if not isinstance(allele_seq, AllelePow):
 			raise IgnoreValue()
@@ -217,30 +219,32 @@ class HDF5Sink(DataSink):
 		aims = []
 		for index in range(gene_count):
 			grp_name = h5_path + "/" + f"gene_{index:05d}"
-			aims.append(ParamAim(name, None, "description", grp_name, alter=partial(
+			aims.append(ParamAim([name], None, "description", grp_name, alter=partial(
 				compose,
-				funcs = [itemgetter(index), attrgetter("description")]
+				funcs = [itemgetter(0), itemgetter(index), attrgetter("description")]
 			)))
-			aims.append(ParamAim(name, "uint16", "bits", grp_name, alter=partial(
+			aims.append(ParamAim([name], "uint16", "bits", grp_name, alter=partial(compose, funcs = [
+				itemgetter(0),
+				itemgetter(index),
+				attrgetter("bit_positions"),
+				partial(map, methodcaller("to_ints")),
+				list
+			])))
+			aims.append(ParamAim([name], None, "allele_type", grp_name, alter=partial(
 				compose,
-				funcs = [itemgetter(index), attrgetter("bit_positions"), partial(map, methodcaller("to_ints")), list]
-			)))
-			aims.append(ParamAim(name, None, "allele_type", grp_name, alter=partial(
-				compose,
-				funcs = [itemgetter(index), attrgetter("alleles"), type, attrgetter("__name__")]
-				#lambda g, i=index: type(g[i].alleles).__name__
+				funcs = [itemgetter(0), itemgetter(index), attrgetter("alleles"), type, attrgetter("__name__")]
 			)))
 			
 			# data specific for type of AlleleSequence
 			# AlleleList
-			aims.append(ParamAim(name, None, "alleles", grp_name, alter=partial(cls.extract_list, idx=index)))
+			aims.append(ParamAim([name], None, "alleles", grp_name, alter=partial(cls.extract_list, idx=index)))
 			
 			# AllelePow
 			aims.append(
-				ParamAim(name, None, "input_count", grp_name, alter=partial(cls.extract_input_count, idx=index))
+				ParamAim([name], None, "input_count", grp_name, alter=partial(cls.extract_input_count, idx=index))
 			)
 			aims.append(
-				ParamAim(name, None, "unused_inputs", grp_name, alter=partial(cls.extract_unused_inputs, idx=index))
+				ParamAim([name], None, "unused_inputs", grp_name, alter=partial(cls.extract_unused_inputs, idx=index))
 			)
 			
 			# for AlleleAll only the number of bits is relevant
