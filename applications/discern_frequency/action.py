@@ -145,30 +145,37 @@ def get_git_commit() -> str:
 	except:
 		return "UNKNOWN"
 
+def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
+	return [
+		ParamAim([name], "int64", f"{prefix}version", alter=partial(compose, funcs=[itemgetter(0), itemgetter(0)])),
+		ParamAim([name], "int64", f"{prefix}mt_state", alter=partial(compose, funcs=[itemgetter(0), itemgetter(1)])),
+		ParamAim([name], "float64",f"{prefix}next_gauss",alter=partial(compose, funcs=[itemgetter(0), itemgetter(2)])),
+	]
+
 def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mapping[str, List[ParamAim]]:
 	if not is_rep_fitting(rep, chromo_bits):
 		raise ValueError(f"representation needs more than {chromo_bits} bits")
 	
 	chromo_aim = [
 		ParamAim(
-			"return", f"uint{chromo_bits}", "chromosome", "individual", as_attr=False, shape=(len(rep.genes), ),
-			alter=attrgetter("allele_indices"), comp_opt=9, shuffle=True
+			["return"], f"uint{chromo_bits}", "chromosome", "individual", as_attr=False, shape=(len(rep.genes), ),
+			alter=partial(compose, funcs=[itemgetter(0), attrgetter("allele_indices")]), comp_opt=9, shuffle=True
 		),
-		ParamAim("return", "uint64", "chromo_id", "individual", as_attr=False, alter=attrgetter("identifier"),
-			comp_opt=9, shuffle=True),
+		ParamAim(["return"], "uint64", "chromo_id", "individual", as_attr=False, 
+			alter=partial(compose, funcs=[itemgetter(0), attrgetter("identifier")]), comp_opt=9, shuffle=True),
 	]
 	write_map = {
 		"Measure.perform": [
-			ParamAim("driver_data", "uint8", "s_t_index", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			ParamAim("return", "float64", "measurement", "fitness", as_attr=False, shape=(2**19, ), shuffle=False),
+			ParamAim(["driver_data"], "uint8", "s_t_index", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim(["return"], "float64", "measurement", "fitness", as_attr=False, shape=(2**19, ), shuffle=False),
 		],
 		"SimpleEA.fitness": [
-			ParamAim("fit", "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			ParamAim("fast_sum", "float64", "fast_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			ParamAim("slow_sum", "float64", "slow_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			ParamAim("chromo_index", "uint64", "chromo_id", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim(["fit"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim(["fast_sum"], "float64", "fast_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim(["slow_sum"], "float64", "slow_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim(["chromo_index"], "uint64", "chromo_id", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 			ParamAim(
-				"carry_enable",
+				["carry_enable"],
 				bool,
 				"carry_enable",
 				"fitness",
@@ -176,63 +183,57 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 				shape=(len(list(rep.iter_carry_bits())), ),
 				comp_opt=4,
 			),
-			ParamAim("time", "float64", "time", "fitness", as_attr=False, alter=methodcaller("timestamp"), comp_opt=9,
-				shuffle=True),
+			ParamAim(["time"], "float64", "time", "fitness", as_attr=False,
+				alter=partial(compose, funcs=[itemgetter(0), methodcaller("timestamp")]), comp_opt=9, shuffle=True),
 		],
 		"SimpleEA.ea_params": [
-			ParamAim("pop_size", "uint64", "pop_size"),
-			ParamAim("gen_count", "uint64", "gen_count"),
-			ParamAim("crossover_prob", "float64", "crossover_prob"),
-			ParamAim("mutation_prob", "float64", "mutation_prob"),
+			ParamAim(["pop_size"], "uint64", "pop_size"),
+			ParamAim(["gen_count"], "uint64", "gen_count"),
+			ParamAim(["crossover_prob"], "float64", "crossover_prob"),
+			ParamAim(["mutation_prob"], "float64", "mutation_prob"),
 		],
-		"SimpleEA.random_initial": [
-			ParamAim("state", "int64", "random_initial_version", alter=itemgetter(0)),
-			ParamAim("state", "int64", "random_initial_mt_state", alter=itemgetter(1)),
-			ParamAim("state", "float64", "random_initial_next_gauss", alter=itemgetter(2)),
-		],
-		"SimpleEA.random_final": [
-			ParamAim("state", "int64", "random_final_version", alter=itemgetter(0)),
-			ParamAim("state", "int64", "random_final_mt_state", alter=itemgetter(1)),
-			ParamAim("state", "float64", "random_final_next_gauss", alter=itemgetter(2)),
-		],
+		"SimpleEA.random_initial": create_rng_aim("state", "random_initial_"),
+		"SimpleEA.random_final": create_rng_aim("state", "random_final_"),
 		"SimpleEA.gen":[
-			ParamAim("pop", "uint64", "population", as_attr=False, shape=(pop_size, ), shuffle=True),
+			ParamAim(["pop"], "uint64", "population", as_attr=False, shape=(pop_size, ), shuffle=True),
 		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
 		"Action.rep": HDF5Sink.create_gene_aims("genes", len(rep.genes), h5_path="mapping/genes")+\
 			HDF5Sink.create_gene_aims("const", len(rep.constant), h5_path="mapping/constant")+[
-				ParamAim("carry_bits", "uint16", "bits", "fitness/carry_enable",
-					alter=partial(compose, funcs=[partial(map, methodcaller("to_ints")), list])),
+				ParamAim(["carry_bits"], "uint16", "bits", "fitness/carry_enable",
+					alter=partial(compose, funcs=[itemgetter(0), partial(map, methodcaller("to_ints")), list])),
 			],
 		"Individual.wrap.cxOnePoint": [
-			ParamAim("in", "uint64", "parents", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
-			ParamAim("out", "uint64", "children", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
+			ParamAim(["in"], "uint64", "parents", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
+			ParamAim(["out"], "uint64", "children", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
 		],
 		"Individual.wrap.mutUniformInt": [
-			ParamAim("in", "uint64", "parent", "mutation", as_attr=False, alter=itemgetter(0), comp_opt=9,shuffle=True),
-			ParamAim("out", "uint64", "child", "mutation", as_attr=False, alter=itemgetter(0), comp_opt=9,shuffle=True),
+			ParamAim(
+				["in"], "uint64", "parent", "mutation", as_attr=False,
+				alter=partial(compose, funcs=[itemgetter(0), itemgetter(0)]), comp_opt=9,shuffle=True
+			),
+			ParamAim(
+				["out"], "uint64", "child", "mutation", as_attr=False,
+				alter=partial(compose, funcs=[itemgetter(0), itemgetter(0)]), comp_opt=9, shuffle=True
+			),
 		],
 		"calibration": [
-			ParamAim("data", "float64", "calibration", as_attr=False, shuffle=False),
-			ParamAim("rising_edge", "uint64", "rising_edge", "calibration"),
-			ParamAim("falling_edge", "uint64", "falling_edge", "calibration"),
-			ParamAim("trig_len", "uint64", "trig_len", "calibration"),
-			ParamAim("offset", "float64", "offset", "calibration"),
+			ParamAim(["data"], "float64", "calibration", as_attr=False, shuffle=False),
+			ParamAim(["rising_edge"], "uint64", "rising_edge", "calibration"),
+			ParamAim(["falling_edge"], "uint64", "falling_edge", "calibration"),
+			ParamAim(["trig_len"], "uint64", "trig_len", "calibration"),
+			ParamAim(["offset"], "float64", "offset", "calibration"),
 		],
-		"prng": [
-			ParamAim("seed", "int64", "prng_seed"),
-			ParamAim("final_state", "int64", "prng_final_version", alter=itemgetter(0)),
-			ParamAim("final_state", "int64", "prng_final_mt_state", alter=itemgetter(1)),
-			ParamAim("final_state", "float64", "prng_final_next_gauss", alter=itemgetter(2)),
-		],
+		"prng": [ParamAim(["seed"], "int64", "prng_seed")] + create_rng_aim("final_state", "prng_final_"),
 		"misc": [
-			ParamAim("git_commit", str, "git_commit"), 
-			ParamAim("python_version", str, "python_version"),
+			ParamAim(["git_commit"], str, "git_commit"), 
+			ParamAim(["python_version"], str, "python_version"),
 		],
-		"habitat": [
-			ParamAim("text", "uint8", "habitat", as_attr=False, alter=partial(bytearray, encoding="utf-8"), comp_opt=9),
-		],
+		"habitat": [ParamAim(
+			["text"], "uint8", "habitat", as_attr=False,
+			alter=partial(compose, funcs=[itemgetter(0), partial(bytearray, encoding="utf-8")]), comp_opt=9
+		),],
 	}
 	
 	return write_map
