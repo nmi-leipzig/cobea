@@ -234,7 +234,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		#toolbox.register("init_individual", tools.initRepeat, creator.Chromo, toolbox.rand_bool, 20)
 		#toolbox.register("init_pop", tools.initRepeat, list, toolbox.init_individual)
 		
-		toolbox.register("mate", Individual.wrap_alteration(tools.cxTwoPoint, 2, self._chromo_gen, self._data_sink))
+		toolbox.register("mate", Individual.wrap_alteration(tools.cxOnePoint, 2, self._chromo_gen, self._data_sink))
 		toolbox.register(
 			"mutate",
 			Individual.wrap_alteration(tools.mutUniformInt, 1, self._chromo_gen, self._data_sink),

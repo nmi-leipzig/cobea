@@ -202,7 +202,7 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 				ParamAim("carry_bits", "uint16", "bits", "fitness/carry_enable",
 					alter=partial(compose, funcs=[partial(map, methodcaller("to_ints")), list])),
 			],
-		"Individual.wrap.cxTwoPoint": [
+		"Individual.wrap.cxOnePoint": [
 			ParamAim("in", "uint64", "parents", "crossover", as_attr=False, shape=(2, )),
 			ParamAim("out", "uint64", "children", "crossover", as_attr=False, shape=(2, )),
 		],
