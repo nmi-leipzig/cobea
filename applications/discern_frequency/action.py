@@ -14,7 +14,7 @@ from adapters.embed_driver import FixedEmbedDriver
 from adapters.deap.simple_ea import SimpleEA
 from adapters.dummies import DummyDriver, DummyMeter
 from adapters.gear.rigol import OsciDS1102E
-from adapters.hdf5_sink import compose, HDF5Sink, ParamAim
+from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, ParamAim
 from adapters.icecraft import IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen, IcecraftManager,\
 IcecraftRawConfig, XC6200Port, XC6200Direction
 from adapters.parallel_sink import ParallelSink
@@ -152,6 +152,12 @@ def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
 		ParamAim([name], "float64",f"{prefix}next_gauss",alter=partial(compose, funcs=[itemgetter(0), itemgetter(2)])),
 	]
 
+def ignore_same(x: list) -> Any:
+	"""raise IgnoreValue of first two elements are equal, els return the first"""
+	if x[0] == x[1]:
+		raise IgnoreValue()
+	return x[0]
+
 def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mapping[str, List[ParamAim]]:
 	if not is_rep_fitting(rep, chromo_bits):
 		raise ValueError(f"representation needs more than {chromo_bits} bits")
@@ -210,12 +216,12 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 		],
 		"Individual.wrap.mutUniformInt": [
 			ParamAim(
-				["in"], "uint64", "parent", "mutation", as_attr=False,
-				alter=partial(compose, funcs=[itemgetter(0), itemgetter(0)]), comp_opt=9,shuffle=True
+				["in", "out"], "uint64", "parent", "mutation", as_attr=False,
+				alter=partial(compose, funcs=[ignore_same, itemgetter(0)]), comp_opt=9, shuffle=True
 			),
 			ParamAim(
-				["out"], "uint64", "child", "mutation", as_attr=False,
-				alter=partial(compose, funcs=[itemgetter(0), itemgetter(0)]), comp_opt=9, shuffle=True
+				["out", "in"], "uint64", "child", "mutation", as_attr=False,
+				alter=partial(compose, funcs=[ignore_same, itemgetter(0)]), comp_opt=9, shuffle=True
 			),
 		],
 		"calibration": [
