@@ -112,7 +112,12 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 	@staticmethod
 	def evaluate_invalid(pop: List[Individual], toolbox: base.Toolbox) -> None:
 		"""Evaluate fitness for all indiviuals with invalid fitness"""
-		invalid_list = [i for i in pop if not i.fitness.valid]
+		# the same individual may be multiple times in the population
+		# -> avoid doing multiple evaluations for one individual by making the list entries unique
+		seen = set()
+		invalid_list = [
+			i for i in pop if not i.fitness.valid and not (i.chromo.identifier in seen or seen.add(i.chromo.identifier))
+		]
 		fitness_list = toolbox.map(toolbox.evaluate, invalid_list)
 		for indi, fit in zip(invalid_list, fitness_list):
 			indi.fitness.values = fit
