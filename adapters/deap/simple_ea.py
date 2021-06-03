@@ -43,6 +43,10 @@ class Individual:
 			for allele_indices in res:
 				req["allele_indices"] = allele_indices
 				chromos.append(chromo_gen(req))
+			
+			if data_sink is None:
+				return tuple(Individual(c) for c in chromos)
+			
 			data_sink.write(f"{cls.__name__}.wrap.{func.__name__}", {
 				"in": [a.chromo.identifier for a in args[:in_count]],
 				"out": [c.identifier for c in chromos]
