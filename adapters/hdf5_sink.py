@@ -111,7 +111,9 @@ class HDF5Sink(DataSink):
 							shape=(0, *pa.shape),
 							dtype=pa.data_type,
 							maxshape=(None, *pa.shape),
-							compression = "gzip",
+							compression = pa.compress,
+							compression_opts = pa.comp_opt,
+							shuffle = pa.shuffle,
 						)
 		
 		for entity_path in implied_entities:
