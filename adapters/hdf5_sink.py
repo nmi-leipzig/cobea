@@ -45,6 +45,9 @@ class ParamAim:
 	# for datasets: shape of a single entry, not the whole dataset
 	shape: Tuple[Optional[int], ...] = tuple()
 	alter: Callable[[Any], Any] = noop
+	compress: str = "gzip"
+	comp_opt: int = 7
+	shuffle: bool = False
 
 class HDF5Sink(DataSink):
 	def __init__(self,
