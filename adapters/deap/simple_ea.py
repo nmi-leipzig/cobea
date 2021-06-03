@@ -144,9 +144,22 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			# no need to invalidate fitness explicitly as the Individual.wrap_alteration already creates new 
 			# Individual instances for altered chromosomes
 			
-			# set probability that mutation function is applied to 1 as the mutation itself applies a probability per 
-			progeny = algorithms.varAnd(progeny, toolbox, cxpb, 1.0)
+			# algorithms.varAnd mutates the population in place and invalidates the fitness values accordingly
+			# but that is not necessary as Individual.wrap_alteration already creates new individuals (and chromosomes)
+			# without fitness if the allele_indices were altered
+			# -> implement own version here to avoid superfluous evaluations
 			
+			# crossover
+			for i in range(1, len(progeny), 2):
+				# use random to be consistent with DEAP
+				if random.random() < cxpb:
+					progeny[i-1], progeny[i] = toolbox.mate(progeny[i-1], progeny[i])
+			# mutation
+			#print(f"before_mut: {[p.chromo.identifier for p in progeny]}")
+			progeny = [r[0] for r in map(toolbox.mutate, progeny)]
+			#print(f"after_mut: {[p.chromo.identifier for p in progeny]}")
+			
+			# elite has to have a fitness value already as it is the elite due to its fitness value
 			self.evaluate_invalid(progeny, toolbox)
 			
 			pop = elite + progeny
