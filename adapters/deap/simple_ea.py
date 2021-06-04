@@ -1,5 +1,6 @@
 import datetime
 import random
+import time
 
 from dataclasses import dataclass, field
 from typing import Callable, List, Tuple
@@ -129,9 +130,21 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		prob_list = [(2-s)/pop_size+2*i*(s-1)/(pop_size*(pop_size-1)) for i in range(pop_size)]
 		
 		# initial evaluation
+		prev_time = time.perf_counter()
 		self.evaluate_invalid(pop, toolbox)
 		
+		start_time = time.perf_counter()
 		for gen_nr in range(ngen):
+			cur_time = time.perf_counter()
+			try:
+				eta = (cur_time - start_time) * (ngen/gen_nr - 1)
+			except ZeroDivisionError:
+				# can't estimate for 0 generation
+				eta = -1.0
+			print(f"Generation {gen_nr} took {cur_time-prev_time:.1f} s, eta : {eta:.1f} s")
+			prev_time = cur_time
+			
+			
 			self.write_to_sink("gen", {"pop": [p.chromo.identifier for p in pop]})
 			# find probability based on rank
 			ranked = sorted(pop, key=lambda x:x.fitness)
@@ -164,6 +177,10 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			pop = elite + progeny
 		
 		self.write_to_sink("gen", {"pop": [p.chromo.identifier for p in pop]})
+		
+		cur_time = time.perf_counter()
+		print(f"{ngen} generations took {cur_time-start_time:.2f} s")
+		
 	
 	def _init_pop(self, count) -> List[Individual]:
 		return [Individual(self._init_uc(RequestObject())) for _ in range(count)]
