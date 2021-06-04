@@ -8,7 +8,7 @@ class StdSink(DataSink):
 		print(f"{source}: {[n+'='+str(v)[:50]+', ' for n, v in data_dict.items()]}")
 	
 	def __enter__(self) -> "StdSink":
-		pass
+		return self
 	
 	def __exit__(self,
 		exc_type: Optional[Type[BaseException]],
@@ -40,6 +40,8 @@ class TextfileSink(DataSink):
 	
 	def __enter__(self) -> "StdSink":
 		self.open()
+		
+		return self
 	
 	def __exit__(self,
 		exc_type: Optional[Type[BaseException]],
