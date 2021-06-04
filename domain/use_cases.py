@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from functools import reduce
-from typing import Any, Dict, Mapping, Iterable
+from typing import Any, Dict, Iterable, Mapping, Optional
 
 from domain.data_sink import DataSink, DataSinkUser, sink_request
 from domain.model import OutputData, Chromosome
@@ -30,7 +30,7 @@ class UseCase(ParameterUser, DataSinkUser):
 		raise NotImplementedError()
 
 class Measure(UseCase):
-	def __init__(self, driver: Driver, meter: Meter, data_sink: DataSink=None) -> None:
+	def __init__(self, driver: Driver, meter: Meter, data_sink: DataSink=None, prefix: Optional[str]=None) -> None:
 		self._driver = driver
 		self._meter = meter
 		sub_params = [
@@ -40,7 +40,15 @@ class Measure(UseCase):
 		]
 		self._parameters = {"perform": reduce(self.meld_parameters, sub_params)}
 		
+		self._prefix = prefix
+		if self._prefix is None:
+			self._prefix = type(self).__name__
+		
 		self._data_sink = data_sink
+	
+	@property
+	def prefix(self) -> str:
+		return self._prefix
 	
 	@sink_request
 	def perform(self, request: RequestObject) -> OutputData:
