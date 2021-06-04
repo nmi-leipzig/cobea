@@ -93,16 +93,23 @@ class MockMeter(Meter):
 	
 
 class RandomMeter(Meter):
-	def __init__(self, output_len: int, measure_delay: float) -> None:
+	def __init__(
+		self,
+		output_len: int,
+		measure_delay: float,
+		seed: Union[None, int, float, str, bytes, bytearray]==None
+	) -> None:
+		
 		self._output_len = output_len
 		self._measure_delay = measure_delay
+		self._rng = random.Random(seed)
 	
 	def prepare(self, request: RequestObject) -> None:
 		return None
 	
 	def measure(self, request: RequestObject) -> OutputData:
 		time.sleep(self._measure_delay)
-		return OutputData([random.random() for _ in range(self._output_len)])
+		return OutputData([self._rng.random() for _ in range(self._output_len)])
 	
 	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
