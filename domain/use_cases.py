@@ -1,3 +1,5 @@
+import datetime
+
 from abc import ABC, abstractmethod
 from functools import reduce
 from typing import Any, Dict, Iterable, Mapping, Optional
@@ -58,6 +60,8 @@ class Measure(UseCase):
 			self._meter.prepare(request)
 			self._driver.drive(request)
 			
+			# create aware datetime object; utcnow would create naive datetime object
+			cur_time = datetime.datetime.now(datetime.timezone.utc)
 			try:
 				output_data = self._meter.measure(request)
 			except MeasureTimeout:
@@ -69,6 +73,8 @@ class Measure(UseCase):
 			
 			self._driver.clean_up(request)
 			break
+		
+		self.write_to_sink("additional", {"time": cur_time})
 		
 		return output_data
 

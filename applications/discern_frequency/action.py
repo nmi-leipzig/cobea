@@ -177,6 +177,10 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 			ParamAim(["driver_data"], "uint8", "s_t_index", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 			ParamAim(["return"], "float64", "measurement", "fitness", as_attr=False, shape=(2**19, ), shuffle=False),
 		],
+		"Measure.additional": [
+			ParamAim(["time"], "float64", "time", "fitness", as_attr=False,
+				alter=partial(compose, funcs=[itemgetter(0), methodcaller("timestamp")]), comp_opt=9, shuffle=True),
+		],
 		"SimpleEA.fitness": [
 			ParamAim(["fit"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 			ParamAim(["fast_sum"], "float64", "fast_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
@@ -191,8 +195,6 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 				shape=(len(list(rep.iter_carry_bits())), ),
 				comp_opt=4,
 			),
-			ParamAim(["time"], "float64", "time", "fitness", as_attr=False,
-				alter=partial(compose, funcs=[itemgetter(0), methodcaller("timestamp")]), comp_opt=9, shuffle=True),
 		],
 		"SimpleEA.ea_params": [
 			ParamAim(["pop_size"], "uint64", "pop_size"),
@@ -245,6 +247,10 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 		"temperature.perform": [
 			ParamAim(["return"], "float16", "celcius", "temperature", as_attr=False,
 				alter=partial(compose, funcs=[itemgetter(0), itemgetter(0)]), comp_opt=9, shuffle=True),
+		],
+		"temperature.additional": [
+			ParamAim(["time"], "float64", "time", "temperature", as_attr=False,
+				alter=partial(compose, funcs=[itemgetter(0), methodcaller("timestamp")]), comp_opt=9, shuffle=True),
 		],
 	}
 	
