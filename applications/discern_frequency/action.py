@@ -17,9 +17,11 @@ from adapters.gear.rigol import OsciDS1102E
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, ParamAim
 from adapters.icecraft import IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen, IcecraftManager,\
 IcecraftRawConfig, XC6200Port, XC6200Direction
+from adapters.parallel_collector import CollectorDetails, InitDetails, ParallelCollector
 from adapters.parallel_sink import ParallelSink
 from adapters.prng import BuiltInPRNG
 from adapters.simple_sink import TextfileSink
+from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
 from domain.interfaces import Driver, InputData, TargetDevice, TargetManager
 from domain.model import AlleleAll, Gene
@@ -240,11 +242,13 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 			["text"], "uint8", "habitat", as_attr=False,
 			alter=partial(compose, funcs=[itemgetter(0), partial(bytearray, encoding="utf-8")]), comp_opt=9
 		),],
+		"temperature.perform": [
+			ParamAim(["return"], "float16", "celcius", "temperature", as_attr=False,
+				alter=partial(compose, funcs=[itemgetter(0), itemgetter(0)]), comp_opt=9, shuffle=True),
+		],
 	}
 	
 	return write_map
-
-# measure
 
 def run(args) -> None:
 	# prepare
@@ -262,7 +266,18 @@ def run(args) -> None:
 	write_map = create_write_map(rep, pop_size, chromo_bits)
 	
 	sink = ParallelSink(HDF5Sink, (write_map, ))
-	with sink:
+	with ExitStack() as stack:
+		stack.enter_context(sink)
+		
+		temp_det = CollectorDetails(
+			InitDetails(DummyDriver),
+			InitDetails(TempMeter),
+			sink.get_sub(),
+			0,
+			"temperature",
+		)
+		stack.enter_context(ParallelCollector(temp_det))
+		
 		sink.write("Action.rep", {
 			"genes": rep.genes,
 			"const": rep.constant,
@@ -272,6 +287,7 @@ def run(args) -> None:
 			"git_commit": get_git_commit(),
 			"python_version": sys.version,
 		})
+		
 		if use_dummy:
 			meter = DummyMeter()
 			driver = DummyDriver()

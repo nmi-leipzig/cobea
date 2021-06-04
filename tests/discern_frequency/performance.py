@@ -12,6 +12,8 @@ import os
 import pickle
 import sys
 
+from contextlib import ExitStack
+from functools import partial
 from operator import attrgetter, itemgetter, methodcaller
 
 sys.path.append(
@@ -26,10 +28,12 @@ import applications.discern_frequency
 
 from adapters.deap.simple_ea import SimpleEA
 from adapters.dummies import DummyDriver
-from adapters.hdf5_sink import HDF5Sink, ParamAim
+from adapters.hdf5_sink import compose, HDF5Sink, ParamAim
 from adapters.icecraft import IcecraftManager, IcecraftRawConfig, IcecraftRep, IcecraftStormConfig
+from adapters.parallel_collector import CollectorDetails, InitDetails, ParallelCollector
 from adapters.parallel_sink import ParallelSink
 from adapters.prng import BuiltInPRNG
+from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
 from applications.discern_frequency.action import create_write_map, create_xc6200_rep
 from domain.use_cases import Measure
@@ -51,6 +55,15 @@ def unpickle_rep(filename: str) -> IcecraftRep:
 	
 	return rep
 
+def get_temp_details(sink: ParallelSink) -> CollectorDetails:
+	return CollectorDetails(
+		InitDetails(DummyDriver),
+		InitDetails(TempMeter),
+		sink.get_sub(),
+		0,
+		"temperature",
+	)
+
 def run_algo(rep: IcecraftRep) -> None:
 	pop_size = 4
 	chromo_bits = 16
@@ -65,9 +78,14 @@ def run_algo(rep: IcecraftRep) -> None:
 	sink = ParallelSink(HDF5Sink, (write_map, f"perf-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"))
 	man = IcecraftManager()
 	target = man.acquire()
-	with sink:
+	with ExitStack() as stack:
+		stack.enter_context(sink)
+		
 		meter = RandomMeter(2**19, 1)
 		driver = DummyDriver()
+		
+		temp_det = get_temp_details(sink)
+		stack.enter_context(ParallelCollector(temp_det))
 		
 		try:
 			measure_uc = Measure(driver, meter, sink)
