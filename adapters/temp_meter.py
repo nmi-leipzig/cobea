@@ -2,6 +2,7 @@ import struct
 
 from serial import Serial
 from serial.tools.list_ports import comports
+import time
 from types import TracebackType
 from typing import Iterable, Mapping, Optional, Type
 
@@ -28,6 +29,11 @@ class TempMeter(Meter):
 		self._arduino = Serial(port=arduino_ports[0].device, baudrate=self._baudrate)
 		self._arduino.__enter__()
 		self._arduino.reset_input_buffer()
+		self._arduino.reset_output_buffer()
+		
+		# Arduino reboots on connecting serial -> wait till reboot is done
+		time.sleep(2)
+		
 		return self
 	
 	def __exit__(self,
