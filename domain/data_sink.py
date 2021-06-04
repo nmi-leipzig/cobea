@@ -17,10 +17,14 @@ class DataSinkUser(ABC):
 	def data_sink(self) -> DataSink:
 		raise NotImplementedError()
 	
+	@property
+	def prefix(self) -> str:
+		return type(self).__name__
+	
 	def write_to_sink(self, sub_name: str, data_dict: Mapping[str, Any]) -> None:
 		if self.data_sink is None:
 			return
-		self.data_sink.write(f"{type(self).__name__}.{sub_name}", data_dict)
+		self.data_sink.write(f"{self.prefix}.{sub_name}", data_dict)
 
 def sink_request(func: Callable) -> Callable:
 	"""Decorator for functions with request parameter to send request to a DataSink
