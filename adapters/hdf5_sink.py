@@ -146,6 +146,8 @@ class HDF5Sink(DataSink):
 		exc_traceback: Optional[TracebackType]
 	) -> bool:
 		self.close()
+		
+		return False
 	
 	def write(self, source: str, data_dict: Mapping[str, Any]) -> None:
 		try:

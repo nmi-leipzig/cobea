@@ -39,6 +39,8 @@ class ParallelSink(DataSink):
 		
 		self._write_queue = None
 		self._process = None
+		
+		return False
 	
 	def write(self, source: str, data_dict: Mapping[str, Any]) -> None:
 		self._write_queue.put((source, data_dict))

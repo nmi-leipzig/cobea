@@ -180,4 +180,4 @@ class MockDataSink(DataSink):
 		exc_value: Optional[BaseException],
 		exc_traceback: Optional[TracebackType]
 	) -> bool:
-		pass
+		return False

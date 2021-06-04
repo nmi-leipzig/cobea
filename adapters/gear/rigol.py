@@ -139,6 +139,8 @@ class OsciDS1102E(Meter):
 	
 	def __exit__(self, exc_type, exc_value, traceback):
 		self.close()
+		
+		return False
 	
 	def prepare(self, request: RequestObject) -> None:
 		#self.open()

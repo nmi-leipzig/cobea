@@ -15,7 +15,7 @@ class StdSink(DataSink):
 		exc_value: Optional[BaseException],
 		exc_traceback: Optional[TracebackType]
 	) -> bool:
-		pass
+		return False
 
 class TextfileSink(DataSink):
 	def __init__(self, filename: str) -> None:
@@ -47,4 +47,5 @@ class TextfileSink(DataSink):
 		exc_traceback: Optional[TracebackType]
 	) -> bool:
 		self.close()
+		return False
 	
