@@ -127,7 +127,6 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		# prepare rank probabilities
 		s = 2.0
 		prob_list = [(2-s)/pop_size+2*i*(s-1)/(pop_size*(pop_size-1)) for i in range(pop_size)]
-		print(f"prob_list {prob_list}")
 		
 		# initial evaluation
 		self.evaluate_invalid(pop, toolbox)
@@ -192,28 +191,19 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		h_div = (12*0.5) / len(data)
 		
 		data_parts = [data[i*len(data)//10: (i+1)*len(data)//10] for i in range(10)]
-		print([len(p) for p in data_parts], self._trig_len)
 		
-		print(f"seq {comb_index} {comb_seq:010b}")
 		fast_sum = 0
 		slow_sum = 0
 		for i, data_part in enumerate(data_parts):
-			
 			nd = np.array(data_part)
 			auc = np.trapz(nd, dx=h_div)
-			#print(f"{i}: {auc}")
+			
 			if ((comb_seq >> i) & 1):
 				fast_sum += auc
 			else:
 				slow_sum += auc
-			#spec = np.fft.rfft(nd)
-			
-			#m_freq = np.argmax(np.absolute(spec[1:]))+1
-			#print(f"{np.fft.rfftfreq(len(nd))[m_freq]}: {spec[m_freq]} [{abs(spec[m_freq])}")
 		
-		print(f"fast_sum = {fast_sum}, slow_sum = {slow_sum}")
 		fit = abs(slow_sum/30730.746 - fast_sum/30527.973)/10
-		print(f"fit = {fit}")
 		self.write_to_sink("fitness", {
 			"fit": fit,
 			"fast_sum": fast_sum,

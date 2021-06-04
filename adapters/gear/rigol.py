@@ -193,10 +193,10 @@ class OsciDS1102E(Meter):
 		
 		raw_data = block[2+len_len:]
 		
-		print(f"{len(raw_data)+10} bytes in {aft-bef} s, {(len(raw_data)+10)/(aft-bef)} b/s")
+		#print(f"{len(raw_data)+10} bytes in {aft-bef} s, {(len(raw_data)+10)/(aft-bef)} b/s")
 		#assert raw_data[:2] == bytes("#8", "utf8"), f"not #8, but {data[:2]}"
 		#length = int(raw_data[2:10])
-		print(f"expected {length} bytes of data and 10 header bytes")
+		#print(f"expected {length} bytes of data and 10 header bytes")
 		if len(raw_data) != length:
 			raise InvalidMsgError(f"Expected {length} bytes, but got {len(raw_data)}")
 		
