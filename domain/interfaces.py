@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod, abstractproperty
 from contextlib import AbstractContextManager
-from typing import Any, Callable, Union, Mapping, Iterable, Sequence, Tuple
+from types import TracebackType
+from typing import Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Type, Union
 
 from domain.base_structures import BitPos
-from domain.data_sink import DataSink
+from domain.data_sink import DataSink, DataSinkUser
 from domain.model import InputData, OutputData, Chromosome, Gene
 from domain.request_model import RequestObject, ParameterValues, ParameterUser, Parameter
 
@@ -69,7 +70,11 @@ class Driver(ParameterUser):
 class MeasureTimeout(Exception):
 	pass
 
-class Meter(ParameterUser):
+class Meter(ParameterUser, AbstractContextManager):
+	"""Interface for aquiring data from a device
+	
+	The context manager can be used used to open (__enter__) and close the device (__exit__)
+	"""
 	@abstractmethod
 	def prepare(self, request: RequestObject) -> None:
 		raise NotImplementedError()
@@ -77,6 +82,14 @@ class Meter(ParameterUser):
 	@abstractmethod
 	def measure(self, request: RequestObject) -> OutputData:
 		raise NotImplementedError()
+	
+	def __exit__(self,
+		exc_type: Optional[Type[BaseException]],
+		exc_value: Optional[BaseException],
+		exc_traceback: Optional[TracebackType]
+	) -> bool:
+		return False
+	
 
 class TargetManager(ABC):
 	"""Interface for managing access to target devices"""
