@@ -97,7 +97,7 @@ class RandomMeter(Meter):
 		self,
 		output_len: int,
 		measure_delay: float,
-		seed: Union[None, int, float, str, bytes, bytearray]==None
+		seed: Union[None, int, float, str, bytes, bytearray]=None
 	) -> None:
 		
 		self._output_len = output_len
