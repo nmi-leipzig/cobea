@@ -4,7 +4,8 @@ import time
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import isfinite
-from typing import Any, Callable, Iterable, Mapping, Optional, Tuple, List
+from types import TracebackType
+from typing import Any, Callable, Iterable, List, Mapping, Optional, Tuple, Type
 
 import pyvisa
 
@@ -137,7 +138,11 @@ class OsciDS1102E(Meter):
 		self.open()
 		return self
 	
-	def __exit__(self, exc_type, exc_value, traceback):
+	def __exit__(self,
+		exc_type: Optional[Type[BaseException]],
+		exc_value: Optional[BaseException],
+		exc_traceback: Optional[TracebackType]
+	) -> bool:
 		self.close()
 		
 		return False
