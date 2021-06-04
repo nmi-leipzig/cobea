@@ -25,7 +25,7 @@ class TempMeter(Meter):
 	
 	def __enter__(self) -> "TempMeter":
 		ports = comports()
-		arduino_ports = [p for p in ports if p.manufacturer.startswith("Arduino")]
+		arduino_ports = [p for p in ports if p.manufacturer and p.manufacturer.startswith("Arduino")]
 		self._arduino = Serial(port=arduino_ports[0].device, baudrate=self._baudrate)
 		self._arduino.__enter__()
 		self._arduino.reset_input_buffer()
