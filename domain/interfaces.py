@@ -83,6 +83,8 @@ class Meter(ParameterUser, AbstractContextManager):
 	def measure(self, request: RequestObject) -> OutputData:
 		raise NotImplementedError()
 	
+	# The default __enter__ is already provided by AbstractContextManager
+	
 	def __exit__(self,
 		exc_type: Optional[Type[BaseException]],
 		exc_value: Optional[BaseException],
@@ -190,3 +192,7 @@ class UniqueID(ABC):
 	@abstractmethod
 	def get_id(self) -> int:
 		raise NotImplementedError()
+
+class DataCollector(AbstractContextManager):
+	"""Interface for collecting data and writing it to a DataSink"""
+	pass
