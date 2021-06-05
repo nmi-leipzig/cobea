@@ -132,6 +132,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		# initial evaluation
 		prev_time = time.perf_counter()
 		self.evaluate_invalid(pop, toolbox)
+		best = max([p.fitness.values for p in pop])
 		
 		start_time = time.perf_counter()
 		for gen_nr in range(ngen):
@@ -141,7 +142,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			except ZeroDivisionError:
 				# can't estimate for 0 generation
 				eta = -1.0
-			print(f"Generation {gen_nr} took {cur_time-prev_time:.1f} s, eta : {eta:.1f} s")
+			print(f"Generation {gen_nr} took {cur_time-prev_time:.1f} s, eta : {eta:.1f} s; highest fitness: {best}")
 			prev_time = cur_time
 			
 			
@@ -152,6 +153,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 				indi.rank_prob.values = (rp, )
 			
 			elite = ranked[-1:]
+			best = elite[0].fitness.values
 			progeny = toolbox.select(pop, pop_size-1, fit_attr="rank_prob")
 			# no need to invalidate fitness explicitly as the Individual.wrap_alteration already creates new 
 			# Individual instances for altered chromosomes
