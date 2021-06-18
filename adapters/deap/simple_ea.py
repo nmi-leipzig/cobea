@@ -204,10 +204,11 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		self._target.configure(self._habitat)
 		cur_time = datetime.datetime.now(datetime.timezone.utc)
 		data = self._measure_uc(eval_req)
-		# skip before trigger
-		data = data[-self._trig_len:]
 		
 		h_div = (12*0.5) / len(data)
+		
+		# skip before trigger
+		data = data[-self._trig_len:]
 		
 		data_parts = [data[i*len(data)//10: (i+1)*len(data)//10] for i in range(10)]
 		
