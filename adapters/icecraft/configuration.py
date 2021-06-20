@@ -46,7 +46,7 @@ class IcecraftRawConfig(TargetConfiguration):
 			self._raw_config.write_asc(asc_file)
 	
 	def write_bitstream(self, bitstream_name: str) -> None:
-		asc_name = bitstream_name + ".asc"
+		asc_name = "tmp." + bitstream_name + ".asc"
 		self.write_asc(asc_name)
 		FPGABoard.pack_bitstream(asc_name, bitstream_name)
 		os.remove(asc_name)
