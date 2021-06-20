@@ -34,19 +34,15 @@ class IcecraftDevice(TargetDevice):
 		# just use the configuration as if it was for the correct device
 		
 		base_name = "gen_tmp"
-		asc_name = f"{base_name}.asc"
 		bitstream_name = f"{base_name}.bin"
-		# write asc
-		configuration.write_asc(asc_name)
-		# pack asc to bin
-		self._device.pack_bitstream(asc_name, bitstream_name)
+		# write bin
+		configuration.write_bitstream(bitstream_name)
 		
 		# flash
 		self._device.flash_bitstream(bitstream_name)
 		
 		# remove asc and bin file
 		os.remove(bitstream_name)
-		os.remove(asc_name)
 	
 	def read_bytes(self, size: int) -> bytes:
 		return self._device.uart.read(size)
