@@ -46,10 +46,8 @@ class IcecraftRawConfig(TargetConfiguration):
 			self._raw_config.write_asc(asc_file)
 	
 	def write_bitstream(self, bitstream_name: str) -> None:
-		asc_name = "tmp." + bitstream_name + ".asc"
-		self.write_asc(asc_name)
-		FPGABoard.pack_bitstream(asc_name, bitstream_name)
-		os.remove(asc_name)
+		with open(bitstream_name, "wb") as bin_file:
+			self._raw_config.write_bin(bin_file)
 	
 	def set_ram_values(self, ram_block: IcecraftPosition, address: int, values: Iterable[int], mode: RAMMode=RAMMode.RAM_512x8) -> None:
 		raw_mode = self.mode_map[mode]
