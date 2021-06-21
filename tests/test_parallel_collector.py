@@ -49,11 +49,15 @@ class ParallelCollectorTest(TestCase):
 			time.sleep(0.1)
 		
 		with open(filename, "r") as res_file:
-			exp = res_file.readline()
+			time_line = res_file.readline()
+			meas_line = res_file.readline()
 			for c, line in enumerate(res_file):
-				self.assertEqual(exp, line)
+				if c%2 == 0:
+					self.assertEqual(time_line[:30], line[:30])
+				else:
+					self.assertEqual(meas_line, line)
 			
-			self.assertGreater(c, 5)
+			self.assertGreater(c, 10)
 		
 		# clean up
 		os.remove(filename)
