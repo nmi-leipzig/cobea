@@ -50,10 +50,7 @@ class IcecraftRawConfig(TargetConfiguration):
 			self._raw_config.write_bin(bin_file)
 	
 	def get_bitstream(self) -> bytes:
-		with BytesIO() as bin_file:
-			self._raw_config.write_bin(bin_file)
-			bitstream = bin_file.getvalue()
-		return bitstream
+		return self._raw_config.get_bitstream()
 	
 	def set_ram_values(self, ram_block: IcecraftPosition, address: int, values: Iterable[int], mode: RAMMode=RAMMode.RAM_512x8) -> None:
 		raw_mode = self.mode_map[mode]
