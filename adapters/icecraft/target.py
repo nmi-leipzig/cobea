@@ -39,7 +39,7 @@ class IcecraftDevice(TargetDevice):
 		configuration.write_bitstream(bitstream_name)
 		
 		# flash
-		self._device.flash_bitstream(bitstream_name)
+		self._device.flash_bitstream_file(bitstream_name)
 		
 		# remove asc and bin file
 		os.remove(bitstream_name)
