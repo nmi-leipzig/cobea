@@ -1,6 +1,6 @@
 import os
 import sys
-from io import StringIO
+from io import StringIO, BytesIO
 from typing import Iterable, List, Tuple, Sequence
 
 sys.path.append("/usr/local/bin")
@@ -48,6 +48,12 @@ class IcecraftRawConfig(TargetConfiguration):
 	def write_bitstream(self, bitstream_name: str) -> None:
 		with open(bitstream_name, "wb") as bin_file:
 			self._raw_config.write_bin(bin_file)
+	
+	def get_bitstream(self) -> bytes:
+		with BytesIO() as bin_file:
+			self._raw_config.write_bin(bin_file)
+			bitstream = bin_file.getvalue()
+		return bitstream
 	
 	def set_ram_values(self, ram_block: IcecraftPosition, address: int, values: Iterable[int], mode: RAMMode=RAMMode.RAM_512x8) -> None:
 		raw_mode = self.mode_map[mode]
@@ -112,6 +118,18 @@ class IcecraftStormConfig(TargetConfiguration):
 		self.write_asc(asc_name)
 		FPGABoard.pack_bitstream(asc_name, bitstream_name)
 		os.remove(asc_name)
+	
+	def get_bitstream(self) -> bytes:
+		bin_filename = "tmp.get_bitstream.bin"
+		
+		self.write_bitstream(bin_filename)
+		
+		with open(bin_filename, "rb") as bin_file:
+			bitstream = bin_file.read()
+		
+		os.remove(bin_filename)
+		
+		return bitstream
 	
 	def set_ram_values(self, ram_block: IcecraftPosition, address: int, values: Iterable[int], mode: RAMMode=RAMMode.RAM_512x8) -> None:
 		ram_strings = self._ice_conf.ram_data.setdefault((ram_block.x, ram_block.y), ["0"*64]*16)

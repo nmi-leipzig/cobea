@@ -134,6 +134,39 @@ class IcecraftStormConfigTest(unittest.TestCase):
 				
 				self.check_configuration(expected_ic, ic)
 	
+	def test_get_bitstream(self):
+		for mode, current in self.config_meta.items():
+			with self.subTest(mode=mode):
+				config = self.target_cls.create_from_file(current.asc_filename)
+				
+				expected_ic = icebox.iceconfig()
+				expected_ic.read_file(current.asc_filename)
+				
+				tmp_bin = f"tmp.test_get_bitstream.{mode.name}.bin"
+				tmp_asc = f"tmp.test_get_bitstream.{mode.name}.asc"
+				
+				res = config.get_bitstream()
+				
+				with open(tmp_bin, "wb") as bin_file:
+					bin_file.write(res)
+				
+				subprocess.run(
+					["iceunpack", tmp_bin, tmp_asc],
+					stdin=subprocess.DEVNULL,
+					stderr=subprocess.STDOUT,
+					#text=True, # only from Python version 3.7 on
+					universal_newlines=True
+				)
+				
+				ic = icebox.iceconfig()
+				ic.read_file(tmp_asc)
+				
+				os.remove(tmp_bin)
+				os.remove(tmp_asc)
+				
+				self.check_configuration(expected_ic, ic)
+		
+	
 	def test_get_bit(self):
 		with self.subTest(desc="Empty"):
 			dut = self.target_cls.create_empty()
