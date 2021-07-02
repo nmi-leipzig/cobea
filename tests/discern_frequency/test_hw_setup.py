@@ -372,6 +372,7 @@ class HWSetupTest(TestCase):
 		meter = OsciDS1102E(meter_setup)
 		
 		with ExitStack() as stack:
+			stack.callback(man.release, target)
 			stack.enter_context(meter)
 			
 			self.flash_device(target, "freq_gen.asc")
