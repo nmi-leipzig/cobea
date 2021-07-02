@@ -4,6 +4,7 @@ import os
 import random
 import time
 
+from contextlib import ExitStack
 from dataclasses import asdict
 from unittest import TestCase
 
@@ -352,3 +353,47 @@ class HWSetupTest(TestCase):
 		
 		res = calibrate(driver)
 		#print(asdict(res))
+	
+	def test_target_out(self):
+		# target creates values independant from driver to see quality of output
+		try:
+			driver_sn, target_sn, meter_sn = self.detect_setup()
+		except DetectSetupError:
+			self.skipTest("Couldn't detect hardware setup.")
+		
+		man = IcecraftManager()
+		
+		idx_to_comb = lexicographic_combinations(5, 5)
+		
+		target = man.acquire(target_sn)
+		
+		meter_setup = self.create_meter_setup()
+		meter_setup.TRIG.EDGE.SOUR.value_ = "CHAN1"
+		meter = OsciDS1102E(meter_setup)
+		
+		with ExitStack() as stack:
+			stack.enter_context(meter)
+			
+			self.flash_device(target, "freq_gen.asc")
+			
+			
+			driver = FixedEmbedDriver(target, "B")
+			
+			measure_uc = Measure(driver, meter)
+			
+			req = RequestObject(
+				driver_data = InputData([0]),
+				measure_timeout = 3,
+				retry = 1,
+			)
+			
+			for comb_index in [0]:
+				comb = idx_to_comb[comb_index]
+				req["driver_data"] = InputData([comb_index])
+				
+				data = measure_uc(req)
+	
+
+
+
+
