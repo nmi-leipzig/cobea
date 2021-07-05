@@ -253,6 +253,14 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 			ParamAim(["time"], "float64", "time", "temperature", as_attr=False,
 				alter=partial(compose, funcs=[itemgetter(0), methodcaller("timestamp")]), comp_opt=9, shuffle=True),
 		],
+		"meta.driver": [
+			ParamAim(["sn"], str, "driver_serial_number", "fitness/measurement"),
+			ParamAim(["hw"], str, "driver_hardware", "fitness/measurement"),
+		],
+		"meta.target": [
+			ParamAim(["sn"], str, "target_serial_number", "fitness/measurement"),
+			ParamAim(["hw"], str, "target_hardware", "fitness/measurement"),
+		],
 	}
 	
 	return write_map
@@ -306,8 +314,10 @@ def run(args) -> None:
 			man.stuck_workaround(args.generator)
 			
 			gen = man.acquire(args.generator)
+			sink.write("meta.driver", {"sn": gen.serial_number, "hw": gen.hardware_type})
 			
 			target = man.acquire(args.target)
+			sink.write("meta.target", {"sn": target.serial_number, "hw": target.hardware_type})
 			
 			prepare_generator(gen, os.path.join(pkg_path, "freq_gen.asc"))
 			driver = FixedEmbedDriver(gen, "B")
