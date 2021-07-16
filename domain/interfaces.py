@@ -34,8 +34,8 @@ class TargetConfiguration(ABC):
 	def to_text(self) -> str:
 		raise NotImplementedError()
 
-class TargetDevice(ABC):
-	"""Interface for accessing a target device"""
+class IdentifiableHW(ABC):
+	"""Interface for hardware with distinguishable instances"""
 	
 	@abstractproperty
 	def serial_number(self) -> str:
@@ -44,6 +44,9 @@ class TargetDevice(ABC):
 	@abstractproperty
 	def hardware_type(self) -> str:
 		raise NotImplementedError()
+
+class TargetDevice(IdentifiableHW):
+	"""Interface for accessing a target device"""
 	
 	#TODO: change configure to do check of compatability; create other function for configure
 	@abstractmethod
