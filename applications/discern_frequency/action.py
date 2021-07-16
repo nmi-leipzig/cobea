@@ -261,6 +261,11 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 			ParamAim(["sn"], str, "target_serial_number", "fitness/measurement"),
 			ParamAim(["hw"], str, "target_hardware", "fitness/measurement"),
 		],
+		"meta.meter": [
+			ParamAim(["sn"], str, "meter_serial_number", "fitness/measurement"),
+			ParamAim(["hw"], str, "meter_hardware", "fitness/measurement"),
+			ParamAim(["fw"], str, "meter_firmware", "fitness/measurement"),
+		],
 	}
 	
 	return write_map
@@ -327,7 +332,11 @@ def run(args) -> None:
 			meter_setup = create_meter_setup()
 			meter_setup.TIM.OFFS.value_ = cal_data.offset
 			meter = OsciDS1102E(meter_setup)
-			
+			sink.write("meta.meter", {
+				"sn": meter.serial_number,
+				"hw": meter.hardware_type,
+				"fw": meter.firmware_version
+			})
 		
 		try:
 			measure_uc = Measure(driver, meter, sink)
