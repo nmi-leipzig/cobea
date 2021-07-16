@@ -9,7 +9,7 @@ from typing import Any, Callable, Iterable, List, Mapping, Optional, Tuple, Type
 
 import pyvisa
 
-from domain.interfaces import MeasureTimeout, Meter
+from domain.interfaces import IdentifiableHW, MeasureTimeout, Meter
 from domain.model import OutputData
 from domain.request_model import Parameter, RequestObject
 
@@ -87,10 +87,11 @@ class MultiIntCheck:
 class InvalidMsgError(Exception):
 	pass
 
-class OsciDS1102E(Meter):
+class OsciDS1102E(Meter, IdentifiableHW):
 	def __init__(self, setup: SetupCmd, serial_number: Optional[str]=None, data_chan: int=1) -> None:
 		self._setup = setup
 		self._serial_number = serial_number
+		self._hw_type = None
 		self._data_chan = data_chan
 		self._is_open = False
 		self._res_man = None
@@ -99,12 +100,28 @@ class OsciDS1102E(Meter):
 		self._delay = 0.1
 		
 		self.open()
+		self._read_idn()
 		self.apply(self._osci, self._setup, self._delay)
 		
+	
+	def _read_idn(self) -> None:
+		idn = self._osci.query("*IDN?")
+		parts = idn.split(",")
+		
+		self._serial_number = parts[2]
+		self._hw_type = f"{parts[0]} {parts[1]}"
 	
 	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 		return {"prepare": [], "measure": [Parameter("measure_timeout", float, default=None)]}
+	
+	@property
+	def serial_number(self) -> str:
+		return self._serial_number
+	
+	@property
+	def hardware_type(self) -> str:
+		return self._hw_type
 	
 	def open(self):
 		if self._is_open:
