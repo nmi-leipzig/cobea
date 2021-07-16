@@ -92,6 +92,7 @@ class OsciDS1102E(Meter, IdentifiableHW):
 		self._setup = setup
 		self._serial_number = serial_number
 		self._hw_type = None
+		self._firmware_version = None
 		self._data_chan = data_chan
 		self._is_open = False
 		self._res_man = None
@@ -110,6 +111,7 @@ class OsciDS1102E(Meter, IdentifiableHW):
 		
 		self._serial_number = parts[2]
 		self._hw_type = f"{parts[0]} {parts[1]}"
+		self._firmware_version = parts[3]
 	
 	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
@@ -122,6 +124,10 @@ class OsciDS1102E(Meter, IdentifiableHW):
 	@property
 	def hardware_type(self) -> str:
 		return self._hw_type
+	
+	@property
+	def firmware_version(self) -> str:
+		return self._firmware_version
 	
 	def open(self):
 		if self._is_open:
