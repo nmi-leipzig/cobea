@@ -129,6 +129,10 @@ class OsciDS1102E(Meter, IdentifiableHW):
 	def firmware_version(self) -> str:
 		return self._firmware_version
 	
+	def reset(self) -> None:
+		self._osci.write("*RST")
+		time.sleep(self._delay)
+	
 	def open(self):
 		if self._is_open:
 			return
