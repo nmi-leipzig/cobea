@@ -266,9 +266,23 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 			ParamAim(["hw"], str, "meter_hardware", "fitness/measurement"),
 			ParamAim(["fw"], str, "meter_firmware", "fitness/measurement"),
 		],
+		"meta.temp": [
+			ParamAim(["sn"], str, "temp_reader_serial_number", "temperature"),
+			ParamAim(["hw"], str, "temp_reader_hardware", "temperature"),
+			ParamAim(["sensor_sn"], str, "temp_sensor_serial_number", "temperature"),
+			ParamAim(["sensor_hw"], str, "temp_sensor_hardware", "temperature"),
+		],
 	}
 	
 	return write_map
+
+def collector_prep(driver: DummyDriver, meter: TempMeter, measure: Measure, sink: ParallelSink) -> None:
+	sink.write("meta.temp", {
+		"sn": meter.serial_number,
+		"hw": meter.hardware_type,
+		"sensor_sn": meter.sensor_serial_number,
+		"sensor_hw": meter.sensor_type,
+	})
 
 def run(args) -> None:
 	# prepare
@@ -295,6 +309,7 @@ def run(args) -> None:
 			sink.get_sub(),
 			0,
 			"temperature",
+			collector_prep,
 		)
 		stack.enter_context(ParallelCollector(temp_det))
 		
