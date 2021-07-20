@@ -30,7 +30,7 @@ class CollectorDetails:
 	pause: float = 0
 	# prefix for source indication for writes to DataSink
 	sink_prefix: Optional[str] = None
-	prepare: Callable[[Driver, Meter, Measure, DataSink], None] = lambda a, b, c, d: None
+	prepare: Optional[Callable[[Driver, Meter, Measure, DataSink], None]] = None
 	# parameters passed to request of Measure; have to be process safe
 	# if they need to be dynamically create, a callback should be implemented
 	req_values: Mapping[str, Any] = field(default_factory=dict)
@@ -79,7 +79,8 @@ class ParallelCollector(DataCollector):
 			meter = ex_stack.enter_context(details.meter_det.create_from())
 			# don't pass data_sink as we would have no method to distinguish between Different Measure use cases
 			measure_uc = Measure(driver, meter, details.data_sink, details.sink_prefix)
-			details.prepare(driver, meter, measure_uc, details.data_sink)
+			if details.prepare:
+				details.prepare(driver, meter, measure_uc, details.data_sink)
 			
 			# loop until end event
 			while True:
