@@ -14,7 +14,7 @@ from domain.use_cases import Measure
 @dataclass
 class InitDetails:
 	"""Data necessary to create a new instance"""
-	cls: Type[DataSink]
+	cls: type
 	args: tuple = field(default_factory=tuple)
 	kwargs: Mapping[str, Any] = field(default_factory=dict)
 	
