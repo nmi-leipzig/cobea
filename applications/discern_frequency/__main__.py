@@ -15,10 +15,7 @@ import applications.discern_frequency.action as action
 
 from applications.discern_frequency.cli import create_arg_parser
 
-#arg_parser = create_arg_parser()
-#args = arg_parser.parse_args()
-args = Namespace()
-args.generator = "E8F00T"
-args.target = "E8I00S"
+arg_parser = create_arg_parser()
+args = arg_parser.parse_args()
 
 action.run(args)
