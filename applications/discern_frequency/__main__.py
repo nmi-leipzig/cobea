@@ -18,4 +18,4 @@ from applications.discern_frequency.cli import create_arg_parser
 arg_parser = create_arg_parser()
 args = arg_parser.parse_args()
 
-action.run(args)
+args.function(args)
