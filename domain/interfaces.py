@@ -33,6 +33,11 @@ class TargetConfiguration(ABC):
 	@abstractmethod
 	def to_text(self) -> str:
 		raise NotImplementedError()
+	
+	@classmethod
+	@abstractmethod
+	def from_text(cls, text: str) -> "TargetConfiguration":
+		raise NotImplementedError()
 
 class IdentifiableHW(ABC):
 	"""Interface for hardware with distinguishable instances"""

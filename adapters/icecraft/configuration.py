@@ -62,12 +62,19 @@ class IcecraftRawConfig(TargetConfiguration):
 	
 	@classmethod
 	def create_from_file(cls, asc_filename: str) -> "IcecraftRawConfig":
-		raw_config = Configuration.create_from_asc(asc_filename)
+		raw_config = Configuration.create_from_asc_filename(asc_filename)
 		return cls(raw_config)
 	
 	@classmethod
 	def create_empty(cls) -> "IcecraftRawConfig":
 		raw_config = Configuration.create_blank("8k")
+		
+		return cls(raw_config)
+	
+	@classmethod
+	def from_text(cls, text: str) -> "IcecraftRawConfig":
+		with StringIO(text) as asc_file:
+			 raw_config = Configuration.create_from_asc(asc_file)
 		
 		return cls(raw_config)
 
@@ -221,5 +228,15 @@ class IcecraftStormConfig(TargetConfiguration):
 		ic.setup_empty_8k()
 		
 		return cls(ic)
-
-
+	
+	@classmethod
+	def from_text(cls, text: str) -> "IcecraftStormConfig":
+		asc_filename = "tmp.from_text.asc"
+		with open(asc_filename, "w") as asc_file:
+			asc_file.write(text)
+		
+		ic = cls.create_from_file(asc_filename)
+		
+		os.remove(asc_filename)
+		
+		return ic
