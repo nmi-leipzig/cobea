@@ -4,6 +4,7 @@ import subprocess
 import sys
 import time
 
+from argparse import Namespace
 from contextlib import ExitStack
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -11,13 +12,15 @@ from functools import partial
 from operator import attrgetter, itemgetter, methodcaller
 from typing import Any, Iterable, List, Mapping, Tuple
 
+import h5py
+
 from adapters.embed_driver import FixedEmbedDriver
-from adapters.deap.simple_ea import SimpleEA
+from adapters.deap.simple_ea import Individual, SimpleEA
 from adapters.dummies import DummyDriver, DummyMeter
 from adapters.gear.rigol import OsciDS1102E
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, ParamAim
-from adapters.icecraft import IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen, IcecraftManager,\
-IcecraftRawConfig, XC6200Port, XC6200Direction
+from adapters.icecraft import IcecraftBitPosition, IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen,\
+IcecraftManager, IcecraftRawConfig, XC6200Port, XC6200Direction
 from adapters.parallel_collector import CollectorDetails, InitDetails, ParallelCollector
 from adapters.parallel_sink import ParallelSink
 from adapters.prng import BuiltInPRNG
@@ -25,7 +28,7 @@ from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
 from domain.interfaces import Driver, InputData, TargetDevice, TargetManager
-from domain.model import AlleleAll, Gene
+from domain.model import AlleleAll, Chromosome, Gene
 from domain.request_model import RequestObject
 from domain.use_cases import Measure
 
@@ -377,3 +380,73 @@ def run(args) -> None:
 				man.release(target)
 				man.release(gen)
 				meter.close()
+
+def remeasure(args: Namespace) -> None:
+	pkg_path = os.path.dirname(os.path.abspath(__file__))
+	
+	with ExitStack() as stack:
+		measurement_index = args.index
+		
+		# extract information from HDF5 file
+		hdf5_file = h5py.File(args.data_file, "r")
+		stack.enter_context(hdf5_file)
+		
+		# habitat
+		hab_text = hdf5_file["habitat"][:].tobytes().decode(encoding="utf-8")
+		hab_config = IcecraftRawConfig.from_text(hab_text)
+		
+		# rep
+		genes = HDF5Sink.extract_genes(hdf5_file["mapping/genes"], IcecraftBitPosition)
+		const = HDF5Sink.extract_genes(hdf5_file["mapping/constant"], IcecraftBitPosition)
+		# assume colbufctrl and output as empty
+		colbufctrl = []
+		output = []
+		# carry data empty as the bits are set according to stored values
+		carry_data = {}
+		rep = IcecraftRep(genes, const, colbufctrl, output, carry_data)
+		
+		# carry enable
+		carry_ints = hdf5_file["fitness/carry_enable"].attrs["bits"]
+		carry_bits = [IcecraftBitPosition(*c) for c in carry_ints]
+		carry_values = hdf5_file["fitness/carry_enable"][measurement_index]
+		
+		# s-t index
+		s_t_index = hdf5_file["fitness/s_t_index"][measurement_index]
+		
+		# serial numbers
+		gen_sn = args.generator or hdf5_file["fitness/measurement"].attrs["driver_serial_number"]
+		tar_sn = args.target or hdf5_file["fitness/measurement"].attrs["target_serial_number"]
+		mes_sn = args.meter or hdf5_file["fitness/measurement"].attrs["meter_serial_number"]
+		
+		# chromosome
+		chromo_id = hdf5_file["fitness/chromo_id"][measurement_index]
+		chromo_index = np.where(hdf5_file["individual/chromo_id"][:] == chromo_id)[0][0]
+		allele_indices = tuple(hdf5_file["individual/chromosome"][chromo_index])
+		chromo = Chromosome(chromo_id, allele_indices)
+		
+		# prepare
+		man = IcecraftManager()
+		
+		gen = man.acquire(gen_sn)
+		
+		target = man.acquire(tar_sn)
+		
+		prepare_generator(gen, os.path.join(pkg_path, "freq_gen.asc"))
+		driver = FixedEmbedDriver(gen, "B")
+		cal_data = calibrate(driver, mes_sn)
+		
+		meter_setup = create_meter_setup()
+		meter_setup.TIM.OFFS.value_ = cal_data.offset
+		meter = OsciDS1102E(meter_setup, serial_number=mes_sn)
+		
+		measure_uc = Measure(driver, meter)
+		
+		prng = BuiltInPRNG()
+		
+		# run measurement
+		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, None)
+		#TODO: set carry enable correctly
+		indi = Individual(chromo)
+		fit = ea._evaluate(indi)
+		
+		print(f"fit = {fit}")
