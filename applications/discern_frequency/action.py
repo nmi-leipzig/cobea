@@ -107,11 +107,11 @@ class CalibrationData:
 	trig_len: int
 	offset: float
 
-def calibrate(driver: Driver) -> CalibrationData:
+def calibrate(driver: Driver, sn=None) -> CalibrationData:
 	meter_setup = create_meter_setup()
 	meter_setup.TIM.OFFS.value_ = 2.5
 	
-	meter = OsciDS1102E(meter_setup, data_chan=2)
+	meter = OsciDS1102E(meter_setup, serial_number=sn, data_chan=2)
 	with meter:
 		measure_uc = Measure(driver, meter)
 		
@@ -377,4 +377,3 @@ def run(args) -> None:
 				man.release(target)
 				man.release(gen)
 				meter.close()
-
