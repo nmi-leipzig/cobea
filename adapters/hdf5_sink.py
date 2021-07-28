@@ -1,6 +1,5 @@
 import datetime
-import h5py
-import numpy as np
+import re
 
 from dataclasses import dataclass
 from functools import partial
@@ -8,7 +7,11 @@ from operator import attrgetter, itemgetter, methodcaller
 from types import TracebackType
 from typing import Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple, Type
 
-from domain.allele_sequence import AlleleList, AllelePow
+import h5py
+import numpy as np
+
+from domain.allele_sequence import Allele, AlleleAll, AlleleList, AllelePow
+from domain.base_structures import BitPos
 from domain.data_sink import DataSink
 from domain.model import Gene
 
@@ -21,6 +24,10 @@ class InvalidStructure(Exception):
 	
 	Example: group and dataset with the same name and parent required
 	"""
+	pass
+
+class InvalidGeneData(Exception):
+	"""Exception that indicates invalid data that should describe a gene in an HDF5 file"""
 	pass
 
 def noop(x: Any) -> Any:
@@ -252,3 +259,34 @@ class HDF5Sink(DataSink):
 			# for AlleleAll only the number of bits is relevant
 		
 		return aims
+	
+	@staticmethod
+	def extract_genes(grp: h5py.Group, bit_cls: Type[BitPos]) -> List[Gene]:
+		"""Create genes based on data in HDF5 group that was stored according to create_gene_aims"""
+		gene_list = []
+		
+		for gene_name in sorted(grp):
+			res = re.match(r"gene_(?P<index>\d+)", gene_name)
+			index = int(res.group("index"))
+			if index != len(gene_list):
+				raise InvalidGeneData(f"gene index {index}, should be {len(gene_list)}")
+			
+			gene_grp = grp[gene_name]
+			
+			bits = tuple(bit_cls(*b) for b in gene_grp.attrs["bits"])
+			
+			allele_type = gene_grp.attrs["allele_type"]
+			if allele_type == "AlleleList":
+				alleles = [Allele(tuple(v), "") for v in gene_grp.attrs["alleles"]]
+				allele_seq = AlleleList(alleles)
+			elif allele_type == "AllelePow":
+				allele_seq = AllelePow(gene_grp.attrs["input_count"], list(gene_grp.attrs["unused_inputs"]))
+			elif allele_type == "AlleleAll":
+				allele_seq = AlleleAll(len(bits))
+			else:
+				raise InvalidGeneData(f"unsupport allele type: {allele_type}")
+			
+			desc = gene_grp.attrs["description"]
+			gene_list.append(Gene(bits, allele_seq, desc))
+		
+		return gene_list
