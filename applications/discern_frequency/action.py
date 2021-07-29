@@ -528,6 +528,6 @@ def remeasure(args: Namespace) -> None:
 		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
 		indi = Individual(chromo)
 		for r in range(args.rounds):
-			fit = ea._evaluate(indi)
+			fit = ea._evaluate(indi, s_t_index)
 			sink.write("remeasure.enable", {"carry_enable": carry_values})
 			print(f"fit = {fit}")
