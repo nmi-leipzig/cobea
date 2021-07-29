@@ -7,7 +7,7 @@ import time
 from argparse import Namespace
 from contextlib import ExitStack
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from operator import attrgetter, itemgetter, methodcaller
 from typing import Any, Iterable, List, Mapping, Tuple
@@ -455,10 +455,59 @@ def remeasure(args: Namespace) -> None:
 		allele_indices = tuple(hdf5_file["individual/chromosome"][chromo_index])
 		chromo = Chromosome(chromo_id, allele_indices)
 		
+		chromo_bits = hdf5_file["individual/chromosome"].dtype.itemsize * 8
+		
 		# write to sink
+		write_map = create_base_write_map(rep, chromo_bits)
+		re_map = {
+			"SimpleEA.fitness": [
+				ParamAim(["fit"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+				ParamAim(["fast_sum"], "float64", "fast_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+				ParamAim(["slow_sum"], "float64", "slow_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+				ParamAim(["chromo_index"], "uint64", "chromo_id", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			],
+			"remeasure.enable": [
+				ParamAim(
+					["carry_enable"],
+					bool,
+					"carry_enable",
+					"fitness",
+					as_attr=False,
+					shape=(len(carry_bits), ),
+					comp_opt=4,
+				),
+			],
+			"remeasure.meta": [
+				ParamAim(["org_filename"], str, "original_filename"),
+			],
+		}
+		write_map.update(re_map)
+		cur_date = datetime.now(timezone.utc)
+		hdf5_filename = f"re-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
+		sink = ParallelSink(HDF5Sink, (write_map, hdf5_filename))
+		stack.enter_context(sink)
+		
 		# chromosome
+		sink.write("GenChromo.perform", {"return": chromo})
+		# org filename
+		sink.write("remeasure.meta", {"org_filename": args.data_file})
+		# habitat
+		sink.write("habitat", {"text": hab_config.to_text()})
+		# representation
+		sink.write("Action.rep", {
+			"genes": rep.genes,
+			"const": rep.constant,
+			"carry_bits": list(rep.iter_carry_bits()),
+		})
+		
+		sink.write("misc", {
+			"git_commit": get_git_commit(),
+			"python_version": sys.version,
+		})
+		
 		
 		# prepare
+		"""
 		man = IcecraftManager()
 		
 		gen = man.acquire(gen_sn)
@@ -472,16 +521,25 @@ def remeasure(args: Namespace) -> None:
 		meter_setup = create_meter_setup()
 		meter_setup.TIM.OFFS.value_ = cal_data.offset
 		meter = OsciDS1102E(meter_setup, serial_number=mes_sn)
+		"""
+		driver, target, meter, cal_data = create_measure_setup(
+			gen_sn,
+			tar_sn,
+			mes_sn,
+			os.path.join(pkg_path, "freq_gen.asc"), #TODO: from HDF5
+			stack,
+			sink
+		)
 		
-		measure_uc = Measure(driver, meter)
+		measure_uc = Measure(driver, meter, sink)
 		
 		prng = BuiltInPRNG()
 		
 		# run measurement
-		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, None)
+		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
 		#TODO: set carry enable correctly
 		indi = Individual(chromo)
 		for r in range(args.rounds):
 			fit = ea._evaluate(indi)
-			
+			sink.write("remeasure.enable", {"carry_enable": carry_values})
 			print(f"fit = {fit}")
