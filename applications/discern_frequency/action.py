@@ -165,9 +165,12 @@ def ignore_same(x: list) -> Any:
 		raise IgnoreValue()
 	return x[0]
 
-def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mapping[str, List[ParamAim]]:
+def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Mapping[str, List[ParamAim]]:
+	"""Create HDF5Sink write map with entries that are always required"""
 	if not is_rep_fitting(rep, chromo_bits):
 		raise ValueError(f"representation needs more than {chromo_bits} bits")
+	
+	# use attrgetter and so on to allow pickling for multiprocessing
 	
 	chromo_aim = [
 		ParamAim(
@@ -177,6 +180,7 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 		ParamAim(["return"], "uint64", "chromo_id", "individual", as_attr=False, 
 			alter=partial(compose, funcs=[itemgetter(0), attrgetter("identifier")]), comp_opt=9, shuffle=True),
 	]
+	
 	write_map = {
 		"Measure.perform": [
 			ParamAim(["driver_data"], "uint8", "s_t_index", "fitness", as_attr=False, comp_opt=9, shuffle=True),
@@ -186,32 +190,6 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 			ParamAim(["time"], "float64", "time", "fitness", as_attr=False,
 				alter=partial(compose, funcs=[itemgetter(0), methodcaller("timestamp")]), comp_opt=9, shuffle=True),
 		],
-		"SimpleEA.fitness": [
-			ParamAim(["fit"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			ParamAim(["fast_sum"], "float64", "fast_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			ParamAim(["slow_sum"], "float64", "slow_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			ParamAim(["chromo_index"], "uint64", "chromo_id", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			ParamAim(
-				["carry_enable"],
-				bool,
-				"carry_enable",
-				"fitness",
-				as_attr=False,
-				shape=(len(list(rep.iter_carry_bits())), ),
-				comp_opt=4,
-			),
-		],
-		"SimpleEA.ea_params": [
-			ParamAim(["pop_size"], "uint64", "pop_size"),
-			ParamAim(["gen_count"], "uint64", "gen_count"),
-			ParamAim(["crossover_prob"], "float64", "crossover_prob"),
-			ParamAim(["mutation_prob"], "float64", "mutation_prob"),
-		],
-		"SimpleEA.random_initial": create_rng_aim("state", "random_initial_"),
-		"SimpleEA.random_final": create_rng_aim("state", "random_final_"),
-		"SimpleEA.gen":[
-			ParamAim(["pop"], "uint64", "population", as_attr=False, shape=(pop_size, ), shuffle=True),
-		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
 		"Action.rep": HDF5Sink.create_gene_aims("genes", len(rep.genes), h5_path="mapping/genes")+\
@@ -219,20 +197,6 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 				ParamAim(["carry_bits"], "uint16", "bits", "fitness/carry_enable",
 					alter=partial(compose, funcs=[itemgetter(0), partial(map, methodcaller("to_ints")), list])),
 			],
-		"Individual.wrap.cxOnePoint": [
-			ParamAim(["in"], "uint64", "parents", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
-			ParamAim(["out"], "uint64", "children", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
-		],
-		"Individual.wrap.mutUniformInt": [
-			ParamAim(
-				["in", "out"], "uint64", "parent", "mutation", as_attr=False,
-				alter=partial(compose, funcs=[ignore_same, itemgetter(0)]), comp_opt=9, shuffle=True
-			),
-			ParamAim(
-				["out", "in"], "uint64", "child", "mutation", as_attr=False,
-				alter=partial(compose, funcs=[ignore_same, itemgetter(0)]), comp_opt=9, shuffle=True
-			),
-		],
 		"calibration": [
 			ParamAim(["data"], "float64", "calibration", as_attr=False, shuffle=False),
 			ParamAim(["rising_edge"], "uint64", "rising_edge", "calibration"),
@@ -240,7 +204,6 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 			ParamAim(["trig_len"], "uint64", "trig_len", "calibration"),
 			ParamAim(["offset"], "float64", "offset", "calibration"),
 		],
-		"prng": [ParamAim(["seed"], "int64", "prng_seed")] + create_rng_aim("final_state", "prng_final_"),
 		"misc": [
 			ParamAim(["git_commit"], str, "git_commit"), 
 			ParamAim(["python_version"], str, "python_version"),
@@ -277,6 +240,62 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 			ParamAim(["sensor_hw"], str, "temp_sensor_hardware", "temperature"),
 		],
 	}
+	
+	return write_map
+
+def add_ea_writes(write_map: Mapping[str, List[ParamAim]], rep: IcecraftRep, pop_size: int,) -> None:
+	"""Add the entries for an evolutionary algorithm to an existing HDF5Sink write map"""
+	
+	ea_map = {
+		"SimpleEA.fitness": [
+			ParamAim(["fit"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim(["fast_sum"], "float64", "fast_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim(["slow_sum"], "float64", "slow_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim(["chromo_index"], "uint64", "chromo_id", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim(
+				["carry_enable"],
+				bool,
+				"carry_enable",
+				"fitness",
+				as_attr=False,
+				shape=(len(list(rep.iter_carry_bits())), ),
+				comp_opt=4,
+			),
+		],
+		"SimpleEA.ea_params": [
+			ParamAim(["pop_size"], "uint64", "pop_size"),
+			ParamAim(["gen_count"], "uint64", "gen_count"),
+			ParamAim(["crossover_prob"], "float64", "crossover_prob"),
+			ParamAim(["mutation_prob"], "float64", "mutation_prob"),
+		],
+		"SimpleEA.random_initial": create_rng_aim("state", "random_initial_"),
+		"SimpleEA.random_final": create_rng_aim("state", "random_final_"),
+		"SimpleEA.gen":[
+			ParamAim(["pop"], "uint64", "population", as_attr=False, shape=(pop_size, ), shuffle=True),
+		],
+		"Individual.wrap.cxOnePoint": [
+			ParamAim(["in"], "uint64", "parents", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
+			ParamAim(["out"], "uint64", "children", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
+		],
+		"Individual.wrap.mutUniformInt": [
+			ParamAim(
+				["in", "out"], "uint64", "parent", "mutation", as_attr=False,
+				alter=partial(compose, funcs=[ignore_same, itemgetter(0)]), comp_opt=9, shuffle=True
+			),
+			ParamAim(
+				["out", "in"], "uint64", "child", "mutation", as_attr=False,
+				alter=partial(compose, funcs=[ignore_same, itemgetter(0)]), comp_opt=9, shuffle=True
+			),
+		],
+		"prng": [ParamAim(["seed"], "int64", "prng_seed")] + create_rng_aim("final_state", "prng_final_"),
+	}
+	
+	write_map.update(ea_map)
+
+def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mapping[str, List[ParamAim]]:
+	"""Create HDF5Sink write map for running a full evolutionary algorithm"""
+	write_map = create_base_write_map(rep, chromo_bits)
+	add_ea_writes(write_map, rep, pop_size)
 	
 	return write_map
 
@@ -332,7 +351,6 @@ def run(args) -> None:
 	chromo_bits = 16
 	
 	#sink = TextfileSink("tmp.out.txt")
-	# use attrgetter and so on to allow pickling for multiprocessing
 	write_map = create_write_map(rep, pop_size, chromo_bits)
 	
 	sink = ParallelSink(HDF5Sink, (write_map, ))
@@ -436,6 +454,9 @@ def remeasure(args: Namespace) -> None:
 		chromo_index = np.where(hdf5_file["individual/chromo_id"][:] == chromo_id)[0][0]
 		allele_indices = tuple(hdf5_file["individual/chromosome"][chromo_index])
 		chromo = Chromosome(chromo_id, allele_indices)
+		
+		# write to sink
+		# chromosome
 		
 		# prepare
 		man = IcecraftManager()
