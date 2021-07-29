@@ -507,21 +507,6 @@ def remeasure(args: Namespace) -> None:
 		
 		
 		# prepare
-		"""
-		man = IcecraftManager()
-		
-		gen = man.acquire(gen_sn)
-		
-		target = man.acquire(tar_sn)
-		
-		prepare_generator(gen, os.path.join(pkg_path, "freq_gen.asc"))
-		driver = FixedEmbedDriver(gen, "B")
-		cal_data = calibrate(driver, mes_sn)
-		
-		meter_setup = create_meter_setup()
-		meter_setup.TIM.OFFS.value_ = cal_data.offset
-		meter = OsciDS1102E(meter_setup, serial_number=mes_sn)
-		"""
 		driver, target, meter, cal_data = create_measure_setup(
 			gen_sn,
 			tar_sn,
@@ -533,11 +518,14 @@ def remeasure(args: Namespace) -> None:
 		
 		measure_uc = Measure(driver, meter, sink)
 		
+		# set carry enable correctly
+		for bit, val in zip(carry_bits, carry_values):
+			hab_config.set_bit(bit, val)
+		
 		prng = BuiltInPRNG()
 		
 		# run measurement
 		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
-		#TODO: set carry enable correctly
 		indi = Individual(chromo)
 		for r in range(args.rounds):
 			fit = ea._evaluate(indi)
