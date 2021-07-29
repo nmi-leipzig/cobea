@@ -447,6 +447,7 @@ def remeasure(args: Namespace) -> None:
 		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, None)
 		#TODO: set carry enable correctly
 		indi = Individual(chromo)
-		fit = ea._evaluate(indi)
-		
-		print(f"fit = {fit}")
+		for r in range(args.rounds):
+			fit = ea._evaluate(indi)
+			
+			print(f"fit = {fit}")

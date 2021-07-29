@@ -18,5 +18,6 @@ def create_arg_parser():
 	
 	rem_parser.add_argument("-d", "--data-file", type=str, required=True, help="HDF5 file contianing the original data")
 	rem_parser.add_argument("-i", "--index", type=int, required=True, help="index of the measurement")
+	rem_parser.add_argument("-r", "--rounds", default=1, type=int, help="how many times the measurement is repeated")
 	
 	return arg_parser
