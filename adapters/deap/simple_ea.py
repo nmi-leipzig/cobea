@@ -3,7 +3,7 @@ import random
 import time
 
 from dataclasses import dataclass, field
-from typing import Callable, List, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 
@@ -187,8 +187,9 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 	def _init_pop(self, count) -> List[Individual]:
 		return [Individual(self._init_uc(RequestObject())) for _ in range(count)]
 	
-	def _evaluate(self, indi: Individual) -> Tuple[int]:
-		comb_index = random.choice(range(len(self._driver_table)))
+	def _evaluate(self, indi: Individual, comb_index: Optional[int]=None) -> Tuple[int]:
+		if comb_index is None:
+			comb_index = random.choice(range(len(self._driver_table)))
 		comb_seq = self._driver_table[comb_index]
 		
 		eval_req = RequestObject(
