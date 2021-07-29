@@ -27,7 +27,8 @@ from adapters.prng import BuiltInPRNG
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
-from domain.interfaces import Driver, InputData, TargetDevice, TargetManager
+from domain.data_sink import DataSink
+from domain.interfaces import Driver, InputData, Meter, TargetDevice, TargetManager
 from domain.model import AlleleAll, Chromosome, Gene
 from domain.request_model import RequestObject
 from domain.use_cases import Measure
@@ -279,6 +280,39 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mappin
 	
 	return write_map
 
+def create_measure_setup(driver_sn: str, target_sn: str, meter_sn: str, driver_asc: str, stack: ExitStack,
+		sink: DataSink
+	) -> Tuple[Driver, TargetDevice, Meter, CalibrationData]:
+	man = IcecraftManager()
+	
+	# workaround for stuck serial buffer
+	man.stuck_workaround(driver_sn)
+	
+	gen = man.acquire(driver_sn)
+	stack.callback(man.release, gen)
+	sink.write("meta.driver", {"sn": gen.serial_number, "hw": gen.hardware_type})
+	
+	target = man.acquire(target_sn)
+	stack.callback(man.release, target)
+	sink.write("meta.target", {"sn": target.serial_number, "hw": target.hardware_type})
+	
+	prepare_generator(gen, driver_asc)
+	driver = FixedEmbedDriver(gen, "B")
+	cal_data = calibrate(driver)
+	sink.write("calibration", asdict(cal_data))
+	
+	meter_setup = create_meter_setup()
+	meter_setup.TIM.OFFS.value_ = cal_data.offset
+	meter = OsciDS1102E(meter_setup)
+	stack.callback(meter.close)
+	sink.write("meta.meter", {
+		"sn": meter.serial_number,
+		"hw": meter.hardware_type,
+		"fw": meter.firmware_version
+	})
+	
+	return driver, target, meter, cal_data
+
 def collector_prep(driver: DummyDriver, meter: TempMeter, measure: Measure, sink: ParallelSink) -> None:
 	sink.write("meta.temp", {
 		"sn": meter.serial_number,
@@ -297,7 +331,6 @@ def run(args) -> None:
 	rep = create_xc6200_rep((10, 23), (19, 32))
 	chromo_bits = 16
 	
-	man = IcecraftManager()
 	#sink = TextfileSink("tmp.out.txt")
 	# use attrgetter and so on to allow pickling for multiprocessing
 	write_map = create_write_map(rep, pop_size, chromo_bits)
@@ -333,31 +366,14 @@ def run(args) -> None:
 			#target = DummyTargetDevice()
 			target = MagicMock()
 		else:
-			# workaround for stuck serial buffer
-			man.stuck_workaround(args.generator)
-			
-			gen = man.acquire(args.generator)
-			stack.callback(man.release, gen)
-			sink.write("meta.driver", {"sn": gen.serial_number, "hw": gen.hardware_type})
-			
-			target = man.acquire(args.target)
-			stack.callback(man.release, target)
-			sink.write("meta.target", {"sn": target.serial_number, "hw": target.hardware_type})
-			
-			prepare_generator(gen, os.path.join(pkg_path, "freq_gen.asc"))
-			driver = FixedEmbedDriver(gen, "B")
-			cal_data = calibrate(driver)
-			sink.write("calibration", asdict(cal_data))
-			
-			meter_setup = create_meter_setup()
-			meter_setup.TIM.OFFS.value_ = cal_data.offset
-			meter = OsciDS1102E(meter_setup)
-			stack.callback(meter.close)
-			sink.write("meta.meter", {
-				"sn": meter.serial_number,
-				"hw": meter.hardware_type,
-				"fw": meter.firmware_version
-			})
+			driver, target, meter, cal_data = create_measure_setup(
+				args.generator,
+				args.target,
+				"",
+				os.path.join(pkg_path, "freq_gen.asc"),
+				stack,
+				sink
+			)
 		
 		measure_uc = Measure(driver, meter, sink)
 		
