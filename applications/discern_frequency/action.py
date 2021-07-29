@@ -414,6 +414,7 @@ def run(args) -> None:
 
 def remeasure(args: Namespace) -> None:
 	pkg_path = os.path.dirname(os.path.abspath(__file__))
+	comb_list = args.comb_index
 	
 	with ExitStack() as stack:
 		measurement_index = args.index
@@ -442,7 +443,8 @@ def remeasure(args: Namespace) -> None:
 		carry_values = hdf5_file["fitness/carry_enable"][measurement_index]
 		
 		# s-t index
-		s_t_index = hdf5_file["fitness/s_t_index"][measurement_index]
+		if not comb_list:
+			comb_list = [hdf5_file["fitness/s_t_index"][measurement_index]]
 		
 		# serial numbers
 		gen_sn = args.generator or hdf5_file["fitness/measurement"].attrs["driver_serial_number"]
@@ -528,6 +530,7 @@ def remeasure(args: Namespace) -> None:
 		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
 		indi = Individual(chromo)
 		for r in range(args.rounds):
-			fit = ea._evaluate(indi, s_t_index)
-			sink.write("remeasure.enable", {"carry_enable": carry_values})
-			print(f"fit = {fit}")
+			for comb_index in comb_list:
+				fit = ea._evaluate(indi, comb_index)
+				sink.write("remeasure.enable", {"carry_enable": carry_values})
+				print(f"fit for {comb_index}: {fit}")
