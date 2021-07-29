@@ -337,9 +337,11 @@ def run(args) -> None:
 			man.stuck_workaround(args.generator)
 			
 			gen = man.acquire(args.generator)
+			stack.callback(man.release, gen)
 			sink.write("meta.driver", {"sn": gen.serial_number, "hw": gen.hardware_type})
 			
 			target = man.acquire(args.target)
+			stack.callback(man.release, target)
 			sink.write("meta.target", {"sn": target.serial_number, "hw": target.hardware_type})
 			
 			prepare_generator(gen, os.path.join(pkg_path, "freq_gen.asc"))
@@ -350,36 +352,31 @@ def run(args) -> None:
 			meter_setup = create_meter_setup()
 			meter_setup.TIM.OFFS.value_ = cal_data.offset
 			meter = OsciDS1102E(meter_setup)
+			stack.callback(meter.close)
 			sink.write("meta.meter", {
 				"sn": meter.serial_number,
 				"hw": meter.hardware_type,
 				"fw": meter.firmware_version
 			})
 		
-		try:
-			measure_uc = Measure(driver, meter, sink)
-			
-			#hab_path = os.path.join(pkg_path, "dummy_hab.asc")
-			hab_path = os.path.join(pkg_path, "nhabitat.asc")
-			hab_config = IcecraftRawConfig.create_from_file(hab_path)
-			sink.write("habitat", {
-				"text": hab_config.to_text(),
-			})
-			
-			#from tests.mocks import MockRepresentation
-			#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
-			seed = int(datetime.utcnow().timestamp())
-			prng = BuiltInPRNG(seed)
-			ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
-			
-			ea.run(pop_size, 2, 0.7, 0.001756)
-			#ea.run(pop_size, 600, 0.7, 0.001756)
-			sink.write("prng", {"seed": seed, "final_state": prng.get_state()})
-		finally:
-			if not use_dummy:
-				man.release(target)
-				man.release(gen)
-				meter.close()
+		measure_uc = Measure(driver, meter, sink)
+		
+		#hab_path = os.path.join(pkg_path, "dummy_hab.asc")
+		hab_path = os.path.join(pkg_path, "nhabitat.asc")
+		hab_config = IcecraftRawConfig.create_from_file(hab_path)
+		sink.write("habitat", {
+			"text": hab_config.to_text(),
+		})
+		
+		#from tests.mocks import MockRepresentation
+		#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
+		seed = int(datetime.utcnow().timestamp())
+		prng = BuiltInPRNG(seed)
+		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
+		
+		ea.run(pop_size, 2, 0.7, 0.001756)
+		#ea.run(pop_size, 600, 0.7, 0.001756)
+		sink.write("prng", {"seed": seed, "final_state": prng.get_state()})
 
 def remeasure(args: Namespace) -> None:
 	pkg_path = os.path.dirname(os.path.abspath(__file__))
