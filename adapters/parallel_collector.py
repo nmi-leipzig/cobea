@@ -71,6 +71,9 @@ class ParallelCollector(DataCollector):
 		
 		return False
 	
+	def is_alive(self) -> bool:
+		return self._process is not None and self._process.is_alive()
+	
 	@staticmethod
 	def collector(details: CollectorDetails, end_event: mp.Event) -> None:
 		with ExitStack() as ex_stack:
