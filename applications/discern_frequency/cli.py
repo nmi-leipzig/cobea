@@ -20,6 +20,7 @@ def create_arg_parser():
 	run_parser.add_argument("--in-port", nargs=3, type=str, required=True, help="input port for the frequency signal to"
 		" the evolvable area", metavar=("X", "Y", "DIR"))
 	run_parser.add_argument("--pop-size", type=int, required=True, help="size of the population")
+	run_parser.add_argument("--generations", type=int, required=True, help="number of generation")
 	
 	rem_parser = sub_parsers.add_parser("remeasure", help="repeat measurement of an individual")
 	rem_parser.set_defaults(function=remeasure)
