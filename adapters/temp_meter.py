@@ -10,12 +10,16 @@ from domain.interfaces import IdentifiableHW, Meter
 from domain.model import OutputData
 from domain.request_model import Parameter, RequestObject
 
+class TempMeterError(Exception):
+	"""Raised when an error occurs in the operation of the temp meter"""
+	pass
+
 class TempMeter(Meter, IdentifiableHW):
 	"""Read Temperature from Arduino with DS18B20 sensor"""
-	def __init__(self, baudrate=500000)-> None:
+	def __init__(self, baudrate=500000, arduino_sn: str=None)-> None:
 		self._baudrate = baudrate
 		self._arduino = None
-		self._arduino_sn = None
+		self._arduino_sn = arduino_sn
 		self._ds18b20_sn = None
 	
 	@property
@@ -43,9 +47,21 @@ class TempMeter(Meter, IdentifiableHW):
 	
 	def __enter__(self) -> "TempMeter":
 		ports = comports()
-		arduino_ports = [p for p in ports if p.manufacturer and p.manufacturer.startswith("Arduino")]
-		self._arduino_sn = arduino_ports[0].serial_number
-		self._arduino = Serial(port=arduino_ports[0].device, baudrate=self._baudrate)
+		if self._arduino_sn is None:
+			arduino_ports = [p for p in ports if p.manufacturer and p.manufacturer.startswith("Arduino")]
+			try:
+				self._arduino_sn = arduino_ports[0].serial_number
+				device = arduino_ports[0].device
+			except IndexError:
+				raise TempMeterError(f"no temperature reader found found") from None
+		else:
+			arduino_ports = [p for p in ports if p.serial_number==self._arduino_sn]
+			try:
+				device = arduino_ports[0].device
+			except IndexError:
+				raise TempMeterError(f"no hardware with serial number {self._arduino_sn} found") from None
+		
+		self._arduino = Serial(port=device, baudrate=self._baudrate)
 		self._arduino.__enter__()
 		self._arduino.reset_input_buffer()
 		self._arduino.reset_output_buffer()
