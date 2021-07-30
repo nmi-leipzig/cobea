@@ -72,6 +72,8 @@ class TempMeter(Meter, IdentifiableHW):
 		self._arduino.write(b"i")
 		sn_data = self._arduino.read(8)
 		sn_int = struct.unpack("<Q", sn_data)[0]
+		if sn_int == 0:
+			raise TempMeterError("No temperature sensor found")
 		self._ds18b20_sn = f"{sn_int:016x}"
 		
 		return self
