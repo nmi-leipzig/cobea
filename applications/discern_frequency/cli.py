@@ -8,6 +8,8 @@ def create_arg_parser():
 	arg_parser.add_argument("-g", "--generator", type=str, help="serial number of the frequency generator")
 	arg_parser.add_argument("-t", "--target", type=str, help="serial number of the target FPGA")
 	arg_parser.add_argument("-m", "--meter", type=str, help="serial number of the meter")
+	arg_parser.add_argument("--temperature", type=str, help="serial number of the temperature reader; empty string for"
+		" autodetect; leave out to deactivate temperature measurement")
 	
 	sub_parsers = arg_parser.add_subparsers()
 	run_parser = sub_parsers.add_parser("run", help="run an EA")

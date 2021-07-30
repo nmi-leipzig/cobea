@@ -37,6 +37,10 @@ class CalibrationError(Exception):
 	"""Indicates an error during calibration"""
 	pass
 
+class DataCollectionError(Exception):
+	"""Raised when an error occured during data collection"""
+	pass
+
 # generate tiles
 def tiles_from_corners(min_pos: Tuple[int, int], max_pos: Tuple[int, int]) -> List[IcecraftPosition]:
 	req = RequestObject(identifier="expand_rectangle", description="")
@@ -212,14 +216,6 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Mapping[str, Lis
 			["text"], "uint8", "habitat", as_attr=False,
 			alter=partial(compose, funcs=[itemgetter(0), partial(bytearray, encoding="utf-8")]), comp_opt=9
 		),],
-		"temperature.perform": [
-			ParamAim(["return"], "float16", "celcius", "temperature", as_attr=False,
-				alter=partial(compose, funcs=[itemgetter(0), itemgetter(0)]), comp_opt=9, shuffle=True),
-		],
-		"temperature.additional": [
-			ParamAim(["time"], "float64", "time", "temperature", as_attr=False,
-				alter=partial(compose, funcs=[itemgetter(0), methodcaller("timestamp")]), comp_opt=9, shuffle=True),
-		],
 		"meta.driver": [
 			ParamAim(["sn"], str, "driver_serial_number", "fitness/measurement"),
 			ParamAim(["hw"], str, "driver_hardware", "fitness/measurement"),
@@ -233,6 +229,20 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Mapping[str, Lis
 			ParamAim(["hw"], str, "meter_hardware", "fitness/measurement"),
 			ParamAim(["fw"], str, "meter_firmware", "fitness/measurement"),
 		],
+	}
+	
+	return write_map
+
+def add_temp_writes(write_map: Mapping[str, List[ParamAim]]) -> None:
+	temp_map = {
+		"temperature.perform": [
+			ParamAim(["return"], "float16", "celcius", "temperature", as_attr=False,
+				alter=partial(compose, funcs=[itemgetter(0), itemgetter(0)]), comp_opt=9, shuffle=True),
+		],
+		"temperature.additional": [
+			ParamAim(["time"], "float64", "time", "temperature", as_attr=False,
+				alter=partial(compose, funcs=[itemgetter(0), methodcaller("timestamp")]), comp_opt=9, shuffle=True),
+		],
 		"meta.temp": [
 			ParamAim(["sn"], str, "temp_reader_serial_number", "temperature"),
 			ParamAim(["hw"], str, "temp_reader_hardware", "temperature"),
@@ -241,7 +251,7 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Mapping[str, Lis
 		],
 	}
 	
-	return write_map
+	write_map.update(temp_map)
 
 def add_ea_writes(write_map: Mapping[str, List[ParamAim]], rep: IcecraftRep, pop_size: int,) -> None:
 	"""Add the entries for an evolutionary algorithm to an existing HDF5Sink write map"""
@@ -292,9 +302,11 @@ def add_ea_writes(write_map: Mapping[str, List[ParamAim]], rep: IcecraftRep, pop
 	
 	write_map.update(ea_map)
 
-def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16) -> Mapping[str, List[ParamAim]]:
+def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16, temp: bool=True) -> Mapping[str, List[ParamAim]]:
 	"""Create HDF5Sink write map for running a full evolutionary algorithm"""
 	write_map = create_base_write_map(rep, chromo_bits)
+	if temp:
+		add_temp_writes(write_map)
 	add_ea_writes(write_map, rep, pop_size)
 	
 	return write_map
@@ -340,6 +352,24 @@ def collector_prep(driver: DummyDriver, meter: TempMeter, measure: Measure, sink
 		"sensor_hw": meter.sensor_type,
 	})
 
+def start_temp(arduino_sn: str, stack: ExitStack, sink: ParallelSink) -> None:
+	if arduino_sn == "":
+		# slightly differnet meaning of values in TempMeter: None means search (in args None means no TempMeter)
+		arduino_sn = None
+	
+	temp_det = CollectorDetails(
+		InitDetails(DummyDriver),
+		InitDetails(TempMeter, kwargs={"arduino_sn": arduino_sn}),
+		sink.get_sub(),
+		0,
+		"temperature",
+		collector_prep,
+	)
+	par_col = ParallelCollector(temp_det)
+	stack.enter_context(par_col)
+	if not par_col.wait_collecting(3):
+		raise DataCollectionError("couldn't start temperature measurement")
+
 def run(args) -> None:
 	# prepare
 	pkg_path = os.path.dirname(os.path.abspath(__file__))
@@ -347,25 +377,16 @@ def run(args) -> None:
 	use_dummy = False
 	pop_size = 4
 	
+	rec_temp = args.temperature is not None
 	rep = create_xc6200_rep((10, 23), (19, 32))
 	chromo_bits = 16
 	
 	#sink = TextfileSink("tmp.out.txt")
-	write_map = create_write_map(rep, pop_size, chromo_bits)
+	write_map = create_write_map(rep, pop_size, chromo_bits, rec_temp)
 	
 	sink = ParallelSink(HDF5Sink, (write_map, ))
 	with ExitStack() as stack:
 		stack.enter_context(sink)
-		
-		temp_det = CollectorDetails(
-			InitDetails(DummyDriver),
-			InitDetails(TempMeter),
-			sink.get_sub(),
-			0,
-			"temperature",
-			collector_prep,
-		)
-		stack.enter_context(ParallelCollector(temp_det))
 		
 		sink.write("Action.rep", {
 			"genes": rep.genes,
@@ -376,6 +397,9 @@ def run(args) -> None:
 			"git_commit": get_git_commit(),
 			"python_version": sys.version,
 		})
+		
+		if rec_temp:
+			start_temp(args.temperature, stack, sink)
 		
 		if use_dummy:
 			meter = DummyMeter()
@@ -415,6 +439,8 @@ def run(args) -> None:
 def remeasure(args: Namespace) -> None:
 	pkg_path = os.path.dirname(os.path.abspath(__file__))
 	comb_list = args.comb_index
+	
+	rec_temp = args.temperature is not None
 	
 	with ExitStack() as stack:
 		measurement_index = args.index
@@ -461,6 +487,8 @@ def remeasure(args: Namespace) -> None:
 		
 		# write to sink
 		write_map = create_base_write_map(rep, chromo_bits)
+		if rec_temp:
+			add_temp_writes(write_map)
 		re_map = {
 			"SimpleEA.fitness": [
 				ParamAim(["fit"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
@@ -507,6 +535,9 @@ def remeasure(args: Namespace) -> None:
 			"python_version": sys.version,
 		})
 		
+		
+		if rec_temp:
+			start_temp(args.temperature, stack, sink)
 		
 		# prepare
 		driver, target, meter, cal_data = create_measure_setup(
