@@ -432,8 +432,8 @@ def run(args) -> None:
 		prng = BuiltInPRNG(seed)
 		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
 		
-		ea.run(pop_size, args.generations, 0.7, 0.001756)
-		#ea.run(pop_size, 600, 0.7, 0.001756)
+		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob)
+		
 		sink.write("prng", {"seed": seed, "final_state": prng.get_state()})
 
 def remeasure(args: Namespace) -> None:

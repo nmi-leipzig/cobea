@@ -21,6 +21,10 @@ def create_arg_parser():
 		" the evolvable area", metavar=("X", "Y", "DIR"))
 	run_parser.add_argument("--pop-size", type=int, required=True, help="size of the population")
 	run_parser.add_argument("--generations", type=int, required=True, help="number of generation")
+	run_parser.add_argument("--crossover-prob", type=float, required=True, help="probability that a crossover takes"
+		" place")
+	run_parser.add_argument("--mutation-prob", type=float, required=True, help="probability that a mutation takes"
+		" place")
 	
 	rem_parser = sub_parsers.add_parser("remeasure", help="repeat measurement of an individual")
 	rem_parser.set_defaults(function=remeasure)
