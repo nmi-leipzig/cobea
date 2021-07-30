@@ -15,6 +15,9 @@ def create_arg_parser():
 	run_parser = sub_parsers.add_parser("run", help="run an EA")
 	run_parser.set_defaults(function=run)
 	
+	run_parser.add_argument("--area", nargs=4, type=int, required=True, help="evolvable area in the habitat; defined by"
+		" corner points", metavar=("X_MIN", "Y_MIN", "X_MAX", "Y_MAX"))
+	
 	rem_parser = sub_parsers.add_parser("remeasure", help="repeat measurement of an individual")
 	rem_parser.set_defaults(function=remeasure)
 	

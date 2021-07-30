@@ -378,7 +378,7 @@ def run(args) -> None:
 	pop_size = 4
 	
 	rec_temp = args.temperature is not None
-	rep = create_xc6200_rep((10, 23), (19, 32))
+	rep = create_xc6200_rep(tuple(args.area[:2]), tuple(args.area[2:]))
 	chromo_bits = 16
 	
 	#sink = TextfileSink("tmp.out.txt")
