@@ -50,13 +50,12 @@ def tiles_from_corners(min_pos: Tuple[int, int], max_pos: Tuple[int, int]) -> Li
 	return res
 
 # generate representation
-def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int]) -> IcecraftRep:
+def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int], in_port: XC6200Port) -> IcecraftRep:
 	#TODO: add input port to function parameters
 	rep_gen = XC6200RepGen()
 	
 	tiles = tiles_from_corners(min_pos, max_pos)
 	# output ports are implicit as they depend on which neigh_op nets the habitat takes from the evolved region
-	in_port = XC6200Port(IcecraftPosition(10, 29), XC6200Direction.lft)
 	req = RequestObject(tiles=tiles, in_ports=[in_port])
 	
 	bef = time.perf_counter()
@@ -378,7 +377,8 @@ def run(args) -> None:
 	pop_size = 4
 	
 	rec_temp = args.temperature is not None
-	rep = create_xc6200_rep(tuple(args.area[:2]), tuple(args.area[2:]))
+	in_port = XC6200Port(IcecraftPosition(int(args.in_port[0]), int(args.in_port[1])), XC6200Direction[args.in_port[2]])
+	rep = create_xc6200_rep(tuple(args.area[:2]), tuple(args.area[2:]), in_port)
 	chromo_bits = 16
 	
 	#sink = TextfileSink("tmp.out.txt")

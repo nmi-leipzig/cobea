@@ -17,6 +17,8 @@ def create_arg_parser():
 	
 	run_parser.add_argument("--area", nargs=4, type=int, required=True, help="evolvable area in the habitat; defined by"
 		" corner points", metavar=("X_MIN", "Y_MIN", "X_MAX", "Y_MAX"))
+	run_parser.add_argument("--in-port", nargs=3, type=str, required=True, help="input port for the frequency signal to"
+		" the evolvable area", metavar=("X", "Y", "DIR"))
 	
 	rem_parser = sub_parsers.add_parser("remeasure", help="repeat measurement of an individual")
 	rem_parser.set_defaults(function=remeasure)
