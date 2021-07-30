@@ -374,7 +374,7 @@ def run(args) -> None:
 	pkg_path = os.path.dirname(os.path.abspath(__file__))
 	
 	use_dummy = False
-	pop_size = 4
+	pop_size = args.pop_size
 	
 	rec_temp = args.temperature is not None
 	in_port = XC6200Port(IcecraftPosition(int(args.in_port[0]), int(args.in_port[1])), XC6200Direction[args.in_port[2]])
