@@ -48,8 +48,11 @@ class ParallelCollector(DataCollector):
 			return self
 		
 		ctx = mp.get_context("spawn")
+		# event from Process that signals the data collection loop started
+		self._start_event = ctx.Event()
+		# event to Process that signals to end the data collection loop
 		self._end_event = ctx.Event()
-		self._process = ctx.Process(target=self.collector, args=(self._details, self._end_event))
+		self._process = ctx.Process(target=self.collector, args=(self._details, self._start_event, self._end_event))
 		
 		self._process.start()
 		
@@ -67,6 +70,7 @@ class ParallelCollector(DataCollector):
 		self._process.join()
 		
 		self._end_event = None
+		self._start_event = None
 		self._process = None
 		
 		return False
@@ -74,8 +78,14 @@ class ParallelCollector(DataCollector):
 	def is_alive(self) -> bool:
 		return self._process is not None and self._process.is_alive()
 	
+	def is_collecting(self) -> bool:
+		return self._start_event.is_set()
+	
+	def wait_collecting(self, timeout=None) -> bool:
+		return self._start_event.wait(timeout)
+	
 	@staticmethod
-	def collector(details: CollectorDetails, end_event: mp.Event) -> None:
+	def collector(details: CollectorDetails, start_event: mp.Event, end_event: mp.Event) -> None:
 		with ExitStack() as ex_stack:
 			# setup measurement
 			driver = details.driver_det.create_from()
@@ -84,6 +94,8 @@ class ParallelCollector(DataCollector):
 			measure_uc = Measure(driver, meter, details.data_sink, details.sink_prefix)
 			if details.prepare:
 				details.prepare(driver, meter, measure_uc, details.data_sink)
+			
+			start_event.set()
 			
 			# loop until end event
 			while True:
