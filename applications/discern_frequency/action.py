@@ -373,7 +373,7 @@ def run(args) -> None:
 	# prepare
 	pkg_path = os.path.dirname(os.path.abspath(__file__))
 	
-	use_dummy = False
+	use_dummy = args.dummy
 	pop_size = args.pop_size
 	
 	rec_temp = args.temperature is not None
@@ -398,16 +398,19 @@ def run(args) -> None:
 			"python_version": sys.version,
 		})
 		
-		if rec_temp:
-			start_temp(args.temperature, stack, sink)
-		
 		if use_dummy:
+			cal_data = CalibrationData(None, 0, 0, 0, 0)
 			meter = DummyMeter()
 			driver = DummyDriver()
 			from unittest.mock import MagicMock
 			#target = DummyTargetDevice()
 			target = MagicMock()
+			print("dummies don't support real EA -> abort")
+			return
 		else:
+			if rec_temp:
+				start_temp(args.temperature, stack, sink)
+			
 			driver, target, meter, cal_data = create_measure_setup(
 				args.generator,
 				args.target,

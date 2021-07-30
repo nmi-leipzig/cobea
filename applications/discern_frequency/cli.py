@@ -25,6 +25,7 @@ def create_arg_parser():
 		" place")
 	run_parser.add_argument("--mutation-prob", type=float, required=True, help="probability that a mutation takes"
 		" place")
+	run_parser.add_argument("--dummy", action="store_true", help="use dummies instead of real hardware")
 	
 	rem_parser = sub_parsers.add_parser("remeasure", help="repeat measurement of an individual")
 	rem_parser.set_defaults(function=remeasure)
