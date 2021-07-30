@@ -3,7 +3,8 @@ import random
 import time
 
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional, Tuple
+from enum import auto, Enum
+from typing import Callable, Iterable, List, Optional, Tuple
 
 import numpy as np
 
@@ -18,6 +19,11 @@ from domain.interfaces import EvoAlgo, InputData, PRNG, Representation, TargetCo
 from domain.model import Chromosome
 from domain.request_model import RequestObject
 from domain.use_cases import GenChromo, Measure, RandomChromo
+
+class EvalMode(Enum):
+	NEW = auto()
+	ELITE = auto()
+	ALL = auto()
 
 creator.create("SimpleFit", base.Fitness, weights=(1.0, ))
 
@@ -86,12 +92,13 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 	def data_sink(self) -> DataSink:
 		return self._data_sink
 	
-	def run(self, pop_size: int, gen_count: int, crossover_prob: float, mutation_prob: float) -> None:
+	def run(self, pop_size: int, gen_count: int, crossover_prob: float, mutation_prob: float, eval_mode: EvalMode) -> None:
 		self.write_to_sink("ea_params", {
 			"pop_size": pop_size,
 			"gen_count": gen_count,
 			"crossover_prob": crossover_prob,
 			"mutation_prob": mutation_prob,
+			"eval_mode": eval_mode.name,
 		})
 		# DEAP uses random directly, so store it's inital state
 		self.write_to_sink("random_initial", {"state": random.getstate()})
@@ -104,7 +111,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		
 		# run
 		#algorithms.eaSimple(pop, toolbox, cxpb=crossover_prob, mutpb=mutation_prob, ngen=gen_count)
-		self.org_ea(pop, toolbox, crossover_prob, mutation_prob, gen_count)
+		self.org_ea(pop, toolbox, crossover_prob, mutation_prob, gen_count, eval_mode)
 		
 		# DEAP uses random directly, so store it's inital state
 		self.write_to_sink("random_final", {"state": random.getstate()})
@@ -123,7 +130,9 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		for indi, fit in zip(invalid_list, fitness_list):
 			indi.fitness.values = fit
 	
-	def org_ea(self, pop: List[Individual], toolbox: base.Toolbox, cxpb: float, mutpb: float, ngen: int) -> None:
+	def org_ea(self, pop: List[Individual], toolbox: base.Toolbox, cxpb: float, mutpb: float, ngen: int,
+		eval_mode: EvalMode) -> None:
+		
 		pop_size = len(pop)
 		# prepare rank probabilities
 		s = 2.0
@@ -173,10 +182,16 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			progeny = [r[0] for r in map(toolbox.mutate, progeny)]
 			#print(f"after_mut: {[p.chromo.identifier for p in progeny]}")
 			
-			# elite has to have a fitness value already as it is the elite due to its fitness value
-			self.evaluate_invalid(progeny, toolbox)
-			
 			pop = elite + progeny
+			if eval_mode == EvalMode.ELITE:
+				self.invalidate(elite)
+			elif eval_mode == EvalMode.ALL:
+				self.invalidate(pop)
+			# nothing to do for EvalMode.NEW as the new individuals have no valid fitness value
+			
+			
+			self.evaluate_invalid(pop, toolbox)
+			
 		
 		self.write_to_sink("gen", {"pop": [p.chromo.identifier for p in pop]})
 		
@@ -254,3 +269,11 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		toolbox.register("evaluate", self._evaluate)
 		
 		return toolbox
+	
+	@staticmethod
+	def invalidate(indis: Iterable[Individual]):
+		for i in indis:
+			try:
+				del i.fitness.values
+			except AttributeError:
+				pass

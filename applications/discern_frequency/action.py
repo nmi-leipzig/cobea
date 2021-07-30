@@ -15,7 +15,7 @@ from typing import Any, Iterable, List, Mapping, Tuple
 import h5py
 
 from adapters.embed_driver import FixedEmbedDriver
-from adapters.deap.simple_ea import Individual, SimpleEA
+from adapters.deap.simple_ea import EvalMode, Individual, SimpleEA
 from adapters.dummies import DummyDriver, DummyMeter
 from adapters.gear.rigol import OsciDS1102E
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, ParamAim
@@ -435,7 +435,7 @@ def run(args) -> None:
 		prng = BuiltInPRNG(seed)
 		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
 		
-		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob)
+		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob, EvalMode.NEW)
 		
 		sink.write("prng", {"seed": seed, "final_state": prng.get_state()})
 
