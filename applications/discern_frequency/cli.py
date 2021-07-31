@@ -1,5 +1,7 @@
 import argparse
 
+from adapters.deap.simple_ea import EvalMode
+
 from .action import remeasure, run
 
 def create_arg_parser():
@@ -25,6 +27,7 @@ def create_arg_parser():
 		" place")
 	run_parser.add_argument("--mutation-prob", type=float, required=True, help="probability that a mutation takes"
 		" place")
+	run_parser.add_argument("--eval-mode", default="NEW", type=str, choices=[e.name for e in EvalMode], help="which individuals in each generation are evaluated; NEW -> ones without fitness value; ELITE -> without fitness value and elites; ALL -> all")
 	run_parser.add_argument("--dummy", action="store_true", help="use dummies instead of real hardware")
 	
 	rem_parser = sub_parsers.add_parser("remeasure", help="repeat measurement of an individual")
