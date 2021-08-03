@@ -18,7 +18,7 @@ from adapters.embed_driver import FixedEmbedDriver
 from adapters.deap.simple_ea import EvalMode, Individual, SimpleEA
 from adapters.dummies import DummyDriver, DummyMeter
 from adapters.gear.rigol import OsciDS1102E
-from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, ParamAim
+from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, ParamAim
 from adapters.icecraft import IcecraftBitPosition, IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen,\
 IcecraftManager, IcecraftRawConfig, XC6200Port, XC6200Direction
 from adapters.parallel_collector import CollectorDetails, InitDetails, ParallelCollector
@@ -207,10 +207,6 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Mapping[str, Lis
 			ParamAim(["trig_len"], "uint64", "trig_len", "calibration"),
 			ParamAim(["offset"], "float64", "offset", "calibration"),
 		],
-		"misc": [
-			ParamAim(["git_commit"], str, "git_commit"), 
-			ParamAim(["python_version"], str, "python_version"),
-		],
 		"habitat": [ParamAim(
 			["text"], "uint8", "habitat", as_attr=False,
 			alter=partial(compose, funcs=[itemgetter(0), partial(bytearray, encoding="utf-8")]), comp_opt=9
@@ -242,6 +238,7 @@ def add_temp_writes(write_map: Mapping[str, List[ParamAim]]) -> None:
 			ParamAim(["time"], "float64", "time", "temperature", as_attr=False,
 				alter=partial(compose, funcs=[itemgetter(0), methodcaller("timestamp")]), comp_opt=9, shuffle=True),
 		],
+		# use ParamAim for temp serial as it is collected in a separate process
 		"meta.temp": [
 			ParamAim(["sn"], str, "temp_reader_serial_number", "temperature"),
 			ParamAim(["hw"], str, "temp_reader_hardware", "temperature"),
@@ -384,7 +381,13 @@ def run(args) -> None:
 	#sink = TextfileSink("tmp.out.txt")
 	write_map = create_write_map(rep, pop_size, chromo_bits, rec_temp)
 	
-	sink = ParallelSink(HDF5Sink, (write_map, ))
+	metadata = {
+		"/": [
+			MetaEntry("git_commit", get_git_commit()),
+			MetaEntry("python_version", sys.version),
+		]
+	}
+	sink = ParallelSink(HDF5Sink, (write_map, metadata))
 	with ExitStack() as stack:
 		stack.enter_context(sink)
 		
@@ -392,10 +395,6 @@ def run(args) -> None:
 			"genes": rep.genes,
 			"const": rep.constant,
 			"carry_bits": list(rep.iter_carry_bits()),
-		})
-		sink.write("misc", {
-			"git_commit": get_git_commit(),
-			"python_version": sys.version,
 		})
 		
 		if use_dummy:
@@ -515,9 +514,15 @@ def remeasure(args: Namespace) -> None:
 			],
 		}
 		write_map.update(re_map)
+		metadata = {
+			"/": [
+				MetaEntry("git_commit", get_git_commit()),
+				MetaEntry("python_version", sys.version),
+			]
+		}
 		cur_date = datetime.now(timezone.utc)
 		hdf5_filename = f"re-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
-		sink = ParallelSink(HDF5Sink, (write_map, hdf5_filename))
+		sink = ParallelSink(HDF5Sink, (write_map, metadata, hdf5_filename))
 		stack.enter_context(sink)
 		
 		# chromosome
