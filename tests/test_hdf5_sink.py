@@ -66,7 +66,7 @@ class HDF5SinkTest(unittest.TestCase):
 			pass
 	
 	def test_creation(self):
-		dut = HDF5Sink({}, self.filename, "w")
+		dut = HDF5Sink({}, filename=self.filename, mode="w")
 	
 	def test_write(self):
 		class WriteData(NamedTuple):
@@ -175,7 +175,7 @@ class HDF5SinkTest(unittest.TestCase):
 		
 		for td in test_data:
 			with self.subTest(desc=td.desc):
-				dut = HDF5Sink(td.write_map, self.filename, "w")
+				dut = HDF5Sink(td.write_map, filename=self.filename, mode="w")
 				with dut:
 					for src, data_dict in td.write_data:
 						dut.write(src, data_dict)

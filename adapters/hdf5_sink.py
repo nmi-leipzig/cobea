@@ -41,8 +41,19 @@ def compose(x: Any, funcs: Iterable[Callable]) -> Any:
 	return r
 
 @dataclass
+class MetaEntry:
+	"""Represent one entry of static metadata.
+	
+	Static means stored as attribute and known at startup, not created at runtime.
+	For metadata stored as data set or created at runtime use ParamAim.
+	"""
+	name: str
+	value: Any
+	data_type: type = str
+
+@dataclass
 class ParamAim:
-	# there can be multiple ParamAim instance with the same name
+	# there can be multiple ParamAim instances with the same name
 	# to create multiple entries in the HDF5 from the same data 
 	names: List[str] # multiple names to allow compound data types and write one value depending on another
 	data_type: type
@@ -61,26 +72,28 @@ class ParamAim:
 class HDF5Sink(DataSink):
 	def __init__(self,
 		write_map: Mapping[str, List[ParamAim]],
-		hdf5_filename: Optional[str]=None,
+		metadata: Mapping[str, List[MetaEntry]]={},
+		filename: Optional[str]=None,
 		mode: str="x"
 	) -> None:
 		"""
 		mode: mode for opening the file (r, r+, w, w-, x, a)
 		"""
-		if hdf5_filename is None:
+		if filename is None:
 			cur_date = datetime.datetime.now(datetime.timezone.utc)
-			hdf5_filename = f"evo-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
-		self._hdf5_filename = hdf5_filename
+			filename = f"evo-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
+		self._hdf5_filename = filename
 		assert mode in ("r", "r+", "w", "w-", "x", "a")
 		self._mode = mode
 		self._hdf5_file = None
 		# define mapping to process write
 		# (source, data_dict) -> (group, data_type, multiple, dataset_or_attrs)
 		self._write_map = write_map
+		self._metadata = metadata
 	
 	def prepare_structure(self) -> None:
 		"""Prepare groups and datasets"""
-		implied_entities = []
+		implied_entities = list(self._metadata.keys())
 		for pa_list in self._write_map.values():
 			for pa in pa_list:
 				if pa.as_attr:
@@ -130,6 +143,12 @@ class HDF5Sink(DataSink):
 				# every entity that is not yet created has to be a group
 				self._hdf5_file.create_group(entity_path)
 	
+	def _write_metadata(self) -> None:
+		for h5_path, meta_list in self._metadata.items():
+			entity = self._hdf5_file[h5_path]
+			for meta_entry in meta_list:
+				self.set_attr(entity, meta_entry.name, meta_entry.value, meta_entry.data_type)
+	
 	def open(self) -> None:
 		if self._hdf5_file is not None:
 			return
@@ -145,6 +164,7 @@ class HDF5Sink(DataSink):
 	def __enter__(self) -> "HDF5Sink":
 		self.open()
 		self.prepare_structure()
+		self._write_metadata()
 		return self
 	
 	def __exit__(self,
@@ -172,12 +192,7 @@ class HDF5Sink(DataSink):
 			entity = self._hdf5_file[pa.h5_path]
 			
 			if pa.as_attr:
-				if pa.data_type is None:
-					entity.attrs[pa.h5_name] = value
-				elif pa.data_type == str:
-					entity.attrs[pa.h5_name] = "{}".format(value)
-				else:
-					entity.attrs.create(pa.h5_name, value, dtype=pa.data_type)
+				self.set_attr(entity, pa.h5_name, value, pa.data_type)
 			else:
 				dataset = entity[pa.h5_name]
 				if len(dataset.shape) == len(np.shape(value)):
@@ -191,6 +206,15 @@ class HDF5Sink(DataSink):
 					dataset.resize(new_shape)
 					dataset[-1] = value
 				
+	
+	@staticmethod
+	def set_attr(entity: h5py.HLObject, name: str, value: Any, data_type: Optional[type]=None) -> None:
+		if data_type is None:
+			entity.attrs[name] = value
+		elif data_type == str:
+			entity.attrs[name] = "{}".format(value)
+		else:
+			entity.attrs.create(name, value, dtype=data_type)
 	
 	@staticmethod
 	def extract_list(genes: List[Sequence[Gene]], idx: int) -> List[Tuple[bool, ...]]:

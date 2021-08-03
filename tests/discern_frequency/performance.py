@@ -75,7 +75,7 @@ def run_algo(rep: IcecraftRep) -> None:
 	# WARNING: the HDF5 file gets really big really fast as it can't compress the random measurement data very well
 	# that should not be an issue for real measurements as the Rigol basically provides only 256 different values
 	cur_date = datetime.datetime.now(datetime.timezone.utc)
-	sink = ParallelSink(HDF5Sink, (write_map, f"perf-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"))
+	sink = ParallelSink(HDF5Sink, (write_map, ), {filename: f"perf-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"})
 	man = IcecraftManager()
 	target = man.acquire()
 	with ExitStack() as stack:
