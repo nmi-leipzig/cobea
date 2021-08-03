@@ -18,7 +18,7 @@ from adapters.embed_driver import FixedEmbedDriver
 from adapters.deap.simple_ea import EvalMode, Individual, SimpleEA
 from adapters.dummies import DummyDriver, DummyMeter
 from adapters.gear.rigol import OsciDS1102E
-from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, ParamAim
+from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftBitPosition, IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen,\
 IcecraftManager, IcecraftRawConfig, XC6200Port, XC6200Direction
 from adapters.parallel_collector import CollectorDetails, InitDetails, ParallelCollector
@@ -168,7 +168,7 @@ def ignore_same(x: list) -> Any:
 		raise IgnoreValue()
 	return x[0]
 
-def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Mapping[str, List[ParamAim]]:
+def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEntryMap]:
 	"""Create HDF5Sink write map with entries that are always required"""
 	if not is_rep_fitting(rep, chromo_bits):
 		raise ValueError(f"representation needs more than {chromo_bits} bits")
@@ -226,9 +226,40 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Mapping[str, Lis
 		],
 	}
 	
-	return write_map
+	metadata = {
+		"individual": [MetaEntry("description", "data for the genotype")],
+		"individual/chromo_id": [MetaEntry("description", "unique ID of every chromosome")],
+		"individual/chromosome": [MetaEntry("description", "allele choices for every chromosome")],
+		"fitness": [MetaEntry("description", "data regarding the fitness values")],
+		"fitness/s_t_index": [MetaEntry("description", "index of the s-t-combination used for determining the order of "
+			"5 1 kHz and 5 10 kHz bursts")],
+		"fitness/measurement": [
+			MetaEntry("description", "output of the phenotype measured by an oscilloscope; each " 
+				"measurement took 6 s; in the last 5 s 10 bursts of either 1 kHz or 10 kHz were presented at the input;"
+				" only this last 5 s are relevant for the fitness value"),
+			MetaEntry("unit", "Volt")
+		],
+		"fitness/time": [
+			MetaEntry("description", "time the measurement started; timezone UTC"),
+			MetaEntry("unit", "seconds since 01.01.1970 00:00:00")
+		],
+		"mapping": [MetaEntry("description", "mapping of the genotype (allele indices) to configuration bits")],
+		"mapping/genes": [MetaEntry("description", "part of the configuration bits that is configurable")],
+		"mapping/constant": [MetaEntry("description", "part of the configuration bits that is fixed")],
+		"fitness/carry_bits": [MetaEntry("description", "values of carry enable bits; derived from the configuration "
+			"bits defined by the genotype")],
+		"calibration": [
+			MetaEntry("description", "calibrate the measurement time to the exact duration of the 10 bursts; the "
+				"trigger signaling the bursts should start at 0.5 s"),
+			MetaEntry("unit", "Volt"),
+		],
+		"habitat": [MetaEntry("description", "basic configuration of the FPGA that defines the periphery of the "
+			"evolved part; the values are bytes of the asc format")],
+	}
+	
+	return write_map, metadata
 
-def add_temp_writes(write_map: Mapping[str, List[ParamAim]]) -> None:
+def add_temp_writes(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	temp_map = {
 		"temperature.perform": [
 			ParamAim(["return"], "float16", "celsius", "temperature", as_attr=False,
@@ -247,9 +278,19 @@ def add_temp_writes(write_map: Mapping[str, List[ParamAim]]) -> None:
 		],
 	}
 	
+	temp_meta = {
+		"temperature": [MetaEntry("description", "temperature recorded at the surface of the FPGA")],
+		"temperature/celsius": [MetaEntry("description", "measured temperature"), MetaEntry("unit", "degree celsius")],
+		"temperature/time": [
+			MetaEntry("description", "time the temperature measurement started; timezone UTC"),
+			MetaEntry("unit", "seconds since 01.01.1970 00:00:00")
+		],
+	}
+	
 	write_map.update(temp_map)
+	metadata.update(temp_meta)
 
-def add_ea_writes(write_map: Mapping[str, List[ParamAim]], rep: IcecraftRep, pop_size: int,) -> None:
+def add_ea_writes(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep, pop_size: int,) -> None:
 	"""Add the entries for an evolutionary algorithm to an existing HDF5Sink write map"""
 	
 	ea_map = {
@@ -296,16 +337,29 @@ def add_ea_writes(write_map: Mapping[str, List[ParamAim]], rep: IcecraftRep, pop
 		"prng": [ParamAim(["seed"], "int64", "prng_seed")] + create_rng_aim("final_state", "prng_final_"),
 	}
 	
-	write_map.update(ea_map)
-
-def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16, temp: bool=True) -> Mapping[str, List[ParamAim]]:
-	"""Create HDF5Sink write map for running a full evolutionary algorithm"""
-	write_map = create_base_write_map(rep, chromo_bits)
-	if temp:
-		add_temp_writes(write_map)
-	add_ea_writes(write_map, rep, pop_size)
+	ea_meta = {
+		"fitness/value": [MetaEntry("description", "actual fitness value")],
+		"fitness/fast_sum": [MetaEntry("description", "aggregated area under the curve for all 10 kHz bursts")],
+		"fitness/slow_sum": [MetaEntry("description", "aggregated area under the curve for all 1 kHz bursts")],
+		"fitness/chromo_id": [MetaEntry("description", "ID of the corresponding chromosome")],
+		"population": [MetaEntry("description", "IDs of the chromosomes included in each generation")],
+		"crossover": [MetaEntry("description", "IDs of the chromosomes participating in and resulting from crossover")],
+		"mutation": [MetaEntry("description", "IDs of chromosomes resulting from mutation; as all chromosomes of a "
+			"generation participate in mutation, only alterations are recorded")],
+	}
 	
-	return write_map
+	write_map.update(ea_map)
+	metadata.update(ea_meta)
+
+def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16, temp: bool=True)-> Tuple[ParamAimMap,
+	MetaEntryMap]:
+	"""Create HDF5Sink write map for running a full evolutionary algorithm"""
+	write_map, metadata = create_base_write_map(rep, chromo_bits)
+	if temp:
+		add_temp_writes(write_map, metadata)
+	add_ea_writes(write_map, metadata, rep, pop_size)
+	
+	return write_map, metadata
 
 def create_measure_setup(driver_sn: str, target_sn: str, meter_sn: str, driver_asc: str, stack: ExitStack,
 		sink: DataSink
@@ -379,14 +433,11 @@ def run(args) -> None:
 	chromo_bits = 16
 	
 	#sink = TextfileSink("tmp.out.txt")
-	write_map = create_write_map(rep, pop_size, chromo_bits, rec_temp)
-	
-	metadata = {
-		"/": [
-			MetaEntry("git_commit", get_git_commit()),
-			MetaEntry("python_version", sys.version),
-		]
-	}
+	write_map, metadata = create_write_map(rep, pop_size, chromo_bits, rec_temp)
+	metadata.setdefault("/", []).extend([
+		MetaEntry("git_commit", get_git_commit()),
+		MetaEntry("python_version", sys.version),
+	])
 	sink = ParallelSink(HDF5Sink, (write_map, metadata))
 	with ExitStack() as stack:
 		stack.enter_context(sink)
@@ -488,9 +539,9 @@ def remeasure(args: Namespace) -> None:
 		chromo_bits = hdf5_file["individual/chromosome"].dtype.itemsize * 8
 		
 		# write to sink
-		write_map = create_base_write_map(rep, chromo_bits)
+		write_map, metadata = create_base_write_map(rep, chromo_bits)
 		if rec_temp:
-			add_temp_writes(write_map)
+			add_temp_writes(write_map, metadata)
 		re_map = {
 			"SimpleEA.fitness": [
 				ParamAim(["fit"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
@@ -514,12 +565,10 @@ def remeasure(args: Namespace) -> None:
 			],
 		}
 		write_map.update(re_map)
-		metadata = {
-			"/": [
-				MetaEntry("git_commit", get_git_commit()),
-				MetaEntry("python_version", sys.version),
-			]
-		}
+		metadata.setdefault("/", []).extend([
+			MetaEntry("git_commit", get_git_commit()),
+			MetaEntry("python_version", sys.version),
+		])
 		cur_date = datetime.now(timezone.utc)
 		hdf5_filename = f"re-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
 		sink = ParallelSink(HDF5Sink, (write_map, metadata, hdf5_filename))
