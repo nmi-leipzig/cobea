@@ -235,7 +235,7 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Mapping[str, Lis
 def add_temp_writes(write_map: Mapping[str, List[ParamAim]]) -> None:
 	temp_map = {
 		"temperature.perform": [
-			ParamAim(["return"], "float16", "celcius", "temperature", as_attr=False,
+			ParamAim(["return"], "float16", "celsius", "temperature", as_attr=False,
 				alter=partial(compose, funcs=[itemgetter(0), itemgetter(0)]), comp_opt=9, shuffle=True),
 		],
 		"temperature.additional": [
