@@ -62,7 +62,7 @@ class HDF5Sink(DataSink):
 	def __init__(self,
 		write_map: Mapping[str, List[ParamAim]],
 		hdf5_filename: Optional[str]=None,
-		mode: str="w"
+		mode: str="x"
 	) -> None:
 		"""
 		mode: mode for opening the file (r, r+, w, w-, x, a)
