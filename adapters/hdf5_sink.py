@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from functools import partial
 from operator import attrgetter, itemgetter, methodcaller
 from types import TracebackType
-from typing import Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple, Type
+from typing import Any, Callable, Iterable, List, Mapping, NewType, Optional, Sequence, Tuple, Type
 
 import h5py
 import numpy as np
@@ -69,10 +69,13 @@ class ParamAim:
 	comp_opt: int = 7
 	shuffle: bool = False
 
+MetaEntryMap = NewType("MetaEntryMap", Mapping[str, List[ParamAim]])
+ParamAimMap = NewType("ParamAimMap", Mapping[str, List[MetaEntry]])
+
 class HDF5Sink(DataSink):
 	def __init__(self,
-		write_map: Mapping[str, List[ParamAim]],
-		metadata: Mapping[str, List[MetaEntry]]={},
+		write_map: ParamAimMap,
+		metadata: MetaEntryMap={},
 		filename: Optional[str]=None,
 		mode: str="x"
 	) -> None:
