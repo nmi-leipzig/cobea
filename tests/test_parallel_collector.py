@@ -51,6 +51,7 @@ class ParallelCollectorTest(TestCase):
 		with open(filename, "r") as res_file:
 			time_line = res_file.readline()
 			meas_line = res_file.readline()
+			c = -1
 			for c, line in enumerate(res_file):
 				if c%2 == 0:
 					self.assertEqual(time_line[:30], line[:30])
