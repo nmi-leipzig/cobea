@@ -74,9 +74,11 @@ def is_rep_fitting(rep: IcecraftRep, chromo_bits: int) -> bool:
 	return True
 
 # flash FPGAs
-def prepare_generator(gen: TargetDevice, asc_path: str) -> None:
+def prepare_generator(gen: TargetDevice, asc_path: str) -> IcecraftRawConfig:
 	config = IcecraftRawConfig.create_from_file(asc_path)
 	gen.configure(config)
+	
+	return config
 
 def create_meter_setup():
 	setup = OsciDS1102E.create_setup()
@@ -211,6 +213,10 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 			["text"], "uint8", "habitat", as_attr=False,
 			alter=partial(compose, funcs=[itemgetter(0), partial(bytearray, encoding="utf-8")]), comp_opt=9
 		),],
+		"freq_gen": [ParamAim(
+			["text"], "uint8", "freq_gen", as_attr=False,
+			alter=partial(compose, funcs=[itemgetter(0), partial(bytearray, encoding="utf-8")]), comp_opt=9
+		),],
 		"meta.driver": [
 			ParamAim(["sn"], str, "driver_serial_number", "fitness/measurement"),
 			ParamAim(["hw"], str, "driver_hardware", "fitness/measurement"),
@@ -254,10 +260,17 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 			MetaEntry("unit", "Volt"),
 		],
 		"habitat": [
-			MetaEntry("description", "basic configuration of the FPGA that defines the periphery of the evolved part; "
-				"the values are bytes of the asc format"),
-			MetaEntry("connection", "input from the driver to habitat at pin R15; output from habitat to meter at D14"),
+			MetaEntry("description", "basic configuration of the target FPGA that defines the periphery of the evolved "
+				"part; the values are bytes of the asc format"),
+			MetaEntry("connection", "input from the driver to habitat at pin R15; output from habitat to meter at pin "
+				"D14"),
 		],
+		"freq_gen": [
+			MetaEntry("description", "configuration of the driver FPGA that creates the frequency bursts; the values "
+				"are bytes of the asc format"),
+			MetaEntry("connection", "output of the frequency bursts to the target at pin R15; output of the trigger "
+				"signal to the meter at pin D14"),
+		]
 	}
 	
 	return write_map, metadata
@@ -380,8 +393,12 @@ def create_measure_setup(driver_sn: str, target_sn: str, meter_sn: str, driver_a
 	stack.callback(man.release, target)
 	sink.write("meta.target", {"sn": target.serial_number, "hw": target.hardware_type})
 	
-	prepare_generator(gen, driver_asc)
+	fg_config = prepare_generator(gen, driver_asc)
 	driver = FixedEmbedDriver(gen, "B")
+	sink.write("freq_gen", {
+		"text": fg_config.to_text(),
+	})
+	
 	cal_data = calibrate(driver)
 	sink.write("calibration", asdict(cal_data))
 	
