@@ -351,6 +351,7 @@ def add_ea_writes(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftR
 			ParamAim(["gen_count"], "uint64", "gen_count"),
 			ParamAim(["crossover_prob"], "float64", "crossover_prob"),
 			ParamAim(["mutation_prob"], "float64", "mutation_prob"),
+			ParamAim(["eval_mode"], str, "eval_mode"),
 		],
 		"SimpleEA.random_initial": create_rng_aim("state", "random_initial_"),
 		"SimpleEA.random_final": create_rng_aim("state", "random_final_"),
