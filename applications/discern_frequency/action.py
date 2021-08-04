@@ -164,10 +164,13 @@ def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
 	]
 
 def ignore_same(x: list) -> Any:
-	"""raise IgnoreValue of first two elements are equal, els return the first"""
+	"""raise IgnoreValue of first two elements are equal, else return the last
+	
+	That way a third value can be rejected when two other values are identical
+	"""
 	if x[0] == x[1]:
 		raise IgnoreValue()
-	return x[0]
+	return x[-1]
 
 def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEntryMap]:
 	"""Create HDF5Sink write map with entries that are always required"""
@@ -359,11 +362,11 @@ def add_ea_writes(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftR
 		],
 		"Individual.wrap.mutUniformInt": [
 			ParamAim(
-				["in", "out"], "uint64", "parent", "mutation", as_attr=False,
+				["out", "in"], "uint64", "parent", "mutation", as_attr=False,
 				alter=partial(compose, funcs=[ignore_same, itemgetter(0)]), comp_opt=9, shuffle=True
 			),
 			ParamAim(
-				["out", "in"], "uint64", "child", "mutation", as_attr=False,
+				["in", "out"], "uint64", "child", "mutation", as_attr=False,
 				alter=partial(compose, funcs=[ignore_same, itemgetter(0)]), comp_opt=9, shuffle=True
 			),
 		],
