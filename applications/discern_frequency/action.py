@@ -260,7 +260,7 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 		"mapping": [MetaEntry("description", "mapping of the genotype (allele indices) to configuration bits")],
 		"mapping/genes": [MetaEntry("description", "part of the configuration bits that is configurable")],
 		"mapping/constant": [MetaEntry("description", "part of the configuration bits that is fixed")],
-		"fitness/carry_bits": [MetaEntry("description", "values of carry enable bits; derived from the configuration "
+		"fitness/carry_enable": [MetaEntry("description", "values of carry enable bits; derived from the configuration "
 			"bits defined by the genotype")],
 		"mapping/carry_data": [MetaEntry("description", "data describing how to derive the carry bits from the "
 			"configuration bits defined by the genotype")],
