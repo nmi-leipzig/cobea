@@ -1,19 +1,26 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Any, List, Mapping, Optional, Tuple
 from unittest import TestCase
 
-from adapters.deap.simple_ea import Individual
+from adapters.deap.simple_ea import Individual, InfoSource
 from adapters.unique_id import SimpleUID
 from domain.model import Chromosome
 from domain.request_model import RequestObject
 from domain.use_cases import GenChromo
+
+class MockIS(InfoSource):
+	def __init__(self, info: Mapping[str, Any]) -> None:
+		self._info = info
+	
+	def get_info(self) -> Mapping[str, Any]:
+		return self._info
 
 class IndividualTest(TestCase):
 	def test_wrapping(self):
 		def alter_1(raw: List[int], param1: float) -> Tuple[List[int]]:
 			return (raw, )
 		
-		res = Individual.wrap_alteration(alter_1, 1, None, None)
+		res = Individual.wrap_alteration(alter_1, 1, None, None, {})
 	
 	def check_individual_different(self, indi1, indi2):
 		self.assertNotEqual(indi1.chromo.identifier, indi2.chromo.identifier)
@@ -26,6 +33,7 @@ class IndividualTest(TestCase):
 	def test_wrapped_call(self):
 		data_sink = None
 		chromo_gen = GenChromo(SimpleUID(), data_sink)
+		info_src = MockIS({"info": 7})
 		
 		with self.subTest(desc="single input"):
 			def alter_1(raw: List[int], param1: float) -> Tuple[List[int]]:
@@ -34,7 +42,7 @@ class IndividualTest(TestCase):
 				else:
 					return([raw[0]+1]+raw[1:], )
 			
-			dut = Individual.wrap_alteration(alter_1, 1, chromo_gen, data_sink)
+			dut = Individual.wrap_alteration(alter_1, 1, chromo_gen, data_sink, info_src)
 			# change
 			req = RequestObject(allele_indices=(1, 2, 3))
 			indi = Individual(chromo_gen(req))
@@ -77,7 +85,7 @@ class IndividualTest(TestCase):
 				else:
 					return (res0, res1)
 			
-			dut = Individual.wrap_alteration(alter_2, 2, chromo_gen, data_sink)
+			dut = Individual.wrap_alteration(alter_2, 2, chromo_gen, data_sink, info_src)
 			
 			test_data = [
 				DoubleTD("no change", ([4, 5], [6, 7]), (0, 1), ((4, 5), (6, 7))),
