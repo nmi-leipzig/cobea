@@ -464,6 +464,14 @@ def run(args) -> None:
 		MetaEntry("git_commit", get_git_commit()),
 		MetaEntry("python_version", sys.version),
 	])
+	metadata.setdefault("habitat", []).extend([
+		MetaEntry("in_port_pos", args.in_port[:2], "uint16"),
+		MetaEntry("in_port_dir", args.in_port[2]),
+		MetaEntry("out_port_pos", [13, 32], "uint16"),
+		MetaEntry("out_port_dir", "top"),
+		MetaEntry("area_min_pos", args.area[:2], "uint16"),
+		MetaEntry("area_max_pos", args.area[2:], "uint16"),
+	])
 	sink = ParallelSink(HDF5Sink, (write_map, metadata))
 	with ExitStack() as stack:
 		stack.enter_context(sink)
