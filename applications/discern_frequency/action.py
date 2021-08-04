@@ -395,6 +395,28 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16, temp: boo
 	
 	return write_map, metadata
 
+def meter_setup_to_meta(setup: SetupCmd) -> List[MetaEntry]:
+	if not setup.condition_(setup):
+		return []
+	
+	res = []
+	if setup.values_ is not None:
+		if setup.value_ not in setup.values_:
+			raise ValueError(f"'{setup.value_}' invalid for {setup.name_}")
+		
+		if isinstance(setup.values_, FloatCheck):
+			data_type = float
+		elif isinstance(setup.values_, IntCheck):
+			data_type = int
+		else:
+			data_type = type(setup.values_[0])
+		res.append(MetaEntry(setup.cmd_(full=False), setup.value_, data_type))
+	
+	for subcmd in setup.subcmds_:
+		res.extend(meter_setup_to_meta(subcmd))
+	
+	return res
+
 def create_measure_setup(driver_sn: str, target_sn: str, meter_sn: str, driver_asc: str, stack: ExitStack,
 		metadata: MetaEntryMap
 	) -> Tuple[Driver, TargetDevice, Meter, CalibrationData, List[Tuple[str, Mapping[str, Any]]]]:
@@ -420,7 +442,7 @@ def create_measure_setup(driver_sn: str, target_sn: str, meter_sn: str, driver_a
 	
 	meter_setup = create_meter_setup()
 	meter_setup.TIM.OFFS.value_ = cal_data.offset
-	
+	metadata.setdefault("fitness/measurement", []).extend(meter_setup_to_meta(meter_setup))
 	
 	meter = OsciDS1102E(meter_setup)
 	stack.callback(meter.close)
