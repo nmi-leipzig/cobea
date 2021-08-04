@@ -6,7 +6,7 @@ import time
 
 from argparse import Namespace
 from contextlib import ExitStack
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, astuple, dataclass
 from datetime import datetime, timezone
 from functools import partial
 from operator import attrgetter, itemgetter, methodcaller
@@ -201,6 +201,8 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 			HDF5Sink.create_gene_aims("const", len(rep.constant), h5_path="mapping/constant")+[
 				ParamAim(["carry_bits"], "uint16", "bits", "fitness/carry_enable",
 					alter=partial(compose, funcs=[itemgetter(0), partial(map, methodcaller("to_ints")), list])),
+				ParamAim(["output"], "uint16", "output_lutffs", "mapping", alter=partial(compose, funcs=[itemgetter(0),
+					partial(map, astuple), list])),
 			],
 		"calibration": [
 			ParamAim(["data"], "float64", "calibration", as_attr=False, shuffle=False),
@@ -466,6 +468,7 @@ def run(args) -> None:
 			"genes": rep.genes,
 			"const": rep.constant,
 			"carry_bits": list(rep.iter_carry_bits()),
+			"output": rep.output,
 		})
 		
 		if use_dummy:
@@ -605,6 +608,7 @@ def remeasure(args: Namespace) -> None:
 			"genes": rep.genes,
 			"const": rep.constant,
 			"carry_bits": list(rep.iter_carry_bits()),
+			"output": rep.output,
 		})
 		
 		sink.write("misc", {
