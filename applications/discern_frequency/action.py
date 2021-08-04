@@ -17,7 +17,7 @@ import h5py
 from adapters.embed_driver import FixedEmbedDriver
 from adapters.deap.simple_ea import EvalMode, Individual, SimpleEA
 from adapters.dummies import DummyDriver, DummyMeter
-from adapters.gear.rigol import OsciDS1102E
+from adapters.gear.rigol import FloatCheck, IntCheck, OsciDS1102E, SetupCmd
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftBitPosition, IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen,\
 IcecraftManager, IcecraftRawConfig, XC6200Port, XC6200Direction
@@ -224,19 +224,6 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 			["text"], "uint8", "freq_gen", as_attr=False,
 			alter=partial(compose, funcs=[itemgetter(0), partial(bytearray, encoding="utf-8")]), comp_opt=9
 		),],
-		"meta.driver": [
-			ParamAim(["sn"], str, "driver_serial_number", "fitness/measurement"),
-			ParamAim(["hw"], str, "driver_hardware", "fitness/measurement"),
-		],
-		"meta.target": [
-			ParamAim(["sn"], str, "target_serial_number", "fitness/measurement"),
-			ParamAim(["hw"], str, "target_hardware", "fitness/measurement"),
-		],
-		"meta.meter": [
-			ParamAim(["sn"], str, "meter_serial_number", "fitness/measurement"),
-			ParamAim(["hw"], str, "meter_hardware", "fitness/measurement"),
-			ParamAim(["fw"], str, "meter_firmware", "fitness/measurement"),
-		],
 	}
 	
 	metadata = {
@@ -409,8 +396,8 @@ def create_write_map(rep: IcecraftRep, pop_size: int, chromo_bits: 16, temp: boo
 	return write_map, metadata
 
 def create_measure_setup(driver_sn: str, target_sn: str, meter_sn: str, driver_asc: str, stack: ExitStack,
-		sink: DataSink
-	) -> Tuple[Driver, TargetDevice, Meter, CalibrationData]:
+		metadata: MetaEntryMap
+	) -> Tuple[Driver, TargetDevice, Meter, CalibrationData, List[Tuple[str, Mapping[str, Any]]]]:
 	man = IcecraftManager()
 	
 	# workaround for stuck serial buffer
@@ -418,32 +405,37 @@ def create_measure_setup(driver_sn: str, target_sn: str, meter_sn: str, driver_a
 	
 	gen = man.acquire(driver_sn)
 	stack.callback(man.release, gen)
-	sink.write("meta.driver", {"sn": gen.serial_number, "hw": gen.hardware_type})
 	
 	target = man.acquire(target_sn)
 	stack.callback(man.release, target)
-	sink.write("meta.target", {"sn": target.serial_number, "hw": target.hardware_type})
 	
 	fg_config = prepare_generator(gen, driver_asc)
 	driver = FixedEmbedDriver(gen, "B")
-	sink.write("freq_gen", {
-		"text": fg_config.to_text(),
-	})
 	
 	cal_data = calibrate(driver)
-	sink.write("calibration", asdict(cal_data))
+	sink_writes = [
+		("freq_gen", {"text": fg_config.to_text(), }),
+		("calibration", asdict(cal_data)),
+	]
 	
 	meter_setup = create_meter_setup()
 	meter_setup.TIM.OFFS.value_ = cal_data.offset
+	
+	
 	meter = OsciDS1102E(meter_setup)
 	stack.callback(meter.close)
-	sink.write("meta.meter", {
-		"sn": meter.serial_number,
-		"hw": meter.hardware_type,
-		"fw": meter.firmware_version
-	})
 	
-	return driver, target, meter, cal_data
+	metadata.setdefault("fitness/measurement", []).extend([
+		MetaEntry("driver_serial_number", gen.serial_number),
+		MetaEntry("driver_hardware", gen.hardware_type),
+		MetaEntry("target_serial_number", target.serial_number),
+		MetaEntry("target_hardware", target.hardware_type),
+		MetaEntry("meter_serial_number", meter.serial_number),
+		MetaEntry("meter_hardware", meter.hardware_type),
+		MetaEntry("meter_firmware", meter.firmware_version),
+	])
+	
+	return driver, target, meter, cal_data, sink_writes
 
 def collector_prep(driver: DummyDriver, meter: TempMeter, measure: Measure, sink: ParallelSink) -> None:
 	sink.write("meta.temp", {
@@ -497,9 +489,37 @@ def run(args) -> None:
 		MetaEntry("area_min_pos", args.area[:2], "uint16"),
 		MetaEntry("area_max_pos", args.area[2:], "uint16"),
 	])
-	sink = ParallelSink(HDF5Sink, (write_map, metadata))
+	
 	with ExitStack() as stack:
+		if use_dummy:
+			cal_data = CalibrationData(None, 0, 0, 0, 0)
+			meter = DummyMeter()
+			driver = DummyDriver()
+			from unittest.mock import MagicMock
+			#target = DummyTargetDevice()
+			target = MagicMock()
+			sink_writes = []
+			print("dummies don't support real EA -> abort")
+			return
+		else:
+			driver, target, meter, cal_data, sink_writes = create_measure_setup(
+				args.generator,
+				args.target,
+				"",
+				os.path.join(pkg_path, "freq_gen.asc"),
+				stack,
+				metadata
+			)
+		
+		sink = ParallelSink(HDF5Sink, (write_map, metadata))
+		
 		stack.enter_context(sink)
+		
+		if rec_temp and not use_dummy:
+			start_temp(args.temperature, stack, sink)
+		
+		for prms in sink_writes:
+			sink.write(*prms)
 		
 		sink.write("Action.rep", {
 			"genes": rep.genes,
@@ -508,28 +528,6 @@ def run(args) -> None:
 			"output": rep.output,
 			"colbufctrl": rep.colbufctrl,
 		})
-		
-		if use_dummy:
-			cal_data = CalibrationData(None, 0, 0, 0, 0)
-			meter = DummyMeter()
-			driver = DummyDriver()
-			from unittest.mock import MagicMock
-			#target = DummyTargetDevice()
-			target = MagicMock()
-			print("dummies don't support real EA -> abort")
-			return
-		else:
-			if rec_temp:
-				start_temp(args.temperature, stack, sink)
-			
-			driver, target, meter, cal_data = create_measure_setup(
-				args.generator,
-				args.target,
-				"",
-				os.path.join(pkg_path, "freq_gen.asc"),
-				stack,
-				sink
-			)
 		
 		measure_uc = Measure(driver, meter, sink)
 		
@@ -630,6 +628,18 @@ def remeasure(args: Namespace) -> None:
 			MetaEntry("git_commit", get_git_commit()),
 			MetaEntry("python_version", sys.version),
 		])
+		
+		# prepare setup
+		driver, target, meter, cal_data, sink_writes = create_measure_setup(
+			gen_sn,
+			tar_sn,
+			mes_sn,
+			os.path.join(pkg_path, "freq_gen.asc"), #TODO: from HDF5
+			stack,
+			metadata
+		)
+		
+		# prepare sink
 		cur_date = datetime.now(timezone.utc)
 		hdf5_filename = f"re-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
 		sink = ParallelSink(HDF5Sink, (write_map, metadata, hdf5_filename))
@@ -658,16 +668,6 @@ def remeasure(args: Namespace) -> None:
 		
 		if rec_temp:
 			start_temp(args.temperature, stack, sink)
-		
-		# prepare
-		driver, target, meter, cal_data = create_measure_setup(
-			gen_sn,
-			tar_sn,
-			mes_sn,
-			os.path.join(pkg_path, "freq_gen.asc"), #TODO: from HDF5
-			stack,
-			sink
-		)
 		
 		measure_uc = Measure(driver, meter, sink)
 		
