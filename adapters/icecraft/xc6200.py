@@ -121,7 +121,7 @@ class XC6200RepGen(RepresentationGenerator):
 				(IcecraftBitPosition(TILE_ALL_LOGIC, TILE_ALL_LOGIC, *b), ),
 				((False, ), )
 			) for b in [(2*l+o, i) for l in range(5) for o, i in [(0, 45), (1, 44), (1, 45)]]
-		] + [
+		] + [# LUTs for top, lft, bot, rgt output
 			IcecraftGeneConstraint(
 				tuple(IcecraftBitPosition(TILE_ALL_LOGIC, TILE_ALL_LOGIC, *c) for c in b),
 				tuple(
@@ -145,7 +145,7 @@ class XC6200RepGen(RepresentationGenerator):
 					(8, 39), (9, 39), (9, 38), (8, 38), (8, 37), (9, 37), (9, 36), (8, 36)
 				)
 			]
-		] + [# truth table LUT 0
+		] + [# truth table LUT 0, i.e. function unit
 			IcecraftGeneConstraint(
 				tuple(IcecraftBitPosition(TILE_ALL_LOGIC, TILE_ALL_LOGIC, *c) for c in [
 					(0, 40), (1, 40), (1, 41), (0, 41), (0, 42), (1, 42), (1, 43), (0, 43),
