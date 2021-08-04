@@ -69,9 +69,13 @@ class IcecraftRep(Representation):
 		yield from self.genes
 	
 	def iter_carry_bits(self) -> Iterable[IcecraftBitPosition]:
+		for cd in self.iter_carry_data():
+			yield from cd.carry_enable
+	
+	def iter_carry_data(self) -> Iterable[CarryData]:
 		for tile in sorted(self.carry_data):
 			for lut_index in sorted(self.carry_data[tile]):
-				yield from self.carry_data[tile][lut_index].carry_enable
+				yield self.carry_data[tile][lut_index]
 	
 	@staticmethod
 	def set_carry_enable(config: TargetConfiguration, carry_data: CarryDataMap) -> None:
