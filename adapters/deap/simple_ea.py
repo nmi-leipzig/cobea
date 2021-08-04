@@ -4,7 +4,8 @@ import time
 
 from dataclasses import dataclass, field
 from enum import auto, Enum
-from typing import Callable, Iterable, List, Optional, Tuple
+from functools import partial
+from typing import Any, Callable, Iterable, List, Mapping, Optional, Tuple
 
 import numpy as np
 
@@ -27,6 +28,17 @@ class EvalMode(Enum):
 
 creator.create("SimpleFit", base.Fitness, weights=(1.0, ))
 
+class InfoSource:
+	def get_info(self) -> Mapping[str, Any]:
+		return {}
+
+@dataclass
+class GenSource(InfoSource):
+	gen: int
+	
+	def get_info(self) -> Mapping[str, Any]:
+		return {"generation": self.gen}
+
 @dataclass
 class Individual:
 	chromo: Chromosome
@@ -40,7 +52,8 @@ class Individual:
 		return self.chromo.allele_indices[index]
 	
 	@classmethod
-	def wrap_alteration(cls, func, in_count, chromo_gen: GenChromo, data_sink: DataSink) -> Callable[..., Tuple["Individual", ...]]:
+	def wrap_alteration(cls, func, in_count, chromo_gen: GenChromo, data_sink: DataSink, info_src: InfoSource
+		) -> Callable[..., Tuple["Individual", ...]]:
 		
 		def wrapped_func(*args, **kwargs) -> Tuple["Individual", ...]:
 			in_indis = args[:in_count]
@@ -65,10 +78,12 @@ class Individual:
 				out_indis.append(new_indi)
 			
 			if data_sink is not None:
-				data_sink.write(f"{cls.__name__}.wrap.{func.__name__}", {
+				sink_data = {
 					"in": [i.chromo.identifier for i in in_indis],
 					"out": [i.chromo.identifier for i in out_indis]
-				})
+				}
+				sink_data.update(info_src.get_info())
+				data_sink.write(f"{cls.__name__}.wrap.{func.__name__}", sink_data)
 			
 			return tuple(out_indis)
 		
@@ -104,21 +119,22 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		self.write_to_sink("random_initial", {"state": random.getstate()})
 		
 		# create toolbox
-		toolbox = self.create_toolbox(mutation_prob)
+		gen_src = GenSource(0)
+		toolbox = self.create_toolbox(mutation_prob, gen_src)
 		
 		# create population
 		pop = self._init_pop(pop_size)
 		
 		# run
 		#algorithms.eaSimple(pop, toolbox, cxpb=crossover_prob, mutpb=mutation_prob, ngen=gen_count)
-		self.org_ea(pop, toolbox, crossover_prob, mutation_prob, gen_count, eval_mode)
+		self.org_ea(pop, toolbox, crossover_prob, mutation_prob, gen_count, eval_mode, gen_src)
 		
 		# DEAP uses random directly, so store it's inital state
 		self.write_to_sink("random_final", {"state": random.getstate()})
 		
 	
 	@staticmethod
-	def evaluate_invalid(pop: List[Individual], toolbox: base.Toolbox) -> None:
+	def evaluate_invalid(pop: List[Individual], toolbox: base.Toolbox, gen: int) -> None:
 		"""Evaluate fitness for all indiviuals with invalid fitness"""
 		# the same individual may be multiple times in the population
 		# -> avoid doing multiple evaluations for one individual by making the list entries unique
@@ -126,12 +142,12 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		invalid_list = [
 			i for i in pop if not i.fitness.valid and not (i.chromo.identifier in seen or seen.add(i.chromo.identifier))
 		]
-		fitness_list = toolbox.map(toolbox.evaluate, invalid_list)
+		fitness_list = toolbox.map(partial(toolbox.evaluate, info={"generation": gen}), invalid_list)
 		for indi, fit in zip(invalid_list, fitness_list):
 			indi.fitness.values = fit
 	
 	def org_ea(self, pop: List[Individual], toolbox: base.Toolbox, cxpb: float, mutpb: float, ngen: int,
-		eval_mode: EvalMode) -> None:
+		eval_mode: EvalMode, gen_src: GenSource) -> None:
 		
 		pop_size = len(pop)
 		# prepare rank probabilities
@@ -140,22 +156,17 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		
 		# initial evaluation
 		prev_time = time.perf_counter()
-		self.evaluate_invalid(pop, toolbox)
+		self.evaluate_invalid(pop, toolbox, 0)
 		best = max([p.fitness.values for p in pop])
+		self.write_to_sink("gen", {"pop": [p.chromo.identifier for p in pop]})
+		cur_time = time.perf_counter()
+		print(f"Initial evaluation took {cur_time-prev_time:.1f} s")
 		
 		start_time = time.perf_counter()
-		for gen_nr in range(ngen):
-			cur_time = time.perf_counter()
-			try:
-				eta = (cur_time - start_time) * (ngen/gen_nr - 1)
-			except ZeroDivisionError:
-				# can't estimate for 0 generation
-				eta = -1.0
-			print(f"Generation {gen_nr} took {cur_time-prev_time:.1f} s, eta : {eta:.1f} s; highest fitness: {best}")
-			prev_time = cur_time
+		prev_time = start_time
+		for gen_nr in range(1, ngen+1):
+			gen_src.gen = gen_nr
 			
-			
-			self.write_to_sink("gen", {"pop": [p.chromo.identifier for p in pop]})
 			# find probability based on rank
 			ranked = sorted(pop, key=lambda x:x.fitness)
 			for indi, rp in zip(ranked, prob_list):
@@ -189,11 +200,14 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 				self.invalidate(pop)
 			# nothing to do for EvalMode.NEW as the new individuals have no valid fitness value
 			
+			self.evaluate_invalid(pop, toolbox, gen_nr)
 			
-			self.evaluate_invalid(pop, toolbox)
+			self.write_to_sink("gen", {"pop": [p.chromo.identifier for p in pop]})
 			
-		
-		self.write_to_sink("gen", {"pop": [p.chromo.identifier for p in pop]})
+			cur_time = time.perf_counter()
+			eta = (cur_time - start_time) * (ngen/gen_nr - 1)
+			print(f"Generation {gen_nr} took {cur_time-prev_time:.1f} s, eta : {eta:.1f} s; highest fitness: {best}")
+			prev_time = cur_time
 		
 		cur_time = time.perf_counter()
 		print(f"{ngen} generations took {cur_time-start_time:.2f} s")
@@ -202,7 +216,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 	def _init_pop(self, count) -> List[Individual]:
 		return [Individual(self._init_uc(RequestObject())) for _ in range(count)]
 	
-	def _evaluate(self, indi: Individual, comb_index: Optional[int]=None) -> Tuple[int]:
+	def _evaluate(self, indi: Individual, comb_index: Optional[int]=None, info: Mapping[str, Any]={}) -> Tuple[int]:
 		if comb_index is None:
 			comb_index = random.choice(range(len(self._driver_table)))
 		comb_seq = self._driver_table[comb_index]
@@ -240,17 +254,19 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 				slow_sum += auc
 		
 		fit = abs(slow_sum/30730.746 - fast_sum/30527.973)/10
-		self.write_to_sink("fitness", {
+		sink_data = {
 			"fit": fit,
 			"fast_sum": fast_sum,
 			"slow_sum": slow_sum,
 			"chromo_index": indi.chromo.identifier,
 			"carry_enable": carry_enable_state,
 			"time": cur_time,
-		})
+		}
+		sink_data.update(info)
+		self.write_to_sink("fitness", sink_data)
 		return (fit, )
 	
-	def create_toolbox(self, mutation_prob: float) -> base.Toolbox:
+	def create_toolbox(self, mutation_prob: float, info_src: InfoSource) -> base.Toolbox:
 		#creator.create("TestFit", base.Fitness, weights=(1.0,))
 		#creator.create("Chromo", list, fitness=creator.TestFit)
 		
@@ -260,10 +276,11 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		#toolbox.register("init_individual", tools.initRepeat, creator.Chromo, toolbox.rand_bool, 20)
 		#toolbox.register("init_pop", tools.initRepeat, list, toolbox.init_individual)
 		
-		toolbox.register("mate", Individual.wrap_alteration(tools.cxOnePoint, 2, self._chromo_gen, self._data_sink))
+		toolbox.register("mate", Individual.wrap_alteration(tools.cxOnePoint, 2, self._chromo_gen, self._data_sink, 
+			info_src))
 		toolbox.register(
 			"mutate",
-			Individual.wrap_alteration(tools.mutUniformInt, 1, self._chromo_gen, self._data_sink),
+			Individual.wrap_alteration(tools.mutUniformInt, 1, self._chromo_gen, self._data_sink, info_src),
 			low=0, up=[len(g.alleles)-1 for g in self._rep.iter_genes()], indpb=mutation_prob)
 		toolbox.register("select", tools.selRoulette)
 		toolbox.register("evaluate", self._evaluate)
