@@ -79,7 +79,7 @@ def prepare_generator(gen: TargetDevice, asc_path: str) -> IcecraftRawConfig:
 	
 	return config
 
-def create_meter_setup():
+def create_meter_setup() -> SetupCmd:
 	setup = OsciDS1102E.create_setup()
 	setup.CHAN1.DISP.value_ = "ON"
 	setup.CHAN1.PROB.value_ = 10
@@ -105,7 +105,6 @@ def create_meter_setup():
 	setup.TRIG.EDGE.LEV.value_ = 1
 	
 	return setup
-
 
 @dataclass
 class CalibrationData:
