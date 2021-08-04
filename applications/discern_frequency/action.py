@@ -60,7 +60,7 @@ def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int], in_por
 	bef = time.perf_counter()
 	rep = rep_gen(req)
 	aft = time.perf_counter()
-	print(f"rep gen took in {aft-bef} s, {sum(g.alleles.size_in_bits() for g in rep.genes)} bits")
+	print(f"rep gen took {aft-bef} s, {sum(g.alleles.size_in_bits() for g in rep.genes)} bits")
 	
 	return rep
 
