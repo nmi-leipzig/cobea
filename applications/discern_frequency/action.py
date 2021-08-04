@@ -344,6 +344,7 @@ def add_ea_writes(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftR
 				shape=(len(list(rep.iter_carry_bits())), ),
 				comp_opt=4,
 			),
+			ParamAim(["generation"], "uint64", "generation", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 		],
 		"SimpleEA.ea_params": [
 			ParamAim(["pop_size"], "uint64", "pop_size"),
@@ -359,6 +360,7 @@ def add_ea_writes(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftR
 		"Individual.wrap.cxOnePoint": [
 			ParamAim(["in"], "uint64", "parents", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
 			ParamAim(["out"], "uint64", "children", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
+			ParamAim(["generation"], "uint64", "generation", "crossover", as_attr=False, comp_opt=9, shuffle=True),
 		],
 		"Individual.wrap.mutUniformInt": [
 			ParamAim(
@@ -369,6 +371,10 @@ def add_ea_writes(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftR
 				["in", "out"], "uint64", "child", "mutation", as_attr=False,
 				alter=partial(compose, funcs=[ignore_same, itemgetter(0)]), comp_opt=9, shuffle=True
 			),
+			ParamAim(
+				["in", "out", "generation"], "uint64", "generation", "mutation", as_attr=False,
+				alter=ignore_same, comp_opt=9, shuffle=True
+			),
 		],
 		"prng": [ParamAim(["seed"], "int64", "prng_seed")] + create_rng_aim("final_state", "prng_final_"),
 	}
@@ -378,10 +384,15 @@ def add_ea_writes(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftR
 		"fitness/fast_sum": [MetaEntry("description", "aggregated area under the curve for all 10 kHz bursts")],
 		"fitness/slow_sum": [MetaEntry("description", "aggregated area under the curve for all 1 kHz bursts")],
 		"fitness/chromo_id": [MetaEntry("description", "ID of the corresponding chromosome")],
+		"fitness/generation": [MetaEntry("description", "generation in which the fitness was evaluated")],
 		"population": [MetaEntry("description", "IDs of the chromosomes included in each generation")],
 		"crossover": [MetaEntry("description", "IDs of the chromosomes participating in and resulting from crossover")],
+		"crossover/generation": [MetaEntry("description", "value i means crossover occured while generating generation "
+			"i from generation i-1")],
 		"mutation": [MetaEntry("description", "IDs of chromosomes resulting from mutation; as all chromosomes of a "
 			"generation participate in mutation, only alterations are recorded")],
+		"mutation/generation": [MetaEntry("description", "value i means mutation occured while generating generation "
+			"i from generation i-1")],
 	}
 	
 	write_map.update(ea_map)
