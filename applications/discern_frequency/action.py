@@ -201,8 +201,12 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 			HDF5Sink.create_gene_aims("const", len(rep.constant), h5_path="mapping/constant")+[
 				ParamAim(["carry_bits"], "uint16", "bits", "fitness/carry_enable",
 					alter=partial(compose, funcs=[itemgetter(0), partial(map, methodcaller("to_ints")), list])),
-				ParamAim(["output"], "uint16", "output_lutffs", "mapping", alter=partial(compose, funcs=[itemgetter(0),
+				ParamAim(["output"], "uint16", "output_lutff", "mapping", alter=partial(compose, funcs=[itemgetter(0),
 					partial(map, astuple), list])),
+				ParamAim(["colbufctrl"], "uint16", "colbufctrl_bits", "mapping", alter=partial(compose, funcs=[
+					itemgetter(0), partial(map, partial(compose, funcs=[attrgetter("bits"), astuple])), list])),
+				ParamAim(["colbufctrl"], "uint16", "colbufctrl_index", "mapping", alter=partial(compose, funcs=[
+					itemgetter(0), partial(map, attrgetter("index")), list])),
 			],
 		"calibration": [
 			ParamAim(["data"], "float64", "calibration", as_attr=False, shuffle=False),
@@ -469,6 +473,7 @@ def run(args) -> None:
 			"const": rep.constant,
 			"carry_bits": list(rep.iter_carry_bits()),
 			"output": rep.output,
+			"colbufctrl": rep.colbufctrl,
 		})
 		
 		if use_dummy:
@@ -609,6 +614,7 @@ def remeasure(args: Namespace) -> None:
 			"const": rep.constant,
 			"carry_bits": list(rep.iter_carry_bits()),
 			"output": rep.output,
+			"colbufctrl": rep.colbufctrl,
 		})
 		
 		sink.write("misc", {
