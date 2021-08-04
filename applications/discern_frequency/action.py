@@ -253,8 +253,11 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 				"trigger signaling the bursts should start at 0.5 s"),
 			MetaEntry("unit", "Volt"),
 		],
-		"habitat": [MetaEntry("description", "basic configuration of the FPGA that defines the periphery of the "
-			"evolved part; the values are bytes of the asc format")],
+		"habitat": [
+			MetaEntry("description", "basic configuration of the FPGA that defines the periphery of the evolved part; "
+				"the values are bytes of the asc format"),
+			MetaEntry("connection", "input from the driver to habitat at pin R15; output from habitat to meter at D14"),
+		],
 	}
 	
 	return write_map, metadata
