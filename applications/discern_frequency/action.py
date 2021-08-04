@@ -51,7 +51,6 @@ def tiles_from_corners(min_pos: Tuple[int, int], max_pos: Tuple[int, int]) -> Li
 
 # generate representation
 def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int], in_port: XC6200Port) -> IcecraftRep:
-	#TODO: add input port to function parameters
 	rep_gen = XC6200RepGen()
 	
 	tiles = tiles_from_corners(min_pos, max_pos)
