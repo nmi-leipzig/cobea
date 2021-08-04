@@ -259,6 +259,8 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 		"mapping/constant": [MetaEntry("description", "part of the configuration bits that is fixed")],
 		"fitness/carry_bits": [MetaEntry("description", "values of carry enable bits; derived from the configuration "
 			"bits defined by the genotype")],
+		"mapping/carry_data": [MetaEntry("description", "data describing how to derive the carry bits from the "
+			"configuration bits defined by the genotype")],
 		"calibration": [
 			MetaEntry("description", "calibrate the measurement time to the exact duration of the 10 bursts; the "
 				"trigger signaling the bursts should start at 0.5 s"),
@@ -277,6 +279,16 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 				"signal to the meter at pin D14"),
 		]
 	}
+	
+	for i, cd in enumerate(rep.iter_carry_data()):
+		metadata[f"mapping/carry_data/carry_data_{i}"] = [
+			MetaEntry("lut_index", cd.lut_index, "uint8"),
+			MetaEntry("carry_enable", [astuple(b) for b in cd.carry_enable], "uint16"),
+		] + [
+			MetaEntry(f"carry_use_{k}_bits", [astuple(b) for b in p.bits], "uint16") for k, p in enumerate(cd.carry_use)
+		] + [
+			MetaEntry(f"carry_use_{k}_values", p.values, bool) for k, p in enumerate(cd.carry_use)
+		]
 	
 	return write_map, metadata
 
