@@ -21,6 +21,8 @@ def create_arg_parser():
 		" corner points", metavar=("X_MIN", "Y_MIN", "X_MAX", "Y_MAX"))
 	run_parser.add_argument("--in-port", nargs=3, type=str, required=True, help="input port for the frequency signal to"
 		" the evolvable area", metavar=("X", "Y", "DIR"))
+	run_parser.add_argument("--out-port", nargs=3, type=str, help="output port for the signal from the evolvable area",
+		metavar=("X", "Y", "DIR"))
 	run_parser.add_argument("--pop-size", type=int, required=True, help="size of the population")
 	run_parser.add_argument("--generations", type=int, required=True, help="number of generation")
 	run_parser.add_argument("--crossover-prob", type=float, required=True, help="probability that a crossover takes"
