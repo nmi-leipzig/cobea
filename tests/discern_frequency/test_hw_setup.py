@@ -136,6 +136,15 @@ class HWSetupTest(TestCase):
 		
 		plt.show()
 	
+	def print_stats(self, sub_data):
+		for sd in sub_data:
+			print(f"mean: {np.mean(sd)}")
+			print(f"var: {np.var(sd)}")
+			print(f"std: {np.std(sd)}")
+			print(f"max dev: {max(abs(np.array(sd)-np.mean(sd)))}")
+			print()
+		
+	
 	def test_measurement(self):
 		try:
 			driver_sn, target_sn, meter_sn = self.detect_setup()
@@ -156,7 +165,7 @@ class HWSetupTest(TestCase):
 			self.flash_device(gen, "freq_gen.asc")
 			#self.flash_device(gen, "ctr_drv_2_5.asc")
 			self.flash_device(target, "dummy_hab.asc")
-			
+			#self.flash_device(target, "const_target.asc")
 			
 			driver = FixedEmbedDriver(gen, "B")
 			
@@ -202,6 +211,7 @@ class HWSetupTest(TestCase):
 				sub_data = [data[len(data)*i//12:len(data)*(i+1)//12] for i in range(12)]
 				# remove first and last
 				sub_data = sub_data[1:11]
+				#self.print_stats(sub_data)
 				# check fft
 				tmp_comb = comb
 				for sd in sub_data:
@@ -393,6 +403,11 @@ class HWSetupTest(TestCase):
 				req["driver_data"] = InputData([comb_index])
 				
 				data = measure_uc(req)
+				
+				sub_data = [data[len(data)*i//12:len(data)*(i+1)//12] for i in range(12)]
+				# remove unused
+				sub_data = sub_data[2:]
+				#self.print_stats(sub_data)
 	
 
 
