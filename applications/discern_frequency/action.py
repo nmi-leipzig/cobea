@@ -528,7 +528,7 @@ def run(args) -> None:
 				args.generator,
 				args.target,
 				"",
-				os.path.join(pkg_path, "freq_gen.asc"),
+				args.freq_gen,
 				stack,
 				metadata
 			)
