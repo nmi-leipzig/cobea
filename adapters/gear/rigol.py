@@ -139,7 +139,7 @@ class OsciDS1102E(Meter, IdentifiableHW):
 		self._osci.write("*RST")
 		time.sleep(self._delay)
 	
-	def raw_to_volt_func(self) -> Callable[[Iterable[int]], List[float]]:
+	def raw_to_volt_func(self) -> Callable[[Iterable[int]], Iterable[float]]:
 		"""Creates a function that converts raw integer values to float Volt values.
 		
 		The oscilloscope setup at the time of creation of the convertion function are respected
@@ -153,7 +153,7 @@ class OsciDS1102E(Meter, IdentifiableHW):
 			offset = self._setup.CHAN2.OFFS.value_
 		
 		def func(raw_data: Iterable[int]) -> List[float]:
-			return [(128-r)*scale/25.6-offset for r in raw_data]
+			return OutputData([(128-r)*scale/25.6-offset for r in raw_data])
 		
 		return func
 	
