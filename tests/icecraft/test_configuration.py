@@ -23,6 +23,10 @@ class IcecraftStormConfigTest(unittest.TestCase):
 	def test_create_empty(self):
 		config = self.target_cls.create_empty()
 	
+	def test_create_from_file(self):
+		with open(self.config_meta[RAMMode.RAM_256x16].asc_filename, "r") as asc_file:
+			config = self.target_cls.create_from_file(asc_file)
+	
 	def test_create_from_filename(self):
 		config = self.target_cls.create_from_filename(self.config_meta[RAMMode.RAM_256x16].asc_filename)
 	

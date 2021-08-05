@@ -1,7 +1,7 @@
 import os
 import sys
 from io import StringIO, BytesIO
-from typing import Iterable, List, Tuple, Sequence
+from typing import Iterable, List, TextIO, Tuple, Sequence
 
 sys.path.append("/usr/local/bin")
 import icebox
@@ -59,6 +59,11 @@ class IcecraftRawConfig(TargetConfiguration):
 	def get_ram_values(self, ram_block: IcecraftPosition, address: int, count: int=1, mode: RAMMode=RAMMode.RAM_512x8) -> List[int]:
 		raw_mode = self.mode_map[mode]
 		return self._raw_config.get_bram_values(TilePosition(ram_block.x, ram_block.y), address, count, raw_mode)
+	
+	@classmethod
+	def create_from_file(cls, asc_file: TextIO) -> "IcecraftRawConfig":
+		raw_config = Configuration.create_from_asc(asc_file)
+		return cls(raw_config)
 	
 	@classmethod
 	def create_from_filename(cls, asc_filename: str) -> "IcecraftRawConfig":
@@ -214,6 +219,10 @@ class IcecraftStormConfig(TargetConfiguration):
 		new_str_word = "{:04x}".format(new_int_word)
 		assert len(new_str_word) == 4, f"Word in hex has to have 4 characters, not {len(new_str_word)}."
 		ram_strings[row_index] = str_row[:l-4*(col_index+1)] + new_str_word + str_row[l-4*col_index:]
+	
+	@classmethod
+	def create_from_file(cls, asc_file: TextIO) -> "IcecraftStormConfig":
+		return cls.create_from_filename(asc_file.name)
 	
 	@classmethod
 	def create_from_filename(cls, asc_filename: str) -> "IcecraftStormConfig":
