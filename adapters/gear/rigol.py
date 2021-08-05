@@ -229,7 +229,7 @@ class OsciDS1102E(Meter, IdentifiableHW):
 		
 		return self._prep(raw_data)
 	
-	def _read_data(self, chan: int) -> List[int]:
+	def _read_data(self, chan: int) -> bytes:
 		self._osci.write(f":WAV:DATA? CHAN{chan}")
 		
 		bef = time.perf_counter()
