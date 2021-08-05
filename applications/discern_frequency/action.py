@@ -571,7 +571,7 @@ def run(args) -> None:
 		prng = BuiltInPRNG(seed)
 		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
 		
-		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob, EvalMode.NEW)
+		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob, EvalMode[args.eval_mode])
 		
 		sink.write("prng", {"seed": seed, "final_state": prng.get_state()})
 
