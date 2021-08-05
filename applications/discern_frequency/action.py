@@ -258,14 +258,10 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 		"habitat": [
 			MetaEntry("description", "basic configuration of the target FPGA that defines the periphery of the evolved "
 				"part; the values are bytes of the asc format"),
-			MetaEntry("connection", "input from the driver to habitat at pin R15; output from habitat to meter at pin "
-				"D14"),
 		],
 		"freq_gen": [
 			MetaEntry("description", "configuration of the driver FPGA that creates the frequency bursts; the values "
 				"are bytes of the asc format"),
-			MetaEntry("connection", "output of the frequency bursts to the target at pin R15; output of the trigger "
-				"signal to the meter at pin D14"),
 		]
 	}
 	
@@ -515,6 +511,10 @@ def run(args) -> None:
 			MetaEntry("out_port_pos", args.out_port[:2], "uint16"),
 			MetaEntry("out_port_dir", args.out_port[2]),
 		])
+	if args.habitat_con:
+		metadata["habitat"].append(MetaEntry("connection", args.habitat_con))
+	if args.freq_gen_con:
+		metadata.setdefault("freq_gen", []).append(MetaEntry("connection", args.freq_gen_con))
 	
 	with ExitStack() as stack:
 		if use_dummy:

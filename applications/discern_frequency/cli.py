@@ -33,8 +33,11 @@ def create_arg_parser():
 	run_parser.add_argument("--dummy", action="store_true", help="use dummies instead of real hardware")
 	run_parser.add_argument("--habitat", type=str, required=True, help="ASC file of the base configuration for the "
 		"target FPGA; provides the periphery of the evolved area")
+	run_parser.add_argument("--habitat-con", type=str, help="description of the connections of the habitat")
 	run_parser.add_argument("--freq-gen", type=str, required=True, help="configuration file of the frequency generator;"
 		" ASC format")
+	run_parser.add_argument("--freq-gen-con", type=str, help="description of the connections of the frequency "
+		"generator")
 	
 	rem_parser = sub_parsers.add_parser("remeasure", help="repeat measurement of an individual")
 	rem_parser.set_defaults(function=remeasure)
