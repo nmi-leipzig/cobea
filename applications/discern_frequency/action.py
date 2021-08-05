@@ -554,8 +554,9 @@ def run(args) -> None:
 		measure_uc = Measure(driver, meter, sink)
 		
 		#hab_path = os.path.join(pkg_path, "dummy_hab.asc")
-		hab_path = os.path.join(pkg_path, "nhabitat.asc")
-		hab_config = IcecraftRawConfig.create_from_filename(hab_path)
+		#hab_path = os.path.join(pkg_path, "nhabitat.asc")
+		
+		hab_config = IcecraftRawConfig.create_from_filename(args.habitat)
 		sink.write("habitat", {
 			"text": hab_config.to_text(),
 		})

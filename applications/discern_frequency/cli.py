@@ -29,6 +29,8 @@ def create_arg_parser():
 		" place")
 	run_parser.add_argument("--eval-mode", default="NEW", type=str, choices=[e.name for e in EvalMode], help="which individuals in each generation are evaluated; NEW -> ones without fitness value; ELITE -> without fitness value and elites; ALL -> all")
 	run_parser.add_argument("--dummy", action="store_true", help="use dummies instead of real hardware")
+	run_parser.add_argument("--habitat", type=str, required=True, help="ASC file of the base configuration for the "
+		"target FPGA; provides the periphery of the evolved area")
 	
 	rem_parser = sub_parsers.add_parser("remeasure", help="repeat measurement of an individual")
 	rem_parser.set_defaults(function=remeasure)
