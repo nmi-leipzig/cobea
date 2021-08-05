@@ -363,6 +363,8 @@ class HWSetupTest(TestCase):
 		
 		res = calibrate(driver)
 		#print(asdict(res))
+		
+		man.release(gen)
 	
 	def test_target_out(self):
 		# target creates values independant from driver to see quality of output
