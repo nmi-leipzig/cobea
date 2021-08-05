@@ -190,7 +190,7 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 	write_map = {
 		"Measure.perform": [
 			ParamAim(["driver_data"], "uint8", "s_t_index", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			ParamAim(["return"], "float64", "measurement", "fitness", as_attr=False, shape=(2**19, ), shuffle=False),
+			ParamAim(["return"], "uint8", "measurement", "fitness", as_attr=False, shape=(2**19, ), shuffle=False),
 		],
 		"Measure.additional": [
 			ParamAim(["time"], "float64", "time", "fitness", as_attr=False,
@@ -234,10 +234,10 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 		"fitness/s_t_index": [MetaEntry("description", "index of the s-t-combination used for determining the order of "
 			"5 1 kHz and 5 10 kHz bursts")],
 		"fitness/measurement": [
-			MetaEntry("description", "output of the phenotype measured by an oscilloscope; each " 
+			MetaEntry("description", "raw output of the phenotype measured by an oscilloscope; each " 
 				"measurement took 6 s; in the last 5 s 10 bursts of either 1 kHz or 10 kHz were presented at the input;"
-				" only this last 5 s are relevant for the fitness value"),
-			MetaEntry("unit", "Volt")
+				" only this last 5 s are relevant for the fitness value; the volt value can be computed by v = (128 - "
+				"r)*:CHAN1:SCAL/25.6 - :CHAN1:OFFS"),
 		],
 		"fitness/time": [
 			MetaEntry("description", "time the measurement started; timezone UTC"),
@@ -440,7 +440,7 @@ def create_measure_setup(driver_sn: str, target_sn: str, meter_sn: str, driver_a
 	meter_setup.TIM.OFFS.value_ = cal_data.offset
 	metadata.setdefault("fitness/measurement", []).extend(meter_setup_to_meta(meter_setup))
 	
-	meter = OsciDS1102E(meter_setup)
+	meter = OsciDS1102E(meter_setup, raw=True)
 	stack.callback(meter.close)
 	
 	metadata.setdefault("fitness/measurement", []).extend([
@@ -526,6 +526,7 @@ def run(args) -> None:
 			target = MagicMock()
 			sink_writes = []
 			print("dummies don't support real EA -> abort")
+			preprocessing = lambda x: x
 			return
 		else:
 			driver, target, meter, cal_data, sink_writes = create_measure_setup(
@@ -536,6 +537,7 @@ def run(args) -> None:
 				stack,
 				metadata
 			)
+			preprocessing = meter.raw_to_volt_func()
 		
 		sink = ParallelSink(HDF5Sink, (write_map, metadata))
 		
@@ -569,7 +571,8 @@ def run(args) -> None:
 		#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
 		seed = int(datetime.utcnow().timestamp())
 		prng = BuiltInPRNG(seed)
-		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
+		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink,
+			prep=preprocessing)
 		
 		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob, EvalMode[args.eval_mode])
 		
