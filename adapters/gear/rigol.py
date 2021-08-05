@@ -88,16 +88,22 @@ class InvalidMsgError(Exception):
 	pass
 
 class OsciDS1102E(Meter, IdentifiableHW):
-	def __init__(self, setup: SetupCmd, serial_number: Optional[str]=None, data_chan: int=1) -> None:
+	def __init__(self, setup: SetupCmd, serial_number: Optional[str]=None, data_chan: int=1, raw: bool=False) -> None:
+		"""
+		
+		raw: flag for returning raw bytes instead of volt floats
+		"""
 		self._setup = setup
 		self._serial_number = serial_number
 		self._hw_type = None
 		self._firmware_version = None
 		self._data_chan = data_chan
+		self._raw = raw
 		self._is_open = False
 		self._res_man = None
 		self._dev_str = None
 		self._osci = None
+		self._prep = None
 		self._delay = 0.1
 		
 		self.open()
@@ -133,6 +139,24 @@ class OsciDS1102E(Meter, IdentifiableHW):
 		self._osci.write("*RST")
 		time.sleep(self._delay)
 	
+	def raw_to_volt_func(self) -> Callable[[Iterable[int]], List[float]]:
+		"""Creates a function that converts raw integer values to float Volt values.
+		
+		The oscilloscope setup at the time of creation of the convertion function are respected
+		for the conversion.
+		"""
+		if self._data_chan == 1:
+			scale = self._setup.CHAN1.SCAL.value_
+			offset = self._setup.CHAN1.OFFS.value_
+		else:
+			scale = self._setup.CHAN2.SCAL.value_
+			offset = self._setup.CHAN2.OFFS.value_
+		
+		def func(raw_data: Iterable[int]) -> List[float]:
+			return [(128-r)*scale/25.6-offset for r in raw_data]
+		
+		return func
+	
 	def open(self):
 		if self._is_open:
 			return
@@ -146,6 +170,11 @@ class OsciDS1102E(Meter, IdentifiableHW):
 		self._osci.chunk_size = 2*1024*1024
 		# large chunks can take a long time -> increase timeout
 		self._osci.timeout = 60000
+		
+		if self._raw:
+			self._prep = lambda x: OutputData(x)
+		else:
+			self._prep = self.raw_to_volt_func()
 		
 		self._is_open = True
 	
@@ -198,11 +227,7 @@ class OsciDS1102E(Meter, IdentifiableHW):
 		
 		raw_data = self._read_data(self._data_chan)
 		
-		scale = self._setup.CHAN1.SCAL.value_
-		offset = self._setup.CHAN1.OFFS.value_
-		
-		data = [(128-r)*scale/25.6-offset for r in raw_data]
-		return OutputData(data)
+		return self._prep(raw_data)
 	
 	def _read_data(self, chan: int) -> List[int]:
 		self._osci.write(f":WAV:DATA? CHAN{chan}")
