@@ -17,7 +17,7 @@ from deap import algorithms
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink, DataSinkUser
 from domain.interfaces import EvoAlgo, InputData, PRNG, Representation, TargetConfiguration, TargetDevice, UniqueID
-from domain.model import Chromosome
+from domain.model import Chromosome, OutputData
 from domain.request_model import RequestObject
 from domain.use_cases import GenChromo, Measure, RandomChromo
 
@@ -90,7 +90,9 @@ class Individual:
 		return wrapped_func
 
 class SimpleEA(EvoAlgo, DataSinkUser):
-	def __init__(self, rep: Representation, measure_uc: Measure, uid_gen: UniqueID, prng: PRNG, habitat: TargetConfiguration, target: TargetDevice, trig_len: int, data_sink: DataSink) -> None:
+	def __init__(self, rep: Representation, measure_uc: Measure,
+		uid_gen: UniqueID, prng: PRNG, habitat: TargetConfiguration, target: TargetDevice, trig_len: int,
+		data_sink: DataSink, prep: Callable[[OutputData], OutputData]=lambda x: x) -> None:
 		self._rep = rep
 		self._measure_uc = measure_uc
 		self._init_uc = RandomChromo(prng, rep, uid_gen, data_sink)
@@ -100,6 +102,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		self._target = target
 		self._trig_len = trig_len
 		self._data_sink = data_sink
+		self._prep = prep
 		
 		self._driver_table = lexicographic_combinations(5, 5)
 	
@@ -233,7 +236,8 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			carry_enable_state.append(self._habitat.get_bit(bit))
 		self._target.configure(self._habitat)
 		cur_time = datetime.datetime.now(datetime.timezone.utc)
-		data = self._measure_uc(eval_req)
+		raw_data = self._measure_uc(eval_req)
+		data = self._prep(raw_data)
 		
 		h_div = (12*0.5) / len(data)
 		
