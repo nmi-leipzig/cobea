@@ -105,7 +105,7 @@ class EmbedMeterTest(TestCase):
 		
 		for send_meta in SEND_BRAM_META:
 			with self.subTest(mode=send_meta.mode):
-				config = IcecraftRawConfig.create_from_file(send_meta.asc_filename)
+				config = IcecraftRawConfig.create_from_filename(send_meta.asc_filename)
 				device.configure(config)
 				
 				count = block_size_from_mode(send_meta.mode)

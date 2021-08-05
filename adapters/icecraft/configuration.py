@@ -61,7 +61,7 @@ class IcecraftRawConfig(TargetConfiguration):
 		return self._raw_config.get_bram_values(TilePosition(ram_block.x, ram_block.y), address, count, raw_mode)
 	
 	@classmethod
-	def create_from_file(cls, asc_filename: str) -> "IcecraftRawConfig":
+	def create_from_filename(cls, asc_filename: str) -> "IcecraftRawConfig":
 		raw_config = Configuration.create_from_asc_filename(asc_filename)
 		return cls(raw_config)
 	
@@ -216,7 +216,7 @@ class IcecraftStormConfig(TargetConfiguration):
 		ram_strings[row_index] = str_row[:l-4*(col_index+1)] + new_str_word + str_row[l-4*col_index:]
 	
 	@classmethod
-	def create_from_file(cls, asc_filename: str) -> "IcecraftStormConfig":
+	def create_from_filename(cls, asc_filename: str) -> "IcecraftStormConfig":
 		ic = icebox.iceconfig()
 		ic.read_file(asc_filename)
 		
@@ -235,7 +235,7 @@ class IcecraftStormConfig(TargetConfiguration):
 		with open(asc_filename, "w") as asc_file:
 			asc_file.write(text)
 		
-		ic = cls.create_from_file(asc_filename)
+		ic = cls.create_from_filename(asc_filename)
 		
 		os.remove(asc_filename)
 		

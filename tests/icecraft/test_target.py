@@ -10,7 +10,7 @@ class IcecraftDeviceTest(unittest.TestCase):
 	def get_configured_device(self, asc_filename):
 		fpga = icecraft.target.FPGABoard.get_suitable_board()
 		device = icecraft.IcecraftDevice(fpga)
-		config = icecraft.IcecraftStormConfig.create_from_file(asc_filename)
+		config = icecraft.IcecraftStormConfig.create_from_filename(asc_filename)
 		device.configure(config)
 		
 		return device

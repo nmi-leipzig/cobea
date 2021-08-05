@@ -91,7 +91,7 @@ def run_algo(rep: IcecraftRep) -> None:
 			measure_uc = Measure(driver, meter, sink)
 			
 			hab_path = os.path.join(APP_PATH, "nhabitat.asc")
-			hab_config = IcecraftRawConfig.create_from_file(hab_path)
+			hab_config = IcecraftRawConfig.create_from_filename(hab_path)
 			
 			ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target, 437071, sink)
 			

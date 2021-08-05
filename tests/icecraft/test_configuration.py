@@ -23,13 +23,13 @@ class IcecraftStormConfigTest(unittest.TestCase):
 	def test_create_empty(self):
 		config = self.target_cls.create_empty()
 	
-	def test_create_from_file(self):
-		config = self.target_cls.create_from_file(self.config_meta[RAMMode.RAM_256x16].asc_filename)
+	def test_create_from_filename(self):
+		config = self.target_cls.create_from_filename(self.config_meta[RAMMode.RAM_256x16].asc_filename)
 	
 	def test_get_ram_values(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = self.target_cls.create_from_file(current.asc_filename)
+				config = self.target_cls.create_from_filename(current.asc_filename)
 				
 				# read single
 				for address, expected in enumerate(current.initial_data):
@@ -43,7 +43,7 @@ class IcecraftStormConfigTest(unittest.TestCase):
 	def test_set_ram_values(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = self.target_cls.create_from_file(current.asc_filename)
+				config = self.target_cls.create_from_filename(current.asc_filename)
 				
 				expected = list(current.initial_data)
 				# write single
@@ -91,7 +91,7 @@ class IcecraftStormConfigTest(unittest.TestCase):
 	def test_write_asc(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = self.target_cls.create_from_file(current.asc_filename)
+				config = self.target_cls.create_from_filename(current.asc_filename)
 				
 				expected_ic = icebox.iceconfig()
 				expected_ic.read_file(current.asc_filename)
@@ -109,7 +109,7 @@ class IcecraftStormConfigTest(unittest.TestCase):
 	def test_write_bitstream(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = self.target_cls.create_from_file(current.asc_filename)
+				config = self.target_cls.create_from_filename(current.asc_filename)
 				
 				expected_ic = icebox.iceconfig()
 				expected_ic.read_file(current.asc_filename)
@@ -137,7 +137,7 @@ class IcecraftStormConfigTest(unittest.TestCase):
 	def test_get_bitstream(self):
 		for mode, current in self.config_meta.items():
 			with self.subTest(mode=mode):
-				config = self.target_cls.create_from_file(current.asc_filename)
+				config = self.target_cls.create_from_filename(current.asc_filename)
 				
 				expected_ic = icebox.iceconfig()
 				expected_ic.read_file(current.asc_filename)
@@ -177,7 +177,7 @@ class IcecraftStormConfigTest(unittest.TestCase):
 		
 		for current in self.config_meta.values():
 			with self.subTest(asc=current.asc_filename):
-				dut = self.target_cls.create_from_file(current.asc_filename)
+				dut = self.target_cls.create_from_filename(current.asc_filename)
 				for tile, group_map in current.known_bits.items():
 					# append 0 in max to avoid "TypeError: 'int' object is not iterable" if list is empty
 					index_limit = max(18, *[max(g)+1 for g in group_map.values()], 0)
@@ -213,7 +213,7 @@ class IcecraftStormConfigTest(unittest.TestCase):
 		
 		for current in self.config_meta.values():
 			with self.subTest(asc=current.asc_filename):
-				dut = self.target_cls.create_from_file(current.asc_filename)
+				dut = self.target_cls.create_from_filename(current.asc_filename)
 				limits = {t:[
 					max(16, *gm, 0),
 					max(18, *[max(g)+1 for g in gm.values()], 0)

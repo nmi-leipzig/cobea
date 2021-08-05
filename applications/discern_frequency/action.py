@@ -74,7 +74,7 @@ def is_rep_fitting(rep: IcecraftRep, chromo_bits: int) -> bool:
 
 # flash FPGAs
 def prepare_generator(gen: TargetDevice, asc_path: str) -> IcecraftRawConfig:
-	config = IcecraftRawConfig.create_from_file(asc_path)
+	config = IcecraftRawConfig.create_from_filename(asc_path)
 	gen.configure(config)
 	
 	return config
@@ -555,7 +555,7 @@ def run(args) -> None:
 		
 		#hab_path = os.path.join(pkg_path, "dummy_hab.asc")
 		hab_path = os.path.join(pkg_path, "nhabitat.asc")
-		hab_config = IcecraftRawConfig.create_from_file(hab_path)
+		hab_config = IcecraftRawConfig.create_from_filename(hab_path)
 		sink.write("habitat", {
 			"text": hab_config.to_text(),
 		})

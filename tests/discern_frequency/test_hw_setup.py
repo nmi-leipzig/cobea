@@ -108,7 +108,7 @@ class HWSetupTest(TestCase):
 		else:
 			asc_path = os.path.join(self.local_path, asc_filename)
 		
-		config = IcecraftRawConfig.create_from_file(asc_path)
+		config = IcecraftRawConfig.create_from_filename(asc_path)
 		dev.configure(config)
 	
 	def show_data(self, data, fft=False, trig_len=None):

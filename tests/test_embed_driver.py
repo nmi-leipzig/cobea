@@ -95,7 +95,7 @@ class EmbedDriverTest(TestCase):
 		
 		dut = EmbedDriver()
 		meter = EmbedMeter()
-		config = IcecraftRawConfig.create_from_file(os.path.join(TEST_DATA_DIR, "echo_fpga.asc"))
+		config = IcecraftRawConfig.create_from_filename(os.path.join(TEST_DATA_DIR, "echo_fpga.asc"))
 		
 		for tc in self.tc_list:
 			with self.subTest(fmt=tc.fmt):

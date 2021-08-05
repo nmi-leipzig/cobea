@@ -26,7 +26,7 @@ class IcecraftEmbedMeterTest(unittest.TestCase):
 		
 		for send_meta in SEND_BRAM_META:
 			with self.subTest(mode=send_meta.mode):
-				config = icecraft.IcecraftStormConfig.create_from_file(send_meta.asc_filename)
+				config = icecraft.IcecraftStormConfig.create_from_filename(send_meta.asc_filename)
 				# the BRAM needs some time to be functional after power up
 				# else the first read (most of the time address 0) returns always 0
 				data = model.InputData([
