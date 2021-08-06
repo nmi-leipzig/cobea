@@ -6,7 +6,7 @@ from typing import Iterable, List, TextIO, Tuple, Sequence
 sys.path.append("/usr/local/bin")
 import icebox
 
-from .ice_board import BRAMMode, Configuration, FPGABoard, TilePosition, Bit
+from .ice_board import BinOpt, BRAMMode, Configuration, FPGABoard, TilePosition, Bit
 
 from domain.base_structures import BitPos
 from domain.interfaces import TargetConfiguration
@@ -49,8 +49,13 @@ class IcecraftRawConfig(TargetConfiguration):
 		with open(bitstream_name, "wb") as bin_file:
 			self._raw_config.write_bin(bin_file)
 	
-	def get_bitstream(self) -> bytes:
-		return self._raw_config.get_bitstream()
+	def get_bitstream(self, opt: bool=False) -> bytes:
+		"""Return bitstream as bytes.
+		
+		opt: optimization flag
+		"""
+		bin_opt = BinOpt(skip_unused_bram=True, optimize=3, skip_comment=True) if opt else BinOpt()
+		return self._raw_config.get_bitstream(bin_opt)
 	
 	def set_ram_values(self, ram_block: IcecraftPosition, address: int, values: Iterable[int], mode: RAMMode=RAMMode.RAM_512x8) -> None:
 		raw_mode = self.mode_map[mode]
@@ -128,7 +133,8 @@ class IcecraftStormConfig(TargetConfiguration):
 		FPGABoard.pack_bitstream(asc_name, bitstream_name)
 		os.remove(asc_name)
 	
-	def get_bitstream(self) -> bytes:
+	def get_bitstream(self, opt: bool=False) -> bytes:
+		# opt does nothing, just here to keep compatibility to IcecraftRawConfig
 		bin_filename = "tmp.get_bitstream.bin"
 		
 		self.write_bitstream(bin_filename)
