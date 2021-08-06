@@ -84,7 +84,7 @@ def create_meter_setup() -> SetupCmd:
 	setup.CHAN1.DISP.value_ = "ON"
 	setup.CHAN1.PROB.value_ = 10
 	setup.CHAN1.SCAL.value_ = 1
-	setup.CHAN1.OFFS.value_ = 0
+	setup.CHAN1.OFFS.value_ = -2
 	
 	setup.CHAN2.DISP.value_ = "ON"#"OFF"#
 	setup.CHAN2.PROB.value_ = 1
