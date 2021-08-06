@@ -30,9 +30,9 @@ class IcecraftDevice(TargetDevice):
 	def reset(self) -> None:
 		self._device.reset_buffer(True, True)
 	
-	def configure(self, configuration: TargetConfiguration) -> None:
+	def configure(self, configuration: TargetConfiguration, fast: bool=False) -> None:
 		# just use the configuration as if it was for the correct device
-		bitstream = configuration.get_bitstream()
+		bitstream = configuration.get_bitstream(opt=fast)
 		self._device.flash_bitstream(bitstream)
 	
 	def read_bytes(self, size: int) -> bytes:
