@@ -209,7 +209,8 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			
 			cur_time = time.perf_counter()
 			eta = (cur_time - start_time) * (ngen/gen_nr - 1)
-			print(f"Generation {gen_nr} took {cur_time-prev_time:.1f} s, eta : {eta:.1f} s; highest fitness: {best}")
+			print(f"Generation {gen_nr} took {cur_time-prev_time:.1f} s, eta : {eta:.1f} s; highest fitness: {best} for"
+				f" {elite[0].chromo.identifier}")
 			prev_time = cur_time
 		
 		cur_time = time.perf_counter()
