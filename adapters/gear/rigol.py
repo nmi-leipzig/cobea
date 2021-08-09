@@ -153,7 +153,7 @@ class OsciDS1102E(Meter, IdentifiableHW):
 			offset = self._setup.CHAN2.OFFS.value_
 		
 		def func(raw_data: Iterable[int]) -> List[float]:
-			return OutputData([(128-r)*scale/25.6-offset for r in raw_data])
+			return OutputData([(125-r)*scale/25-offset for r in raw_data])
 		
 		return func
 	
