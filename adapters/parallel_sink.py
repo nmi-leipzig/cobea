@@ -63,7 +63,7 @@ class ParallelSink(DataSink):
 	def get_sub(self) -> ParSubSink:
 		"""Return a DataSink that writes to the wrapped sink can be passed to other processes
 		
-		As the ParallelSink sink holds a reference to the started Process it can be passed directly to other Process
+		As the ParallelSink sink holds a reference to the started Process it can't be passed directly to other Process
 		instances. To still use the wrapped DataSink from multiple Process instances, a process safe ParSubSink can
 		be created with this function.
 		"""
