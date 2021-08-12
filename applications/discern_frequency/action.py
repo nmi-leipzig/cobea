@@ -236,8 +236,8 @@ def create_base_write_map(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMa
 		"fitness/measurement": [
 			MetaEntry("description", "raw output of the phenotype measured by an oscilloscope; each " 
 				"measurement took 6 s; in the last 5 s 10 bursts of either 1 kHz or 10 kHz were presented at the input;"
-				" only this last 5 s are relevant for the fitness value; the volt value can be computed by v = (128 - "
-				"r)*:CHAN1:SCAL/25.6 - :CHAN1:OFFS"),
+				" only this last 5 s are relevant for the fitness value; the volt value can be computed by v = (125 - "
+				"r)*:CHAN1:SCAL/25 - :CHAN1:OFFS"),
 		],
 		"fitness/time": [
 			MetaEntry("description", "time the measurement started; timezone UTC"),
