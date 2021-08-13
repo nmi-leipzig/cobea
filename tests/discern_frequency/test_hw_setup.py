@@ -7,6 +7,7 @@ import time
 from contextlib import ExitStack
 from dataclasses import asdict
 from unittest import TestCase
+from unittest.mock import MagicMock, patch
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -32,7 +33,10 @@ from adapters.icecraft import IcecraftManager
 from adapters.embed_driver import FixedEmbedDriver
 from adapters.gear.rigol import OsciDS1102E
 from adapters.icecraft import IcecraftManager, IcecraftRawConfig
-from applications.discern_frequency.action import calibrate
+from adapters.parallel_sink import ParallelSink
+from adapters.simple_sink import TextfileSink
+from adapters.temp_meter import TempMeter
+from applications.discern_frequency.action import calibrate, start_temp
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.interfaces import InputData
 from domain.request_model import RequestObject
@@ -411,7 +415,48 @@ class HWSetupTest(TestCase):
 				sub_data = sub_data[2:]
 				#self.print_stats(sub_data)
 	
+	def test_temp_lock(self):
+		# test if a lock occurs when the temperature sensor doesn't start the measurement
+		self.assert_timeout(self.tmp_lock_target, 4)
+	
+	@staticmethod
+	def tmp_lock_target():
+		# mock TempMeter to just block
+		with patch("applications.discern_frequency.action.TempMeter", new=BlockMeter):
+			with ExitStack() as stack:
+				out_filename = "tmp.test_temp_lock.txt"
+				sink = ParallelSink(TextfileSink, (out_filename, ))
+				
+				stack.enter_context(sink)
+				
+				start_temp("", stack, sink)
+	
+	def assert_timeout(self, func, timeout, func_args=tuple(), func_kwargs={}):
+		ctx = multiprocessing.get_context("spawn")
+		pro = ctx.Process(target=func, args=func_args, kwargs=func_kwargs)
+		
+		pro.start()
+		pro.join(timeout)
+		
+		print(ctx.active_children())
+		
+		if pro.is_alive():
+			#TODO: clean up children before they get orphaned
+			pro.terminate()
+			raise AssertionError(f"{func} didn't finish in {timeout} s")
+		
 
-
-
+class BlockMeter(TempMeter):
+	def __enter__(self) -> "TempMeter":
+		# just block
+		while True:
+			time.sleep(0.5)
+		
+		# minimum effort to avoid Exceptions
+		self._arduino = MagicMock()
+		self._arduino.read.return_value = b"\x00\xff"
+		self._aruidno_sn = "X"*10
+		self._ds18b20_sn = "X"*20
+		
+		return self
 
