@@ -90,7 +90,6 @@ class ParallelCollector(DataCollector):
 			# setup measurement
 			driver = details.driver_det.create_from()
 			meter = ex_stack.enter_context(details.meter_det.create_from())
-			# don't pass data_sink as we would have no method to distinguish between Different Measure use cases
 			measure_uc = Measure(driver, meter, details.data_sink, details.sink_prefix)
 			if details.prepare:
 				details.prepare(driver, meter, measure_uc, details.data_sink)
