@@ -1,12 +1,16 @@
 import itertools
 import multiprocessing
 import os
+import platform
 import random
+import re
+import subprocess
 import time
 
+from collections import defaultdict
 from contextlib import ExitStack
 from dataclasses import asdict
-from unittest import TestCase
+from unittest import skipIf, TestCase
 from unittest.mock import MagicMock, patch
 
 import matplotlib.pyplot as plt
@@ -415,12 +419,13 @@ class HWSetupTest(TestCase):
 				sub_data = sub_data[2:]
 				#self.print_stats(sub_data)
 	
+	@skipIf(platform.system()!="Linux", "Linux only")
 	def test_temp_lock(self):
 		# test if a lock occurs when the temperature sensor doesn't start the measurement
-		self.assert_timeout(self.tmp_lock_target, 4)
+		self.assert_timeout(self.temp_lock_target, 4)
 	
 	@staticmethod
-	def tmp_lock_target():
+	def temp_lock_target():
 		# mock TempMeter to just block
 		with patch("applications.discern_frequency.action.TempMeter", new=BlockMeter):
 			with ExitStack() as stack:
@@ -438,13 +443,39 @@ class HWSetupTest(TestCase):
 		pro.start()
 		pro.join(timeout)
 		
-		print(ctx.active_children())
-		
 		if pro.is_alive():
 			#TODO: clean up children before they get orphaned
+			# children seam to be cleaned up, but there are three process left with parent 1, not the current process
 			pro.terminate()
 			raise AssertionError(f"{func} didn't finish in {timeout} s")
+	
+	@classmethod
+	def get_offspring(cls, pid):
+		ppid_pid_map = cls.get_ppid_pid_map()
+		res = []
+		stack = [pid]
+		while stack:
+			cur = stack.pop()
+			if cur in res:
+				continue
+			
+			stack.extend(ppid_pid_map[cur])
+			res.extend(ppid_pid_map[cur])
 		
+		return res
+	
+	@staticmethod
+	def get_ppid_pid_map():
+		ps_out = subprocess.run(["ps", "-o", "pid,ppid"], check=True, stdout=subprocess.PIPE, text=True).stdout
+		lines = ps_out.split("\n")[1:]
+		ppid_pid_map = defaultdict(list)
+		for line in lines:
+			res = re.match(r"\s*(?P<pid>\d+)\s+(?P<ppid>\d+)", line)
+			if res is None:
+				continue
+			ppid_pid_map[int(res.group("ppid"))].append(int(res.group("pid")))
+		
+		return ppid_pid_map
 
 class BlockMeter(TempMeter):
 	def __enter__(self) -> "TempMeter":
