@@ -463,7 +463,7 @@ def collector_prep(driver: DummyDriver, meter: TempMeter, measure: Measure, sink
 		"sensor_hw": meter.sensor_type,
 	})
 
-def start_temp(arduino_sn: str, stack: ExitStack, sink: ParallelSink) -> None:
+def start_temp(arduino_sn: str, stack: ExitStack, sink: DataSink) -> None:
 	if arduino_sn == "":
 		# slightly differnet meaning of values in TempMeter: None means search (in args None means no TempMeter)
 		arduino_sn = None
