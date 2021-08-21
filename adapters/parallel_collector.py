@@ -24,8 +24,11 @@ class InitDetails:
 @dataclass
 class CollectorDetails:
 	"""Data necessary to start the collector"""
+	# args and kwargs have to be process safe
 	driver_det: InitDetails
+	# args and kwargs have to be process safe
 	meter_det: InitDetails
+	# has to be process safe
 	data_sink: DataSink
 	pause: float = 0
 	# prefix for source indication for writes to DataSink
@@ -37,9 +40,13 @@ class CollectorDetails:
 
 class ParallelCollector(DataCollector):
 	"""Collect data in separate process"""
-	def __init__(self, details: CollectorDetails) -> None:
-		"""data_sink, args, kwargs, and request values have to be process safe"""
+	def __init__(self, details: CollectorDetails, term_timeout: float=0.1) -> None:
+		"""
+		details: datat for starting data collecting, some data has to be process safe
+		term_timeout: seconds before a not yet collecting process is terminated
+		"""
 		self._details = details
+		self._term_timeout = term_timeout
 		self._end_event = None
 		self._process = None
 	
@@ -67,7 +74,16 @@ class ParallelCollector(DataCollector):
 			return False
 		
 		self._end_event.set()
-		self._process.join()
+		if self._start_event.is_set():
+			# collecting started, wait to finsh by _end_event
+			self._process.join()
+		else:
+			# collecting didn't even start
+			self._process.join(self._term_timeout)
+			if self._process.exitcode is None:
+				# still not done
+				self._process.terminate()
+			
 		
 		self._end_event = None
 		self._start_event = None
@@ -95,6 +111,9 @@ class ParallelCollector(DataCollector):
 				details.prepare(driver, meter, measure_uc, details.data_sink)
 			
 			start_event.set()
+			if end_event.is_set():
+				# end immediately
+				return
 			
 			# loop until end event
 			while True:
