@@ -463,7 +463,7 @@ def collector_prep(driver: DummyDriver, meter: TempMeter, measure: Measure, sink
 		"sensor_hw": meter.sensor_type,
 	})
 
-def start_temp(arduino_sn: str, stack: ExitStack, sink: DataSink) -> None:
+def start_temp(arduino_sn: str, stack: ExitStack, sink: DataSink, start_timeout: float=3) -> None:
 	if arduino_sn == "":
 		# slightly differnet meaning of values in TempMeter: None means search (in args None means no TempMeter)
 		arduino_sn = None
@@ -478,7 +478,7 @@ def start_temp(arduino_sn: str, stack: ExitStack, sink: DataSink) -> None:
 	)
 	par_col = ParallelCollector(temp_det)
 	stack.enter_context(par_col)
-	if not par_col.wait_collecting(3):
+	if not par_col.wait_collecting(start_timeout):
 		raise DataCollectionError("couldn't start temperature measurement")
 
 def run(args) -> None:
