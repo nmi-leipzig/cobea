@@ -40,7 +40,7 @@ from adapters.icecraft import IcecraftManager, IcecraftRawConfig
 from adapters.parallel_sink import ParallelSink
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
-from applications.discern_frequency.action import calibrate, start_temp
+from applications.discern_frequency.action import calibrate, DataCollectionError, start_temp
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.interfaces import InputData
 from domain.request_model import RequestObject
@@ -422,7 +422,7 @@ class HWSetupTest(TestCase):
 	@skipIf(platform.system()!="Linux", "Linux only")
 	def test_temp_lock(self):
 		# test if a lock occurs when the temperature sensor doesn't start the measurement
-		self.assert_timeout(self.temp_lock_target, 4)
+		self.assert_timeout(self.temp_lock_target, 2)
 	
 	@staticmethod
 	def temp_lock_target():
@@ -434,7 +434,10 @@ class HWSetupTest(TestCase):
 				
 				stack.enter_context(sink)
 				
-				start_temp("", stack, sink)
+				try:
+					start_temp("", stack, sink, 0.1)
+				except DataCollectionError:
+					pass
 	
 	def assert_timeout(self, func, timeout, func_args=tuple(), func_kwargs={}):
 		ctx = multiprocessing.get_context("spawn")
@@ -444,8 +447,7 @@ class HWSetupTest(TestCase):
 		pro.join(timeout)
 		
 		if pro.is_alive():
-			#TODO: clean up children before they get orphaned
-			# children seam to be cleaned up, but there are three process left with parent 1, not the current process
+			# children seem to be cleaned up, but there are three process left with parent 1, not the current process
 			pro.terminate()
 			raise AssertionError(f"{func} didn't finish in {timeout} s")
 	
