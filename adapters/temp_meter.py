@@ -16,7 +16,7 @@ class TempMeterError(Exception):
 
 class TempMeter(Meter, IdentifiableHW):
 	"""Read Temperature from Arduino with DS18B20 sensor"""
-	def __init__(self, baudrate=500000, arduino_sn: str=None)-> None:
+	def __init__(self, baudrate: int=500000, arduino_sn: Optional[str]=None) -> None:
 		self._baudrate = baudrate
 		self._arduino = None
 		self._arduino_sn = arduino_sn
