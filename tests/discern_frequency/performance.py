@@ -25,6 +25,7 @@ sys.path.append(
 )
 
 import applications.discern_frequency
+import applications.discern_frequency.write_map_util as write_map_util
 
 from adapters.deap.simple_ea import SimpleEA
 from adapters.dummies import DummyDriver
@@ -35,7 +36,7 @@ from adapters.parallel_sink import ParallelSink
 from adapters.prng import BuiltInPRNG
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
-from applications.discern_frequency.action import create_write_map, create_xc6200_rep
+from applications.discern_frequency.action import create_xc6200_rep
 from domain.use_cases import Measure
 from tests.mocks import RandomMeter
 
@@ -69,7 +70,7 @@ def run_algo(rep: IcecraftRep) -> None:
 	chromo_bits = 16
 	
 	# no driver data
-	write_map, metadata = create_write_map(rep, pop_size, chromo_bits)
+	write_map, metadata = write_map_util.create_for_run(rep, pop_size, chromo_bits)
 	write_map["Measure.perform"] = write_map["Measure.perform"][1:]
 	
 	# WARNING: the HDF5 file gets really big really fast as it can't compress the random measurement data very well
@@ -93,7 +94,7 @@ def run_algo(rep: IcecraftRep) -> None:
 			hab_path = os.path.join(APP_PATH, "nhabitat.asc")
 			hab_config = IcecraftRawConfig.create_from_filename(hab_path)
 			
-			ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target, 437071, sink)
+			ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target, sink)
 			
 			ea.run(pop_size, 8, 0.7, 0.001756)
 			#ea.run(50, 600, 0.7, 0.001756)

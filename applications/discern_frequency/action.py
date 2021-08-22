@@ -6,13 +6,14 @@ import time
 
 from argparse import Namespace
 from contextlib import ExitStack
-from dataclasses import asdict, astuple, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from functools import partial
-from operator import attrgetter, itemgetter, methodcaller
-from typing import Any, Iterable, List, Mapping, Tuple
+from enum import auto, Enum
+from typing import Any, Callable, Iterable, List, Mapping, Optional, Tuple
 
 import h5py
+
+import applications.discern_frequency.write_map_util as write_map_util
 
 from adapters.embed_driver import FixedEmbedDriver
 from adapters.deap.simple_ea import EvalMode, Individual, SimpleEA
@@ -21,6 +22,7 @@ from adapters.gear.rigol import FloatCheck, IntCheck, OsciDS1102E, SetupCmd
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftBitPosition, IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen,\
 IcecraftManager, IcecraftRawConfig, XC6200Port, XC6200Direction
+from adapters.mcu_drv_mtr import MCUDrvMtr
 from adapters.parallel_collector import CollectorDetails, InitDetails, ParallelCollector
 from adapters.parallel_sink import ParallelSink
 from adapters.prng import BuiltInPRNG
@@ -28,12 +30,10 @@ from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
 from domain.data_sink import DataSink
-from domain.interfaces import Driver, InputData, Meter, TargetDevice, TargetManager
+from domain.interfaces import Driver, InputData, Meter, OutputData, TargetDevice, TargetManager
 from domain.model import AlleleAll, Chromosome, Gene
 from domain.request_model import RequestObject
 from domain.use_cases import Measure
-
-import .write_map_util
 
 class CalibrationError(Exception):
 	"""Indicates an error during calibration"""
@@ -65,14 +65,6 @@ def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int], in_por
 	print(f"rep gen took {aft-bef} s, {sum(g.alleles.size_in_bits() for g in rep.genes)} bits")
 	
 	return rep
-
-def is_rep_fitting(rep: IcecraftRep, chromo_bits: int) -> bool:
-	"""check if representation fits in a certain number of bits"""
-	for gene in rep.iter_genes():
-		if len(gene.alleles) > 1<<chromo_bits:
-			return False
-	
-	return True
 
 # flash FPGAs
 def prepare_generator(gen: TargetDevice, asc_path: str) -> IcecraftRawConfig:
@@ -157,47 +149,134 @@ def get_git_commit() -> str:
 	except:
 		return "UNKNOWN"
 
-def create_measure_setup(driver_sn: str, target_sn: str, meter_sn: str, driver_asc: str, stack: ExitStack,
-		metadata: MetaEntryMap
-	) -> Tuple[Driver, TargetDevice, Meter, CalibrationData, List[Tuple[str, Mapping[str, Any]]]]:
+class DriverType(Enum):
+	FPGA = auto()
+	DRVMTR = auto()
+
+@dataclass
+class MeasureSetupInfo:
+	target_sn: str
+	meter_sn: str
+	driver_sn: Optional[str] = None
+	driver_type: DriverType = DriverType.DRVMTR
+	driver_asc_path: Optional[str] = None
+
+@dataclass
+class MeasureSetup:
+	driver: Optional[Driver] = None
+	target: Optional[TargetDevice] = None
+	meter: Optional[Meter] = None
+	cal_data: Optional[CalibrationData] = None
+	sink_writes: List[Tuple[str, Mapping[str, Any]]] = field(default_factory=list)
+	preprocessing: Callable[[OutputData], OutputData] = lambda x: x
+
+def create_preprocessing_fpga(meter: Meter, meter_setup: SetupCmd, cal_data: CalibrationData) -> Callable[[OutputData], OutputData]:
+	convert = meter.raw_to_volt_func()
+	trig_len = cal_data.trig_len
+	time_scale = meter_setup.TIM.SCAL.value_
+	
+	def func(raw_data: OutputData) -> OutputData:
+		data = convert(raw_data)
+		h_div = (12*time_scale) / len(data)
+		
+		# skip before trigger
+		data = data[-trig_len:]
+		
+		data_parts = [data[i*len(data)//10: (i+1)*len(data)//10] for i in range(10)]
+		
+		sum_parts = [np.trapz(p, dx=h_div) for p in data_parts]
+		"""
+		for i, data_part in enumerate(data_parts):
+			nd = np.array(data_part)
+			auc = np.trapz(nd, dx=h_div)
+		"""
+		return OutputData(sum_parts)
+	
+	return func
+
+def create_preprocessing_mcu(sub_count: int) -> Callable[[OutputData], OutputData]:
+	
+	def func(raw_data: OutputData) -> OutputData:
+		assert len(raw_data) == 10*sub_count
+		
+		bursts = [raw_data[i: i+sub_count] for i in range(0, len(raw_data), sub_count)]
+		
+		# sum bursts and substract offset
+		# the opamp of the analog integrator has a single power supply (0 to 5 V) therefore 2.5 V represent the
+		# integration sum 0; yet the (10 bit) ADC measures the voltage from 0, so 512 represents integration sum 0
+		# as the output of the target is mapped from 0-3.3 V to 2.5-3.5V negative integration sums are not expected
+		sum_bursts = [sum(b)-512*10 for b in bursts]
+		
+		return OutputData(sum_bursts)
+	
+	return func
+
+def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: ParamAimMap, metadata: MetaEntryMap
+		) -> MeasureSetup:
 	man = IcecraftManager()
 	
-	# workaround for stuck serial buffer
-	man.stuck_workaround(driver_sn)
+	setup = MeasureSetup()
 	
-	gen = man.acquire(driver_sn)
-	stack.callback(man.release, gen)
+	if info.driver_type == DriverType.FPGA:
+		write_map_util.add_fpga_osci(write_map, metadata)
+		
+		# workaround for stuck serial buffer
+		man.stuck_workaround(info.driver_sn)
+		
+		gen = man.acquire(info.driver_sn)
+		stack.callback(man.release, gen)
+		
+		fg_config = prepare_generator(gen, info.driver_asc_path)
+		setup.driver = FixedEmbedDriver(gen, "B")
+		
+		cal_data = calibrate(setup.driver, info.meter_sn)
+		setup.sink_writes.extend([
+			("freq_gen", {"text": fg_config.to_text(), }),
+			("calibration", asdict(cal_data)),
+		])
+		
+		meter_setup = create_meter_setup()
+		meter_setup.TIM.OFFS.value_ = cal_data.offset
+		metadata.setdefault("fitness/measurement", []).extend(write_map_util.meter_setup_to_meta(meter_setup))
+		
+		
+		setup.meter = OsciDS1102E(meter_setup, raw=True)
+		setup.preprocessing = create_preprocessing_fpga(setup.meter, meter_setup, cal_data)
+		stack.callback(setup.meter.close)
+		
+		metadata.setdefault("fitness/measurement", []).extend([
+			MetaEntry("driver_serial_number", gen.serial_number),
+			MetaEntry("driver_hardware", gen.hardware_type),
+			MetaEntry("meter_firmware", setup.meter.firmware_version),
+		])
+	elif info.driver_type == DriverType.DRVMTR:
+		write_map_util.add_drvmtr(write_map, metadata)
+		setup.meter = MCUDrvMtr(info.meter_sn, 10*256, "<h", 2, 500000)
+		
+		stack.enter_context(setup.meter)
+		
+		setup.driver = setup.meter
+		
+		setup.preprocessing = create_preprocessing_mcu(256)
+		
+		metadata.setdefault("fitness/measurement", []).extend([
+			MetaEntry("driver_serial_number", setup.meter.serial_number),
+			MetaEntry("driver_hardware", setup.meter.hardware_type),
+		])
+	else:
+		raise Exception(f"unsupported driver type '{info.driver_type}'")
 	
-	target = man.acquire(target_sn)
-	stack.callback(man.release, target)
-	
-	fg_config = prepare_generator(gen, driver_asc)
-	driver = FixedEmbedDriver(gen, "B")
-	
-	cal_data = calibrate(driver)
-	sink_writes = [
-		("freq_gen", {"text": fg_config.to_text(), }),
-		("calibration", asdict(cal_data)),
-	]
-	
-	meter_setup = create_meter_setup()
-	meter_setup.TIM.OFFS.value_ = cal_data.offset
-	metadata.setdefault("fitness/measurement", []).extend(write_map_util.meter_setup_to_meta(meter_setup))
-	
-	meter = OsciDS1102E(meter_setup, raw=True)
-	stack.callback(meter.close)
+	setup.target = man.acquire(info.target_sn)
+	stack.callback(man.release, setup.target)
 	
 	metadata.setdefault("fitness/measurement", []).extend([
-		MetaEntry("driver_serial_number", gen.serial_number),
-		MetaEntry("driver_hardware", gen.hardware_type),
-		MetaEntry("target_serial_number", target.serial_number),
-		MetaEntry("target_hardware", target.hardware_type),
-		MetaEntry("meter_serial_number", meter.serial_number),
-		MetaEntry("meter_hardware", meter.hardware_type),
-		MetaEntry("meter_firmware", meter.firmware_version),
+		MetaEntry("target_serial_number", setup.target.serial_number),
+		MetaEntry("target_hardware", setup.target.hardware_type),
+		MetaEntry("meter_serial_number", setup.meter.serial_number),
+		MetaEntry("meter_hardware", setup.meter.hardware_type),
 	])
 	
-	return driver, target, meter, cal_data, sink_writes
+	return setup
 
 def collector_prep(driver: DummyDriver, meter: TempMeter, measure: Measure, sink: ParallelSink) -> None:
 	sink.write("meta.temp", {
@@ -262,26 +341,29 @@ def run(args) -> None:
 	
 	with ExitStack() as stack:
 		if use_dummy:
-			cal_data = CalibrationData(None, 0, 0, 0, 0)
-			meter = DummyMeter()
-			driver = DummyDriver()
 			from unittest.mock import MagicMock
-			#target = DummyTargetDevice()
-			target = MagicMock()
-			sink_writes = []
+			measure_setup = MeasureSetup(
+				driver = DummyDriver(),
+				target = MagicMock(),
+				#target = DummyTargetDevice(),
+				meter = DummyMeter(),
+				cal_data = CalibrationData(None, 0, 0, 0, 0),
+				sink_writes = [],
+				preprocessing = lambda x: x,
+			)
+			
 			print("dummies don't support real EA -> abort")
-			preprocessing = lambda x: x
 			return
 		else:
-			driver, target, meter, cal_data, sink_writes = create_measure_setup(
-				args.generator,
+			setup_info = MeasureSetupInfo(
 				args.target,
-				"",
+				args.meter,
+				args.generator,
+				DriverType[args.freq_gen_type],
 				args.freq_gen,
-				stack,
-				metadata
 			)
-			preprocessing = meter.raw_to_volt_func()
+			
+			measure_setup = create_measure_setup(setup_info, stack, write_map, metadata)
 		
 		sink = ParallelSink(HDF5Sink, (write_map, metadata))
 		
@@ -290,7 +372,7 @@ def run(args) -> None:
 		if rec_temp and not use_dummy:
 			start_temp(args.temperature, stack, sink)
 		
-		for prms in sink_writes:
+		for prms in measure_setup.sink_writes:
 			sink.write(*prms)
 		
 		sink.write("Action.rep", {
@@ -301,22 +383,17 @@ def run(args) -> None:
 			"colbufctrl": rep.colbufctrl,
 		})
 		
-		measure_uc = Measure(driver, meter, sink)
-		
-		#hab_path = os.path.join(pkg_path, "dummy_hab.asc")
-		#hab_path = os.path.join(pkg_path, "nhabitat.asc")
+		measure_uc = Measure(measure_setup.driver, measure_setup.meter, sink)
 		
 		hab_config = IcecraftRawConfig.create_from_filename(args.habitat)
 		sink.write("habitat", {
 			"text": hab_config.to_text(),
 		})
 		
-		#from tests.mocks import MockRepresentation
-		#rep = MockRepresentation([Gene([pow(i,j) for j in range(i)], AlleleAll(i), "") for i in range(3, 6)])
 		seed = int(datetime.utcnow().timestamp())
 		prng = BuiltInPRNG(seed)
-		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink,
-			prep=preprocessing)
+		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, measure_setup.target, sink,
+			prep=measure_setup.preprocessing)
 		
 		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob, EvalMode[args.eval_mode])
 		

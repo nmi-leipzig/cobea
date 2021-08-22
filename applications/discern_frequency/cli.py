@@ -2,7 +2,7 @@ import argparse
 
 from adapters.deap.simple_ea import EvalMode
 
-from .action import remeasure, run
+from .action import DriverType, remeasure, run
 
 def create_arg_parser():
 	arg_parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
@@ -34,8 +34,9 @@ def create_arg_parser():
 	run_parser.add_argument("--habitat", type=str, required=True, help="ASC file of the base configuration for the "
 		"target FPGA; provides the periphery of the evolved area")
 	run_parser.add_argument("--habitat-con", type=str, help="description of the connections of the habitat")
-	run_parser.add_argument("--freq-gen", type=str, required=True, help="configuration file of the frequency generator;"
+	run_parser.add_argument("--freq-gen", type=str, help="configuration file of the frequency generator;"
 		" ASC format")
+	run_parser.add_argument("--freq-gen-type", default="FPGA", type=str, choices=[d.name for d in DriverType], help="")
 	run_parser.add_argument("--freq-gen-con", type=str, help="description of the connections of the frequency "
 		"generator")
 	

@@ -91,8 +91,9 @@ class Individual:
 
 class SimpleEA(EvoAlgo, DataSinkUser):
 	def __init__(self, rep: Representation, measure_uc: Measure,
-		uid_gen: UniqueID, prng: PRNG, habitat: TargetConfiguration, target: TargetDevice, trig_len: int,
-		data_sink: DataSink, prep: Callable[[OutputData], OutputData]=lambda x: x) -> None:
+		uid_gen: UniqueID, prng: PRNG, habitat: TargetConfiguration, target: TargetDevice, data_sink: DataSink,
+		prep: Callable[[OutputData], OutputData]=lambda x: x) -> None:
+		
 		self._rep = rep
 		self._measure_uc = measure_uc
 		self._init_uc = RandomChromo(prng, rep, uid_gen, data_sink)
@@ -100,7 +101,6 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		rep.prepare_config(habitat)
 		self._habitat = habitat
 		self._target = target
-		self._trig_len = trig_len
 		self._data_sink = data_sink
 		self._prep = prep
 		
@@ -240,19 +240,9 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		raw_data = self._measure_uc(eval_req)
 		data = self._prep(raw_data)
 		
-		h_div = (12*0.5) / len(data)
-		
-		# skip before trigger
-		data = data[-self._trig_len:]
-		
-		data_parts = [data[i*len(data)//10: (i+1)*len(data)//10] for i in range(10)]
-		
 		fast_sum = 0
 		slow_sum = 0
-		for i, data_part in enumerate(data_parts):
-			nd = np.array(data_part)
-			auc = np.trapz(nd, dx=h_div)
-			
+		for i, auc in enumerate(data):
 			if ((comb_seq >> i) & 1):
 				fast_sum += auc
 			else:
