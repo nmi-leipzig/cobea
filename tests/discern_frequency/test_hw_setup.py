@@ -350,10 +350,10 @@ class HWSetupTest(TestCase):
 				aft = time.perf_counter()
 				#print(f"whole measurement took {aft-bef} s")
 				data = preprocessing(data)
-			
-			if check:
-				check(comb_index, data)
-			#print(data)
+				
+				if check:
+					check(comb_index, data)
+				print(data)
 		
 	
 	@staticmethod
