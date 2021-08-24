@@ -4,12 +4,15 @@ import os
 import platform
 import random
 import re
+import struct
 import subprocess
 import time
 
 from collections import defaultdict
 from contextlib import ExitStack
 from dataclasses import asdict
+from serial import Serial, SerialTimeoutException
+from serial.tools.list_ports import comports
 from unittest import skipIf, TestCase
 from unittest.mock import MagicMock, patch
 
@@ -37,10 +40,11 @@ from adapters.icecraft import IcecraftManager
 from adapters.embed_driver import FixedEmbedDriver
 from adapters.gear.rigol import OsciDS1102E
 from adapters.icecraft import IcecraftManager, IcecraftRawConfig
+from adapters.mcu_drv_mtr import MCUDrvMtr
 from adapters.parallel_sink import ParallelSink
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
-from applications.discern_frequency.action import calibrate, DataCollectionError, start_temp
+from applications.discern_frequency.action import calibrate, create_preprocessing_mcu, DataCollectionError, start_temp
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.interfaces import InputData
 from domain.request_model import RequestObject
@@ -110,6 +114,48 @@ class HWSetupTest(TestCase):
 		
 		return (driver_sn, target_sn, meter_sn)
 	
+	def detect_mcu_setup(self, baudrate=500000):
+		# FPGA target
+		sn_list = IcecraftManager.get_present_serial_numbers()
+		if len(sn_list) < 1:
+			raise DetectSetupError()
+		
+		sn_list.sort(key=lambda x: x[-3:])
+		target_sn = sn_list[0]
+		
+		drv_mtr_sn = self.detect_drv_mtr(baudrate)
+		
+		return (drv_mtr_sn, target_sn)
+	
+	def detect_drv_mtr(self, baudrate=500000):
+		# MCU driver and meter
+		ports = comports()
+		arduino_ports = [p for p in ports if p.manufacturer and p.manufacturer.startswith("Arduino")]
+		for port in arduino_ports:
+			try:
+				with Serial(port=port.device, baudrate=baudrate, timeout=2, write_timeout=2) as arduino:
+					arduino.reset_input_buffer()
+					arduino.reset_output_buffer()
+					
+					# Arduino reboots on connecting serial -> wait till reboot is done
+					time.sleep(2)
+					
+					# check if initial data is send
+					time.sleep(1)
+					init_data = arduino.read(2)
+					if len(init_data) != 2:
+						continue
+					
+					init_val = struct.unpack("<h", init_data)[0]
+					if init_val >= 1024:
+						# initial data should be ADC result so the maximum value is 1023
+						continue
+					
+					return port.serial_number
+			except SerialTimeoutException:
+				continue
+		raise DetectSetupError()
+	
 	def flash_device(self, dev, asc_filename, app_path=True):
 		if app_path:
 			asc_path = os.path.join(self.app_path, asc_filename)
@@ -172,7 +218,8 @@ class HWSetupTest(TestCase):
 		try:
 			self.flash_device(gen, "freq_gen.asc")
 			#self.flash_device(gen, "ctr_drv_2_5.asc")
-			self.flash_device(target, "dummy_hab.asc")
+			#self.flash_device(target, "dummy_hab.asc")
+			self.flash_device(target, "freq_hab.asc", app_path=False)
 			#self.flash_device(target, "const_target.asc")
 			
 			driver = FixedEmbedDriver(gen, "B")
@@ -246,6 +293,68 @@ class HWSetupTest(TestCase):
 			meter.close()
 		
 		self.assertEqual(0, too_short)
+	
+	def test_drv_mtr_measurement(self):
+		baudrate = 500000
+		try:
+			drv_mtr_sn, target_sn = self.detect_mcu_setup(baudrate)
+		except DetectSetupError:
+			self.skipTest("Couldn't detect hardware setup.")
+		
+		idx_to_comb = lexicographic_combinations(5, 5)
+		def check_val(comb_index, data):
+			self.assertEqual(10, len(data))
+			comb = idx_to_comb[comb_index]
+			for i in range(10):
+				if (comb >> i) & 1:
+					self.assertGreater(data[i], 500*256)
+				else:
+					self.assertLess(data[i], 2*256)
+		
+		with ExitStack() as stack:
+			man = IcecraftManager()
+			
+			target = man.acquire(target_sn)
+			stack.callback(man.release, target)
+			
+			drv_mtr = MCUDrvMtr(drv_mtr_sn, 10*256, return_format="<h", init_size=2, baudrate=baudrate)
+			stack.enter_context(drv_mtr)
+			
+			measure_uc = Measure(drv_mtr, drv_mtr)
+			prep = create_preprocessing_mcu(256)
+			
+			for hab_asc, check in [
+				("freq_hab.asc", check_val),
+				("high_hab.asc", lambda i, d: self.assertTrue(all(v>500*256 for v in d))),
+				("low_hab.asc", lambda i, d: self.assertTrue(all(v<2*256 for v in d)))
+			]:#]:#
+				with self.subTest(hab_asc=hab_asc):
+					#comb = idx_to_comb[comb_index]
+					self.generic_drv_mtr(measure_uc, target, hab_asc, [120], prep, check)
+	
+	def generic_drv_mtr(self, measure_uc, target, hab_asc, comb_index_list, preprocessing, check):
+		req = RequestObject(
+			driver_data = InputData([0]),
+			measure_timeout = 3,
+			retry = 1,
+		)
+		
+		self.flash_device(target, hab_asc, app_path=False)
+		
+		for comb_index in comb_index_list:
+			with self.subTest(comb_index=comb_index):
+				req["driver_data"] = InputData([comb_index])
+				
+				bef = time.perf_counter()
+				data = measure_uc(req)
+				aft = time.perf_counter()
+				#print(f"whole measurement took {aft-bef} s")
+				data = preprocessing(data)
+			
+			if check:
+				check(comb_index, data)
+			#print(data)
+		
 	
 	@staticmethod
 	def create_and_write(driver_sn):
