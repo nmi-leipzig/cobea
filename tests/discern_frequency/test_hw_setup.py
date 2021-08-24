@@ -309,7 +309,7 @@ class HWSetupTest(TestCase):
 				if (comb >> i) & 1:
 					self.assertGreater(data[i], 170*256)
 				else:
-					self.assertLess(data[i], 2*256)
+					self.assertLess(data[i], 10*256)
 		
 		with ExitStack() as stack:
 			man = IcecraftManager()
@@ -326,7 +326,7 @@ class HWSetupTest(TestCase):
 			for hab_asc, check in [
 				("freq_hab.asc", check_val),
 				("high_hab.asc", lambda i, d: self.assertTrue(all(v>170*256 for v in d))),
-				("low_hab.asc", lambda i, d: self.assertTrue(all(v<2*256 for v in d)))
+				("low_hab.asc", lambda i, d: self.assertTrue(all(v<10*256 for v in d)))
 			]:#]:#
 				#comb = idx_to_comb[comb_index]
 				self.generic_drv_mtr(measure_uc, target, hab_asc, [120], prep, check)
