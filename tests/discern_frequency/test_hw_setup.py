@@ -307,7 +307,7 @@ class HWSetupTest(TestCase):
 			comb = idx_to_comb[comb_index]
 			for i in range(10):
 				if (comb >> i) & 1:
-					self.assertGreater(data[i], 500*256)
+					self.assertGreater(data[i], 170*256)
 				else:
 					self.assertLess(data[i], 2*256)
 		
@@ -325,12 +325,11 @@ class HWSetupTest(TestCase):
 			
 			for hab_asc, check in [
 				("freq_hab.asc", check_val),
-				("high_hab.asc", lambda i, d: self.assertTrue(all(v>500*256 for v in d))),
+				("high_hab.asc", lambda i, d: self.assertTrue(all(v>170*256 for v in d))),
 				("low_hab.asc", lambda i, d: self.assertTrue(all(v<2*256 for v in d)))
 			]:#]:#
-				with self.subTest(hab_asc=hab_asc):
-					#comb = idx_to_comb[comb_index]
-					self.generic_drv_mtr(measure_uc, target, hab_asc, [120], prep, check)
+				#comb = idx_to_comb[comb_index]
+				self.generic_drv_mtr(measure_uc, target, hab_asc, [120], prep, check)
 	
 	def generic_drv_mtr(self, measure_uc, target, hab_asc, comb_index_list, preprocessing, check):
 		req = RequestObject(
@@ -342,7 +341,7 @@ class HWSetupTest(TestCase):
 		self.flash_device(target, hab_asc, app_path=False)
 		
 		for comb_index in comb_index_list:
-			with self.subTest(comb_index=comb_index):
+			with self.subTest(hab_asc=hab_asc, comb_index=comb_index):
 				req["driver_data"] = InputData([comb_index])
 				
 				bef = time.perf_counter()
