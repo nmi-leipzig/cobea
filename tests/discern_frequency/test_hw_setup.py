@@ -350,9 +350,9 @@ class HWSetupTest(TestCase):
 				#print(f"whole measurement took {aft-bef} s")
 				data = preprocessing(data)
 				
+				print(data)
 				if check:
 					check(comb_index, data)
-				print(data)
 		
 	
 	@staticmethod
