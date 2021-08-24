@@ -98,7 +98,7 @@ class HWSetupTest(TestCase):
 		else:
 			return sn_list[0], sn_list[1]
 	
-	def detect_setup(self):
+	def detect_osci_setup(self):
 		# osci available
 		osci_list = list(usb.core.find(find_all=True, idVendor=0x1ab1, idProduct=0x0588))
 		if len(osci_list) != 1:
@@ -155,7 +155,7 @@ class HWSetupTest(TestCase):
 	
 	def test_measurement(self):
 		try:
-			driver_sn, target_sn, meter_sn = self.detect_setup()
+			driver_sn, target_sn, meter_sn = self.detect_osci_setup()
 		except DetectSetupError:
 			self.skipTest("Couldn't detect hardware setup.")
 		
@@ -263,7 +263,7 @@ class HWSetupTest(TestCase):
 	
 	def test_blocked_buffer(self):
 		try:
-			driver_sn, target_sn, meter_sn = self.detect_setup()
+			driver_sn, target_sn, meter_sn = self.detect_osci_setup()
 		except DetectSetupError:
 			self.skipTest("Couldn't detect hardware setup.")
 		
@@ -355,7 +355,7 @@ class HWSetupTest(TestCase):
 	
 	def test_calibrate(self):
 		try:
-			driver_sn, target_sn, meter_sn = self.detect_setup()
+			driver_sn, target_sn, meter_sn = self.detect_osci_setup()
 		except DetectSetupError:
 			self.skipTest("Couldn't detect hardware FPGAs.")
 		
@@ -377,7 +377,7 @@ class HWSetupTest(TestCase):
 	def test_target_out(self):
 		# target creates values independant from driver to see quality of output
 		try:
-			driver_sn, target_sn, meter_sn = self.detect_setup()
+			driver_sn, target_sn, meter_sn = self.detect_osci_setup()
 		except DetectSetupError:
 			self.skipTest("Couldn't detect hardware setup.")
 		
