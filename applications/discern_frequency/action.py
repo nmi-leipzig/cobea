@@ -205,7 +205,7 @@ def create_preprocessing_mcu(sub_count: int) -> Callable[[OutputData], OutputDat
 		# the opamp of the analog integrator has a single power supply (0 to 5 V) therefore 2.5 V represent the
 		# integration sum 0; yet the (10 bit) ADC measures the voltage from 0, so 512 represents integration sum 0
 		# as the output of the target is mapped from 0-3.3 V to 2.5-3.5V negative integration sums are not expected
-		sum_bursts = [sum(b)-512*10 for b in bursts]
+		sum_bursts = [sum(b)-512*sub_count for b in bursts]
 		
 		return OutputData(sum_bursts)
 	
