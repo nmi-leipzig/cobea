@@ -90,9 +90,9 @@ class HDF5SinkTest(unittest.TestCase):
 			WriteData("all empty", {}, [], {}, {}),
 			WriteData(
 				"attr",
-				{"src1": [ParamAim(["d1"], None, "d1.0")]},
-				[("src1", {"d1": [1, 2, 3], "d2": 5})],
-				{"/": {"d1.0": ([1, 2, 3])}},
+				{"src1": [ParamAim(["d1"], None, "d1.0"), ParamAim(["d3"], "uint8", "d3")]},
+				[("src1", {"d1": [1, 2, 3], "d2": 5, "d3": None})],
+				{"/": {"d1.0": ([1, 2, 3]), "d3": h5py.Empty("uint8")}},
 				{}
 			),
 			WriteData(

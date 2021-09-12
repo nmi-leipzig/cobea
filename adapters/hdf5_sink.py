@@ -212,6 +212,16 @@ class HDF5Sink(DataSink):
 	
 	@staticmethod
 	def set_attr(entity: h5py.HLObject, name: str, value: Any, data_type: Optional[type]=None) -> None:
+		"""Sets attribute 'name' of 'entity' to 'value'
+		
+		If the data type is not provided (i.e. None), the data type is guessed from the value.
+		If the value can be None (i.e. an empty array), the data type should be provided.
+		Otherwise it will be set to a probably untoward default.
+		"""
+		if value is None:
+			entity.attrs[name] = h5py.Empty(data_type)
+			return
+		
 		if data_type is None:
 			entity.attrs[name] = value
 		elif data_type == str:
