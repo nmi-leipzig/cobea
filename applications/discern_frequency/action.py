@@ -304,7 +304,7 @@ def start_temp(arduino_sn: str, stack: ExitStack, sink: DataSink, start_timeout:
 	if not par_col.wait_collecting(start_timeout):
 		raise DataCollectionError("couldn't start temperature measurement")
 
-def run(args) -> None:
+def run(args: Namespace) -> None:
 	# prepare
 	pkg_path = os.path.dirname(os.path.abspath(__file__))
 	
