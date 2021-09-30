@@ -8,4 +8,9 @@ unittest:
     script:
         - python -V
         - pip install -r requirements.txt
+        - ls -ahl
+        - git clone https://github.com/YosysHQ/icestorm.git --depth 1
+        - cd icestorm/icebox
+        - make install
+        - cd ../..
         - python -m unittest discover -v
