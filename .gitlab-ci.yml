@@ -3,6 +3,7 @@ image: python:3.7
 variables:
     GIT_SUBMODULE_STRATEGY: recursive
 
-test:
+unittest:
+    stage: test
     script:
         - python -V
