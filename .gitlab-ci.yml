@@ -7,6 +7,7 @@ unittest:
     stage: test
     script:
         - python -V
+        - apt update
         - apt install libusb-1.0
         - pip install -r requirements.txt
         - ls -ahl
