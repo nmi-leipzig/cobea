@@ -1,0 +1,8 @@
+deap
+h5py
+matplotlib
+pyftdi
+PyVISA
+PyVISA-py
+scipy
+
