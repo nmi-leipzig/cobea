@@ -8,6 +8,6 @@ unittest:
     script:
         - python -V
         - apt-get update
-        - apt-get install libusb-1.0-0 fpga-icestorm -y
+        - apt-get install -y --no-install-recommends libusb-1.0-0 fpga-icestorm
         - pip install -r requirements.txt
         - python -m unittest discover -v
