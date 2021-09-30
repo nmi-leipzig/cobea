@@ -8,3 +8,4 @@ unittest:
     script:
         - python -V
         - pip install -r requirements.txt
+        - python -m unittest discover -v
