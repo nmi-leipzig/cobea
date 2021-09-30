@@ -7,3 +7,4 @@ unittest:
     stage: test
     script:
         - python -V
+        - pip install -r requirements.txt
