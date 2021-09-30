@@ -8,11 +8,6 @@ unittest:
     script:
         - python -V
         - apt-get update
-        - apt-get install libusb-1.0-0
+        - apt-get install libusb-1.0-0 fpga-icestorm
         - pip install -r requirements.txt
-        - ls -ahl
-        - git clone https://github.com/YosysHQ/icestorm.git --depth 1
-        - cd icestorm/icebox
-        - make install
-        - cd ../..
         - python -m unittest discover -v
