@@ -2,6 +2,7 @@ image: python:3.7
 
 variables:
     GIT_SUBMODULE_STRATEGY: recursive
+    PYTHONPATH: /usr/share/fpga-icestorm/python/
 
 unittest:
     stage: test
