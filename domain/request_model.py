@@ -26,6 +26,9 @@ class ParameterValues(Dict[str, Any]):
 class RequestObject(ParameterValues):
 	pass
 
+class ResponseObject(ParameterValues):
+	pass
+
 def create_get_req(func: Callable) -> Callable[..., RequestObject]:
 	"""create a function that extracts the Request from call parameters for a function"""
 	

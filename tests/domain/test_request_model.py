@@ -4,7 +4,8 @@ import unittest
 
 from typing import Any, Mapping, Iterable, NamedTuple, List
 
-from domain.request_model import Parameter, NO_DEFAULT, ParameterValues, RequestObject, ParameterUser, set_req_defaults
+from domain.request_model import Parameter, NO_DEFAULT, ParameterValues, ResponseObject, RequestObject, ParameterUser,\
+set_req_defaults
 
 from ..common import check_param_def_maps, check_parameter_user
 
@@ -71,7 +72,9 @@ class ParameterValuesTest(unittest.TestCase):
 
 class RequestObjectTest(ParameterValuesTest):
 	target_cls = RequestObject
-	
+
+class ResponseObjectTest(ParameterValuesTest):
+	target_cls = ResponseObject
 
 class ParameterUserTest(unittest.TestCase):
 	class PUImpl(ParameterUser):
