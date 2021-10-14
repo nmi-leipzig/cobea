@@ -139,7 +139,7 @@ class IcecraftRepGen(RepresentationGenerator):
 		self._parameters = {"__call__": p_call, "_choose_resources": p_choose_res, "_choose_connections": p_choose_con}
 	
 	@property
-	def parameters(self) -> Mapping[str, Parameter]:
+	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 		return self._parameters
 	
 	def __call__(self, request: RequestObject) -> IcecraftRep:
