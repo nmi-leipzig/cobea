@@ -5,7 +5,7 @@ from collections import defaultdict
 
 from domain.interfaces import Representation, RepresentationGenerator, TargetConfiguration
 from domain.model import Gene, Chromosome
-from domain.request_model import RequestObject, Parameter
+from domain.request_model import ResponseObject, RequestObject, Parameter
 from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 
 from .misc import IcecraftPosition, IcecraftLUTPosition, IcecraftColBufCtrl, \
@@ -142,7 +142,7 @@ class IcecraftRepGen(RepresentationGenerator):
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 		return self._parameters
 	
-	def __call__(self, request: RequestObject) -> IcecraftRep:
+	def __call__(self, request: RequestObject) -> ResponseObject:
 		tiles = request.tiles
 		
 		config_map = {t: get_config_items(t) for t in tiles}
@@ -171,8 +171,9 @@ class IcecraftRepGen(RepresentationGenerator):
 		
 		cbc_coords = self.get_colbufctrl_coordinates(rep)
 		cbc_conf = self.get_colbufctrl_config(cbc_coords)
-		
-		return IcecraftRep(genes, const_genes, cbc_conf, tuple(sorted(request.output_lutffs)), carry_data)
+
+		rep = IcecraftRep(genes, const_genes, cbc_conf, tuple(sorted(request.output_lutffs)), carry_data)
+		return ResponseObject(representation=rep)
 	
 	@staticmethod
 	def carry_in_set_net(config_map: Mapping[IcecraftPosition, ConfigAssemblage], raw_nets: List[NetData]) -> None:

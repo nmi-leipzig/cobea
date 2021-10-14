@@ -164,7 +164,7 @@ class RepresentationGenerator(ParameterUser):
 	"""Interface for generation of a representation """
 	
 	@abstractmethod
-	def __call__(self, request: RequestObject) -> Representation:
+	def __call__(self, request: RequestObject) -> ResponseObject:
 		raise NotImplementedError()
 
 # position transformation

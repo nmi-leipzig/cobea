@@ -611,8 +611,7 @@ class TestXC6200(unittest.TestCase):
 			#print(output_xc_map)
 			for output, comb_list in output_xc_map.items():
 				self.assertNotEqual(0, len(comb_list), f"unrequired output pattern {output}")
-			
-	
+
 	def test_xc6200_structure(self):
 		x_min, x_max = (2, 4)
 		y_min, y_max = (2, 4)
@@ -624,14 +623,14 @@ class TestXC6200(unittest.TestCase):
 			
 			res = dut(req)
 			
-			self.check_xc6200_representation(res)
+			self.check_xc6200_representation(res.representation)
 		
 		with self.subTest(desc="in port"):
 			req.in_ports.append(XC6200Port(IcecraftPosition(2, 3), XC6200Direction["lft"]))
 			
 			res = dut(req)
 			
-			self.check_xc6200_representation(res)
+			self.check_xc6200_representation(res.representation)
 	
 	@staticmethod
 	def find_routes(need, rep):

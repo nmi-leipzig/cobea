@@ -76,7 +76,7 @@ class IcecraftRepGenTest(unittest.TestCase):
 		req = GEN_REQUEST
 		res = dut(req)
 		
-		self.assertEqual(EXP_REP, res)
+		self.assertEqual(EXP_REP, res.representation)
 	
 	def parse_gene(self, raw_gene, desc=""):
 		tile = IcecraftPosition(*raw_gene[0])
@@ -130,7 +130,8 @@ class IcecraftRepGenTest(unittest.TestCase):
 					used_colbufctrl.append(icecraft.IcecraftColBufCtrl(*raw_ctrl))
 				
 				# call DUT
-				rep = dut(req)
+				res = dut(req)
+				rep = res.representation
 				
 				# check representation
 				self.assertEqual(set(genes), set(rep.genes))

@@ -3,7 +3,7 @@ from enum import IntEnum
 from typing import Mapping
 
 from domain.interfaces import RepresentationGenerator
-from domain.request_model import RequestObject, Parameter
+from domain.request_model import ResponseObject, RequestObject, Parameter
 
 from .representation import IcecraftRep, IcecraftRepGen
 from .misc import IcecraftPosition, IcecraftBitPosition, IcecraftResource,\
@@ -42,7 +42,7 @@ class XC6200RepGen(RepresentationGenerator):
 	def parameters(self) -> Mapping[str, Parameter]:
 		return self._parameters
 	
-	def __call__(self, request: RequestObject) -> IcecraftRep:
+	def __call__(self, request: RequestObject) -> ResponseObject:
 		rep_gen = IcecraftRepGen()
 		#TODO: check all tile are logic tiles
 		tile_set = set(request.tiles)
@@ -322,9 +322,7 @@ class XC6200RepGen(RepresentationGenerator):
 			)
 		]
 		
-		res = rep_gen(req)
-		
-		return res
+		return rep_gen(req)
 	
 	@staticmethod
 	def get_neighbor(tile: IcecraftPosition, direction: XC6200Direction) -> IcecraftPosition:
