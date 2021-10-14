@@ -7,7 +7,7 @@ from types import TracebackType
 from typing import Iterable, Mapping, Optional, Type
 
 from domain.interfaces import Driver, IdentifiableHW, InputData, Meter, OutputData
-from domain.request_model import Parameter, RequestObject
+from domain.request_model import Parameter, ResponseObject, RequestObject
 
 class MCUDrvMtr(Driver, Meter, IdentifiableHW):
 	def __init__(self, serial_number: str, return_count: int, return_format: str="B", init_size: int=0,
@@ -70,11 +70,12 @@ class MCUDrvMtr(Driver, Meter, IdentifiableHW):
 	def prepare(self, request: RequestObject) -> None:
 		pass
 	
-	def drive(self, request: RequestObject) -> None:
+	def drive(self, request: RequestObject) -> ResponseObject:
 		for value in request.driver_data:
 			raw = struct.pack(request.driver_format, value)
 			
 			self._arduino.write(raw)
+		return ResponseObject()
 	
 	def measure(self, request: RequestObject) -> OutputData:
 		res = []
@@ -85,5 +86,5 @@ class MCUDrvMtr(Driver, Meter, IdentifiableHW):
 		
 		return OutputData(res)
 	
-	def clean_up(self, request: RequestObject) -> None:
-		pass
+	def clean_up(self, request: RequestObject) -> ResponseObject:
+		return ResponseObject()

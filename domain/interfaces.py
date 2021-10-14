@@ -6,7 +6,7 @@ from typing import Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, 
 from domain.base_structures import BitPos
 from domain.data_sink import DataSink, DataSinkUser
 from domain.model import InputData, OutputData, Chromosome, Gene
-from domain.request_model import RequestObject, ParameterValues, ParameterUser, Parameter
+from domain.request_model import ResponseObject, RequestObject, ParameterValues, ParameterUser, Parameter
 
 class ElementPosition(ABC):
 	pass
@@ -66,13 +66,14 @@ class TargetDevice(IdentifiableHW):
 	def write_bytes(self, data: bytes) -> int:
 		raise NotImplementedError()
 
+
 class Driver(ParameterUser):
 	@abstractmethod
-	def drive(self, request: RequestObject) -> None:
+	def drive(self, request: RequestObject) -> ResponseObject:
 		raise NotImplementedError()
 	
 	@abstractmethod
-	def clean_up(self, request: RequestObject) -> None:
+	def clean_up(self, request: RequestObject) -> ResponseObject:
 		raise NotImplementedError()
 
 class MeasureTimeout(Exception):

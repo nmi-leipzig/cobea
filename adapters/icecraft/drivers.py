@@ -3,9 +3,10 @@ from typing import Mapping
 from adapters.icecraft.configuration import block_size_from_mode
 from domain.interfaces import TargetConfiguration, TargetDevice, Driver
 from domain.model import InputData, OutputData
-from domain.request_model import RequestObject, Parameter
+from domain.request_model import ResponseObject, RequestObject, Parameter
 
 from .misc import IcecraftPosition, RAMMode
+
 
 class IcecraftRAMDriver(Driver):
 	"""Embed driver data in BRAM of icecraft device and configure it"""
@@ -23,7 +24,7 @@ class IcecraftRAMDriver(Driver):
 	def parameters(self) -> Mapping[str, Parameter]:
 		return self._parameters
 	
-	def drive(self, request: RequestObject) -> None:
+	def drive(self, request: RequestObject) -> ResponseObject:
 		device = request.driver_dev
 		# embed input data in ram
 		config = request.configuration
@@ -42,6 +43,8 @@ class IcecraftRAMDriver(Driver):
 		
 		# flash configuration
 		device.configure(config)
-	
-	def clean_up(self, request: RequestObject) -> None:
-		pass
+
+		return ResponseObject()
+
+	def clean_up(self, request: RequestObject) -> ResponseObject:
+		return ResponseObject()

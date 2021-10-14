@@ -4,7 +4,8 @@ from typing import Mapping, Iterable
 
 from domain.interfaces import Driver, TargetDevice
 from domain.model import InputData
-from domain.request_model import RequestObject, Parameter
+from domain.request_model import ResponseObject, RequestObject, Parameter
+
 
 class EmbedDriver(Driver):
 	"""Write data directly to a target device to drive a measurement
@@ -23,12 +24,13 @@ class EmbedDriver(Driver):
 			"clean_up": [],
 		}
 	
-	def drive(self, request: RequestObject) -> None:
+	def drive(self, request: RequestObject) -> ResponseObject:
 		self.write_data(request.driver_dev, request.driver_data, request.driver_format)
+		return ResponseObject()
 	
-	def clean_up(self, request: RequestObject) -> None:
-		pass
-	
+	def clean_up(self, request: RequestObject) -> ResponseObject:
+		return ResponseObject()
+
 	@staticmethod
 	def write_data(driver_dev: TargetDevice, data: InputData, format_str: str) -> None:
 		for value in data:
@@ -36,10 +38,11 @@ class EmbedDriver(Driver):
 			
 			driver_dev.write_bytes(raw)
 
+
 class FixedEmbedDriver(EmbedDriver):
 	"""Write data directly to the same target device to drive a measurement
 	
-	In difference to EmbedDriver, the traget device the same for all calls and is passed to the constructor.
+	In difference to EmbedDriver, the target device the same for all calls and is passed to the constructor.
 	"""
 	
 	def __init__(self, driver_dev: TargetDevice, driver_format: str="B") -> None:
@@ -55,5 +58,6 @@ class FixedEmbedDriver(EmbedDriver):
 			"clean_up": [],
 		}
 	
-	def drive(self, request: RequestObject) -> None:
+	def drive(self, request: RequestObject) -> ResponseObject:
 		self.write_data(self._driver_dev, request.driver_data, self._driver_format)
+		return ResponseObject()

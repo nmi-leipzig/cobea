@@ -6,7 +6,7 @@ from typing import Any, Mapping, Optional, Type
 from domain.data_sink import DataSink
 from domain.interfaces import Driver, Meter
 from domain.model import OutputData
-from domain.request_model import RequestObject
+from domain.request_model import ResponseObject, RequestObject
 
 class DummyDataSink(DataSink):
 	def write(self, source: str, data_dict: Mapping[str, Any]) -> None:
@@ -27,11 +27,11 @@ class DummyDriver(Driver):
 	def parameters(self):
 		return {"drive": [], "clean_up": []}
 	
-	def drive(self, request: RequestObject) -> None:
-		pass
+	def drive(self, request: RequestObject) -> ResponseObject:
+		return ResponseObject()
 	
-	def clean_up(self, request: RequestObject) -> None:
-		pass
+	def clean_up(self, request: RequestObject) -> ResponseObject:
+		return ResponseObject()
 
 class DummyMeter(Meter):
 	@property
