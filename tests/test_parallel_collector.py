@@ -46,7 +46,9 @@ class ParallelCollectorTest(TestCase):
 				"TextTest",
 			)
 			dut = stack.enter_context(ParallelCollector(det))
-			time.sleep(0.1)
+			if not dut.wait_collecting(1):
+				self.fail("ParallelCollector did not start collecting.")
+			time.sleep(0.05)
 		
 		with open(filename, "r") as res_file:
 			time_line = res_file.readline()

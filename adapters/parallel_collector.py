@@ -11,6 +11,7 @@ from domain.interfaces import DataCollector, Driver, Meter
 from domain.request_model import RequestObject
 from domain.use_cases import Measure
 
+
 @dataclass
 class InitDetails:
 	"""Data necessary to create a new instance"""
@@ -42,7 +43,7 @@ class ParallelCollector(DataCollector):
 	"""Collect data in separate process"""
 	def __init__(self, details: CollectorDetails, term_timeout: float=0.1) -> None:
 		"""
-		details: datat for starting data collecting, some data has to be process safe
+		details: data for starting data collecting, some data has to be process safe
 		term_timeout: seconds before a not yet collecting process is terminated
 		"""
 		self._details = details
@@ -75,7 +76,7 @@ class ParallelCollector(DataCollector):
 		
 		self._end_event.set()
 		if self._start_event.is_set():
-			# collecting started, wait to finsh by _end_event
+			# collecting started, wait to finish by _end_event
 			self._process.join()
 		else:
 			# collecting didn't even start
@@ -84,7 +85,6 @@ class ParallelCollector(DataCollector):
 				# still not done
 				self._process.terminate()
 			
-		
 		self._end_event = None
 		self._start_event = None
 		self._process = None
