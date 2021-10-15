@@ -3,7 +3,7 @@ import re
 import itertools
 
 from dataclasses import dataclass, field
-from typing import NamedTuple, List, NewType, Tuple, Union, Mapping
+from typing import NamedTuple, List, NewType, Tuple, Union, Mapping, Dict
 from queue import SimpleQueue
 
 from domain.model import Gene
@@ -54,46 +54,46 @@ class TestXC6200Direction(unittest.TestCase):
 		for dut in XC6200Direction:
 			if dut == XC6200Direction.f:
 				continue
-			
+
 			with self.subTest(desc=f"{dut}"):
 				self.assertEqual(dut, dut.opposite().opposite())
 
 class TestXC6200(unittest.TestCase):
-	
+
 	def find_configs_and_meaning(self, tile_data):
 		# requires: tile, genes
 		# sets: tile_meaning, src_map, dst_map, tt_map
-		
-		
+
+
 		# get all configs for tiles
 		config_assem = get_config_items(tile_data.tile)
-		
+
 		bit_config_map = {b: c for c in config_assem.connection for b in c.bits}
 		for ll in config_assem.lut:
 			for l in ll:
 				for b in l.bits:
 					bit_config_map[b] = l
-		
+
 		for t in config_assem.tile:
 			for b in t.bits:
 				bit_config_map[b] = t
-		
+
 		for gene_index, gene in enumerate(tile_data.genes):
 			# find config items and map the bits
 			bit_gene_pos_map = {b: i for i, b in enumerate(gene.bit_positions)}
 			configs = []
 			tile_data.gene_index_configs_map.append(configs)
 			gene_pos_conf_pos_map = [None]*len(gene.bit_positions)
-			
+
 			while len(bit_gene_pos_map) > 0:
 				bit = next(iter(bit_gene_pos_map))
 				config = bit_config_map[bit]
 				config_pos = len(configs)
 				configs.append(config)
-				
+
 				if config.kind == "connection":
 					dst_name = config.dst_net
-					
+
 					try:
 						entry = tile_data.dst_map[dst_name]
 						self.assertEqual(gene_index, entry.gene_index)
@@ -102,15 +102,15 @@ class TestXC6200(unittest.TestCase):
 						tile_data.dst_map[dst_name] = DstIndex(gene_index, [config_pos])
 				elif config.kind == "TruthTable":
 					self.assertNotIn(config.index, tile_data.tt_map)
-					
+
 					tile_data.tt_map[config.index] = TTIndex(gene_index, config_pos)
-				
+
 				for i, b in enumerate(config.bits):
 					gene_pos_conf_pos_map[bit_gene_pos_map[b]] = (config_pos, i)
-					
+
 					del bit_gene_pos_map[b]
 					del bit_config_map[b]
-			
+
 			# find meaning of alleles from configs
 			gene_meaning = []
 			tile_data.tile_meaning.append(gene_meaning)
@@ -119,20 +119,20 @@ class TestXC6200(unittest.TestCase):
 				vals = [[None]*len(c.bits) for c in configs]
 				for gene_pos, (conf_index, conf_pos) in enumerate(gene_pos_conf_pos_map):
 					vals[conf_index][conf_pos] = allele.values[gene_pos]
-				
+
 				allele_meaning = []
 				# lookup meaning in configs
 				for config_pos, (config, allele_vals) in enumerate(zip(configs, vals)):
 					if config.kind == "connection":
 						dst_name = config.dst_net
-						
+
 						try:
 							src_index = config.values.index(tuple(allele_vals))
 						except ValueError:
 							self.fail(f"{allele_vals} missing for {config.bits}")
-						
+
 						src_name = config.src_nets[src_index]
-						
+
 						tile_data.src_map.setdefault(src_name, []).append(SrcIndex(gene_index, config_pos, allele_index, src_index))
 						allele_meaning.append((src_name, dst_name))
 					elif config.kind == "TruthTable":
@@ -140,11 +140,11 @@ class TestXC6200(unittest.TestCase):
 					else:
 						# ignore, but keep absolute index of meaning and configs in sync
 						allele_meaning.append(None)
-				
+
 				gene_meaning.append(allele_meaning)
-		
+
 		self.check_dst_src_map(tile_data)
-	
+
 	def check_dst_src_map(self, tile_data):
 		# check dst map
 		for dst, dst_index in tile_data.dst_map.items():
@@ -152,24 +152,24 @@ class TestXC6200(unittest.TestCase):
 			configs = tile_data.gene_index_configs_map[dst_index.gene_index]
 			for config_pos in dst_index.config_pos_list:
 				self.assertEqual(dst, configs[config_pos].dst_net)
-				
+
 				# compare to meaning
 				for allele_meaning in tile_data.tile_meaning[dst_index.gene_index]:
 					meaning = allele_meaning[config_pos]
 					self.assertEqual(dst, meaning[1])
-			
-		
+
+
 		# check src map
 		for src, src_index_list in tile_data.src_map.items():
 			for src_index in src_index_list:
 				# compare to meaning
 				meaning = tile_data.tile_meaning[src_index.gene_index][src_index.allele_index][src_index.config_pos]
 				self.assertEqual(src, meaning[0])
-				
+
 				# compare to config
 				config = tile_data.gene_index_configs_map[src_index.gene_index][src_index.config_pos]
 				self.assertEqual(src, config.src_nets[src_index.src_net_index])
-	
+
 	def find_out_map(self, tile_data):
 		all_sigs = ["top", "lft", "bot", "rgt", "f"]
 		sig_index_map = {s: i for i, s in enumerate(all_sigs)}
@@ -183,13 +183,13 @@ class TestXC6200(unittest.TestCase):
 				if direc in neigh_map:
 					raise NoOutMapError(f"found '{direc}' multiple times in {tile_data.tile}")
 				neigh_map[direc] = int(lut_index)
-		
+
 		out_map = {}
 		for neigh_dir, lut_index in neigh_map.items():
 			neigh_index = sig_index_map[neigh_dir]
 			loc_dir = all_sigs[(neigh_index+2)%4]
 			out_map[loc_dir] = lut_index
-		
+
 		# f_out
 		# every output should have one input from the function unit
 		# this should be a LUT output
@@ -197,9 +197,9 @@ class TestXC6200(unittest.TestCase):
 			lut_index = next(iter(out_map.values()))
 		except StopIteration as si:
 			raise NoOutMapError(f"Empty out map for {tile_data.tile}") from si
-		
+
 		todo_nets = {f"lutff_{lut_index}/in_{i}" for i in range(4)}
-		# rememeber already processed nets to avoid recalculation and loops
+		# remember already processed nets to avoid recalculation and loops
 		done_nets = {UNCONNECTED_NAME}
 		f_indices = []
 		while len(todo_nets) > 0:
@@ -207,7 +207,7 @@ class TestXC6200(unittest.TestCase):
 			if cur_net in done_nets:
 				continue
 			done_nets.add(cur_net)
-			
+
 			res = re.match(r"lutff_(?P<index>\d)/(c|l)?out", cur_net)
 			if res:
 				# found lut output -> assume function unit
@@ -219,32 +219,40 @@ class TestXC6200(unittest.TestCase):
 				except KeyError:
 					# no sources specified
 					continue
-				
+
 				# add all possible sources to the stack
 				for allele_meaning in tile_data.tile_meaning[dst_index.gene_index]:
 					for config_pos in dst_index.config_pos_list:
 						src_net, dst_net = allele_meaning[config_pos]
 						self.assertEqual(cur_net, dst_net)
-						
+
 						todo_nets.add(src_net)
-				
+
 		if len(f_indices) < 1:
 			raise NoOutMapError(f"function unit not found in {tile_data.tile}")
 		elif len(f_indices) > 1:
 			raise NoOutMapError(f"multiple candiates for function unit found in {tile_data.tile}")
-		
+
 		out_map["f"] = f_indices[0]
-		
+
 		if len(out_map.values()) != len(set(out_map.values())):
 			raise NoOutMapError(f"Mapping inputs to outputs is not one-to-one in tile {tile_data.tile}")
-		
+
 		return out_map
-	
+
 	@classmethod
 	def get_lut_value(cls, lut_index, src_state, tt_state, value_map):
-		pass
+		"""Extracts value of LUT output.
+
+		@param lut_index: index of the LUT for which the value should be extracted
+		@param src_state: connection between nets; dst_net -> src_net
+		@param tt_state: truth table for all LUTs in tile; lut_index -> truth_table
+		@param value_map: current value of a net; net_name -> value
+		@return: bool value of LUT output
+		"""
 		# trace inputs
 		in_value = 0
+
 		for i in range(4):
 			cur_net = f"lutff_{lut_index}/in_{i}"
 			while True:
@@ -253,26 +261,57 @@ class TestXC6200(unittest.TestCase):
 					break
 				except KeyError:
 					pass
-				
+
 				try:
 					cur_net = src_state[cur_net]
 				except KeyError:
-					res = re.match(r"lutff_(?P<lut_index>)/(l)?out", cur_net)
+					res = re.match(r"lutff_(?P<lut_index>\d)/(l)?out", cur_net)
 					if not res:
 						raise
 					part_value = cls.get_lut_value(int(res.group("lut_index")), src_state, tt_state, value_map)
+					break
 			if part_value:
 				in_value |= 1 << i
-		
+
 		return tt_state[lut_index][in_value]
-	
-	#def test_meta_get_lut_value(self):
-	#	# constant 0
-	#	# constant 1
-	#	# simple and
-	#	# concatenated LUTs
-	#	pass
-	
+
+	def test_meta_get_lut_value(self):
+		@dataclass
+		class GLVData:
+			desc: str
+			exp: bool
+			lut_index: int
+			src_state: Dict[str, str]
+			tt_state: Dict[int, Tuple[bool, ...]]
+			value_map: Dict[str, bool]
+
+		test_list = [
+			GLVData("constant 0", False, 0, {f"lutff_0/in_{i}": UNCONNECTED_NAME for i in range(4)},
+					{0: (False, )*16}, {UNCONNECTED_NAME: False}),
+			GLVData("constant 1", True, 3, {f"lutff_3/in_{i}": UNCONNECTED_NAME for i in range(4)},
+					{3: (True, )*16}, {UNCONNECTED_NAME: False}),
+			GLVData("simple LUT", True, 7, {}, {7: (False, )*9+(True, )+(False, )*6},
+					{"lutff_7/in_0": True, "lutff_7/in_1": False, "lutff_7/in_2": False, "lutff_7/in_3": True}),
+			GLVData(
+				"concatenated LUTs",
+				True,
+				1,
+				{"local_g0_1": "neigh_op_bot_1", "local_g1_1": "neigh_op_bot_1", "local_g0_4": "neigh_op_lft_4",
+				 "local_g3_2": "neigh_op_rgt_2", "local_g1_3": "neigh_op_top_3", "local_g1_0": "lutff_0/out",
+				 'lutff_0/in_1': 'local_g0_1', 'lutff_0/in_0': 'local_g0_4', 'lutff_1/in_3': 'local_g0_4',
+				 'lutff_1/in_0': 'local_g1_0', 'lutff_1/in_1': 'local_g1_1', 'lutff_0/in_2': 'local_g1_3',
+				 'lutff_0/in_3': 'local_g3_2', 'lutff_1/in_2': 'local_g3_2'},
+				{0: (True, False, False, False, True, True, False, True, True, False, False, False, True, True, False,
+					True), 1: (False, True)*8},
+				{"neigh_op_bot_1": True, "neigh_op_lft_4": True, "neigh_op_rgt_2": True, "neigh_op_top_3": True,
+				 UNCONNECTED_NAME: False}
+			),
+		]
+		for test_data in test_list:
+			with self.subTest(desc=test_data.desc):
+				res = self.get_lut_value(test_data.lut_index, test_data.src_state, test_data.tt_state, test_data.value_map)
+				self.assertEqual(test_data.exp, res)
+
 	@staticmethod
 	def simple_function_unit(x1: bool, x2: bool, x3: bool, y2: int, y3: int, q: bool=False):
 		"""Compute the value for a simplified function unit
@@ -283,42 +322,42 @@ class TestXC6200(unittest.TestCase):
 			y2_out = x2
 		else:
 			y2_out = q
-		
+
 		if y2 % 2 == 1:
 			y2_out = not y2_out
-		
+
 		if y3 < 2:
 			y3_out = x3
 		else:
 			y3_out = q
-		
+
 		if y3 % 2 == 1:
 			y3_out = not y3_out
-		
+
 		if x1:
 			return y2_out
 		else:
 			return y3_out
-	
+
 	@staticmethod
 	def switch_direction(direction):
 		directions = ["top", "lft", "bot", "rgt"]
 		cur_index = directions.index(direction)
 		op_index = (cur_index+2)%4
 		return directions[op_index]
-	
+
 	def check_xc6200_representation(self, rep):
 		# out_map is map from output of XC6200 cell to (LUT) indices
-		
+
 		# sort genes by tile
 		tile_map = {}
 		for gene in itertools.chain(rep.genes, rep.constant):
 			tile = gene.bit_positions[0].tile
 			# genes spanning multiple tiles are not supported
 			self.assertTrue(all(b.tile==tile for b in gene.bit_positions))
-			
+
 			tile_map.setdefault(tile, TileData(tile)).genes.append(gene)
-		
+
 		# assume all tiles have the same out_map -> detect mapping by checking which neigh_op nets are used
 		all_sigs = ["top", "lft", "bot", "rgt", "f"]
 		out_map = {}
@@ -328,7 +367,7 @@ class TestXC6200(unittest.TestCase):
 				tmp_out_map = self.find_out_map(tile_data)
 			except NoOutMapError as nome:
 				self.fail(f"No put map for {tile_data.tile}")
-			
+
 			# check out map
 			for sig in all_sigs:
 				# check signal in tmp out map
@@ -336,7 +375,7 @@ class TestXC6200(unittest.TestCase):
 					lut_index = tmp_out_map[sig]
 				except KeyError:
 					# only allowable at boarders
-					# detection is done by incoming signals -> detect if tile that should create the signal is there 
+					# detection is done by incoming signals -> detect if tile that should create the signal is there
 					if sig == "f":
 						self.fail(f"no function unit in {tile_data.tile}")
 					elif sig == "top":
@@ -347,31 +386,31 @@ class TestXC6200(unittest.TestCase):
 						neigh_offset = (1, 0)
 					elif sig == "rgt":
 						neigh_offset = (-1, 0)
-					
+
 					neigh_pos = IcecraftPosition(tile_data.tile.x+neigh_offset[0], tile_data.tile.y+neigh_offset[1])
 					self.assertNotIn(neigh_pos, tile_map.keys(), f"no {sig} signal in {tile_data.tile} despite neighbor available")
 					continue
-				
+
 				# check index consistency
 				try:
 					exp_index = out_map[sig]
 				except KeyError:
 					out_map[sig] = lut_index
 					continue
-				
+
 				self.assertEqual(exp_index, lut_index)
-			
+
 		self.assertEqual(set(all_sigs), set(out_map))
-		
+
 		#print(f"detected out map: {out_map}")
-		
+
 		for tile_data in tile_map.values():
 			for dir_index, direction in enumerate(all_sigs[:4]):
 				# trace back the inputs of the LUT and collect relevant genes/meanings
 				lut_index = out_map[direction]
 				relevant_gene_indices = list()
 				relevant_gene_indices.append(tile_data.tt_map[lut_index].gene_index)
-				
+
 				net_stack = [f"lutff_{lut_index}/in_{i}" for i in range(4)]
 				done_nets = {UNCONNECTED_NAME}
 				while len(net_stack) > 0:
@@ -390,22 +429,22 @@ class TestXC6200(unittest.TestCase):
 					else:
 						# simple net -> find source
 						dst_index = tile_data.dst_map[cur_net]
-						
+
 						relevant_gene_indices.append(dst_index.gene_index)
 						# add all possible sources to the stack
 						for allele_meaning in tile_data.tile_meaning[dst_index.gene_index]:
 							for config_pos in dst_index.config_pos_list:
 								src_net, dst_net = allele_meaning[config_pos]
 								self.assertEqual(cur_net, dst_net)
-								
+
 								net_stack.append(src_net)
 				#print([tile_meaning[i] for i in relevant_gene_indices])
-				
+
 				# for all allele combinations check the behaviour of the LUT output with respect to the inputs
 				src_list = [f"neigh_op_{d}_{out_map[self.switch_direction(d)]}" for d in all_sigs[:4]]
 				src_list.append(f"lutff_{out_map['f']}/out")
 				out_comb_map = {"INV": []}
-				
+
 				for comb_index, allele_comb in enumerate(itertools.product(*[tile_data.tile_meaning[i] for i in relevant_gene_indices])):
 					assert len(allele_comb) == len(relevant_gene_indices)
 					# create truth table and connection state according to the allele combination
@@ -423,9 +462,9 @@ class TestXC6200(unittest.TestCase):
 										continue
 									# only unconnected can be overwritten
 									self.assertEqual(UNCONNECTED_NAME, src_state[dst])
-								
+
 								src_state[dst] = src
-								
+
 							elif config.kind == "TruthTable":
 								self.assertNotIn(config.index, tt_state)
 								tt_state[config.index] = meaning
@@ -442,7 +481,7 @@ class TestXC6200(unittest.TestCase):
 							continue
 						con_state[dst] = src_src
 						todo_stack.append((dst, src_src))
-					
+
 					matches = [True]*len(src_list)
 					for src_values in itertools.product([False, True], repeat=len(src_list)):
 						src_val_map = {s: v for s, v in zip(src_list, src_values)}
@@ -470,7 +509,7 @@ class TestXC6200(unittest.TestCase):
 						out_comb_map.setdefault(all_sigs[match_index], []).append(comb_index)#src_list[match_index])
 					except ValueError:
 						out_comb_map["INV"].append(comb_index)
-				
+
 				# all inputs included, except the same direction
 				self.assertNotIn(direction, out_comb_map, f"should not be in {direction}")
 				# check number of combinations that lead to a certain state
@@ -490,10 +529,10 @@ class TestXC6200(unittest.TestCase):
 							neigh_offset = (-1, 0)
 						elif sig == "rgt":
 							neigh_offset = (1, 0)
-						
+
 						neigh_pos = IcecraftPosition(tile_data.tile.x+neigh_offset[0], tile_data.tile.y+neigh_offset[1])
 						self.assertNotIn(neigh_pos, tile_map.keys(), f"no {sig} input for {direction} in {tile_data.tile} despite neighbor available\n{out_comb_map}\n{[len(g.alleles) for g in tile_data.genes]}")
-						
+
 						inv_count += 1
 					else:
 						if comb_count is None:
@@ -502,13 +541,13 @@ class TestXC6200(unittest.TestCase):
 							self.assertEqual(comb_count, len(out_comb_map[sig]))
 				# at least f should be present -> comb_count is not None
 				self.assertEqual(comb_count*inv_count, len(out_comb_map["INV"]))
-			
+
 			# check function unit
 			avail_in = [d for d in all_sigs[:4] if f"neigh_op_{d}_{out_map[self.switch_direction(d)]}" in tile_data.src_map]
 			#for neigh, x_off, y_off in [("top", 0, 1), ("lft", -1, 0), ("bot", 0, -1), ("rgt", 1, 0)]:
 			#	if IcecraftPosition(tile_data.tile.x+x_off, tile_data.tile.y+y_off) in tile_map:
 			#		avail_in.append(neigh)
-			
+
 			#print(avail_in)
 			# map inputs
 			ice40_map = {d: f"neigh_op_{d}_{out_map[self.switch_direction(d)]}" for d in all_sigs[:4]}
@@ -518,11 +557,11 @@ class TestXC6200(unittest.TestCase):
 				"east": f"neigh_op_lft_{out_map['rgt']}",
 				"west": f"neigh_op_rgt_{out_map['lft']}",
 			}
-			
+
 			# find relevant genes
 			lut_index = out_map["f"]
 			relevant_gene_indices = list()
-			
+
 			net_stack = [f"lutff_{lut_index}/out"]
 			done_nets = {f"neigh_op_{d}_{out_map[self.switch_direction(d)]}" for d in avail_in}
 			done_nets.add(UNCONNECTED_NAME)
@@ -531,7 +570,7 @@ class TestXC6200(unittest.TestCase):
 				if cur_net in done_nets:
 					continue
 				done_nets.add(cur_net)
-				
+
 				if re.match(r"lutff_(\d)/(c|l)?out", cur_net):
 					other_lut = int(cur_net[6])
 					relevant_gene_indices.append(tile_data.tt_map[other_lut].gene_index)
@@ -539,17 +578,17 @@ class TestXC6200(unittest.TestCase):
 				else:
 					# simple net -> find source
 					dst_index = tile_data.dst_map[cur_net]
-					
+
 					relevant_gene_indices.append(dst_index.gene_index)
 					# add all possible sources to the stack
 					for allele_meaning in tile_data.tile_meaning[dst_index.gene_index]:
 						for config_pos in dst_index.config_pos_list:
 							src_net, dst_net = allele_meaning[config_pos]
 							self.assertEqual(cur_net, dst_net)
-							
+
 							net_stack.append(src_net)
 			#print(relevant_gene_indices)
-			
+
 			# compute output of representational function unit dependent on the input signals for every allele combination
 			output_comb_map = {}
 			for comb_index, allele_comb in enumerate(itertools.product(*[tile_data.tile_meaning[i] for i in relevant_gene_indices])):
@@ -568,27 +607,27 @@ class TestXC6200(unittest.TestCase):
 									continue
 								# only unconnected can be overwritten
 								self.assertEqual(UNCONNECTED_NAME, src_state[dst])
-							
+
 							src_state[dst] = src
-							
+
 						elif config.kind == "TruthTable":
 							self.assertNotIn(config.index, tt_state)
 							tt_state[config.index] = meaning
 						else:
 							pass
-				
+
 				output_list = []
 				for values in itertools.product((False, True), repeat=len(avail_in)):
 					value_map = {f"neigh_op_{d}_{out_map[self.switch_direction(d)]}": v for d, v in zip(avail_in, values)}
 					value_map[UNCONNECTED_NAME] = False
-					
+
 					output = self.get_lut_value(out_map["f"], src_state, tt_state, value_map)
-					
+
 					output_list.append(output)
-				
+
 				output_comb_map.setdefault(tuple(output_list), []).append(comb_index)
 			#print(output_comb_map)
-			
+
 			output_xc_map = {o: [] for o in output_comb_map}
 			# compute output of XC6200 function unit dependent on the input for every mux combination and match to representation
 			for comb_index, (x1_mux, x2_mux, x3_mux, y2, y3) in enumerate(itertools.product(range(4), repeat=5)):
@@ -599,15 +638,15 @@ class TestXC6200(unittest.TestCase):
 					mux = [False]*4
 					for sig, val in zip(avail_in, values):
 						mux[all_sigs.index(sig)] = val
-					
+
 					output = self.simple_function_unit(*[mux[i] for i in (x1_mux, x2_mux, x3_mux)], y2, y3)
-					
+
 					output_list.append(output)
-				
+
 				output_tuple = tuple(output_list)
 				self.assertIn(output_tuple, output_xc_map)
 				output_xc_map[output_tuple].append(comb_index)
-			
+
 			#print(output_xc_map)
 			for output, comb_list in output_xc_map.items():
 				self.assertNotEqual(0, len(comb_list), f"unrequired output pattern {output}")
@@ -615,34 +654,34 @@ class TestXC6200(unittest.TestCase):
 	def test_xc6200_structure(self):
 		x_min, x_max = (2, 4)
 		y_min, y_max = (2, 4)
-		
+
 		dut = XC6200RepGen()
 		with self.subTest(desc="no in ports"):
 			req = RequestObject(in_ports=[])
 			req["tiles"] = IcecraftPosTransLibrary.expand_rectangle([IcecraftPosition(x_min, y_min), IcecraftPosition(x_max, y_max)])
-			
+
 			res = dut(req)
-			
+
 			self.check_xc6200_representation(res.representation)
-		
+
 		with self.subTest(desc="in port"):
 			req.in_ports.append(XC6200Port(IcecraftPosition(2, 3), XC6200Direction["lft"]))
-			
+
 			res = dut(req)
-			
+
 			self.check_xc6200_representation(res.representation)
-	
+
 	@staticmethod
 	def find_routes(need, rep):
 		src_vtx = rep.get_vertex(need.src)
 		dst_vtx = rep.get_vertex(need.dst)
 		routes = []
-		
+
 		@dataclass
 		class RouteTask:
 			vtx: Vertex
 			path: List[EdgeDesig]
-		
+
 		visited = set()
 		fifo = SimpleQueue()
 		fifo.put(RouteTask(src_vtx, []))
@@ -651,34 +690,34 @@ class TestXC6200(unittest.TestCase):
 			if task.vtx == dst_vtx:
 				routes.append(task.path)
 				continue
-			
+
 			if task.vtx.desigs[0] in visited:
 				# already seen -> cycles not interesting
 				continue
-			
+
 			# no spans
 			if re.match(r"NET#sp", task.vtx.desigs[0].name):
 				continue
-			
+
 			visited.add(task.vtx.desigs[0])
-			
+
 			for edge in task.vtx.iter_out_edges():
 				new_path = list(task.path)
 				new_path.append(edge.desig)
 				new_task = RouteTask(edge.dst, new_path)
 				fifo.put(new_task)
-		
+
 		return routes
-	
+
 	@classmethod
 	def create_routes(cls, needs, rep):
 		res_dict = {}
 		for need in needs:
 			res = cls.find_routes(need, rep)
 			res_dict[need] = res
-		
+
 		return res_dict
-	
+
 	@unittest.skip("experimental, takes a long(!) time")
 	def test_simple_xc6200(self):
 		x = 16
@@ -689,35 +728,35 @@ class TestXC6200(unittest.TestCase):
 		bot_tile = IcecraftPosition(x, y-1)
 		rgt_tile = IcecraftPosition(x+1, y)
 		tiles = [mid_tile, lft_tile, rgt_tile, top_tile, bot_tile]
-		
+
 		config_map = {t: get_config_items(t) for t in tiles}
-		
+
 		raw_nets = get_net_data(tiles)
 		rep = InterRep(raw_nets, config_map)
-		
+
 		class LUTPlacement(NamedTuple):
 			func: int
 			top_out: int
 			lft_out: int
 			bot_out: int
 			rgt_out: int
-		
+
 		def lut_out_desig(tile, lut_index):
 			return VertexDesig.from_net_name(tile, f"lutff_{lut_index}/out")
-		
+
 		@dataclass(frozen=True)
 		class ConNeed(EdgeDesig):
 			def __post_init__(self):
 				pass
-			
+
 			def __repr__(self):
 				return f"({self.src.tile.x}, {self.src.tile.y}) {self.src.name} -> ({self.dst.tile.x}, {self.dst.tile.y}) {self.dst.name}"
-			
+
 			@classmethod
 			def from_lut_src(cls, src_tile, src_index, dst):
 				src = lut_out_desig(src_tile, src_index)
 				return cls(src, dst)
-		
+
 		all_needs = []
 		for src_tile in [mid_tile, top_tile, lft_tile, bot_tile, rgt_tile]:
 			for src_index in range(8):
@@ -725,14 +764,14 @@ class TestXC6200(unittest.TestCase):
 				for dst_index in range(8):
 					dst = VertexDesig.from_lut_index(mid_tile, dst_index)
 					all_needs.append(ConNeed(src, dst))
-		
+
 		all_routes = self.create_routes(all_needs, rep)
 		#for need, routes in all_routes.items():
 		#	print(f"{need}:")
 		#	for i, route in enumerate(routes):
 		#		s = "=".join(f"({e.src.tile.x}, {e.src.tile.y}) {e.src.name} -> {e.dst.name}" for e in route)
 		#		print(f"{i}: {s}")
-		
+
 		@dataclass
 		class RoutingTask:
 			grp_index: int
@@ -740,13 +779,13 @@ class TestXC6200(unittest.TestCase):
 			route_index: int
 			to_clear: List[EdgeDesig]
 			grp_routes: List[List[EdgeDesig]]
-		
+
 		solutions = {}
 		for c, raw_indices in enumerate(itertools.permutations(range(8), 5)):
 			print(f"{c}/{8*7*6*5*4}")
 			plmt = LUTPlacement(*raw_indices)
 			# create connection requirements
-			
+
 			# split in need groups; inside a need group are options,
 			# i.e. only one will be relaized, so they can share incompatible
 			# configurations, while between need groups only compatible
@@ -767,19 +806,19 @@ class TestXC6200(unittest.TestCase):
 			#		for r in all_routes[n]:
 			#			print(r)
 			#return
-			
+
 			top_desig = VertexDesig.from_lut_index(mid_tile, plmt.top_out)
 			need_grps.append([ConNeed(s, top_desig) for s in [f_out, lft_in, bot_in, rgt_in]])
-			
+
 			lft_desig = VertexDesig.from_lut_index(mid_tile, plmt.lft_out)
 			need_grps.append([ConNeed(s, lft_desig) for s in [f_out, top_in, bot_in, rgt_in]])
-			
+
 			bot_desig = VertexDesig.from_lut_index(mid_tile, plmt.bot_out)
 			need_grps.append([ConNeed(s, bot_desig) for s in [f_out, top_in, lft_in, rgt_in]])
-			
+
 			rgt_desig = VertexDesig.from_lut_index(mid_tile, plmt.rgt_out)
 			need_grps.append([ConNeed(s, rgt_desig) for s in [f_out, top_in, lft_in, bot_in]])
-			
+
 			# estimate upper limit of combinations
 			limit = 1
 			for ng in need_grps:
@@ -787,7 +826,7 @@ class TestXC6200(unittest.TestCase):
 					limit *= len(all_routes[n])
 			print(f"at most {limit}")
 			routings = []
-			
+
 			stack = [RoutingTask(0, 0, 0, [], [])]
 			cur_routing = []
 			#pdb.set_trace()
@@ -803,14 +842,14 @@ class TestXC6200(unittest.TestCase):
 						edge.available = True
 					cur_routing.pop()
 					continue
-				
+
 				if task.grp_index == len(need_grps):
 					# solution found
 					print(f"found for {plmt}")
 					routings.append(list(cur_routing))
 					break
 					#continue
-				
+
 				need_grp = need_grps[task.grp_index]
 				if task.need_index == len(need_grp):
 					# need grp done
@@ -841,7 +880,7 @@ class TestXC6200(unittest.TestCase):
 						[]
 					))
 					continue
-				
+
 				need = need_grp[task.need_index]
 				routes = all_routes[need]
 				route_index = task.route_index
@@ -851,7 +890,7 @@ class TestXC6200(unittest.TestCase):
 					for ed in routes[route_index]:
 						edge = rep.get_edge(ed)
 						if isinstance(edge.dst, LUTVertex):
-							
+
 							continue
 						not_avail = [e for e in edge.dst.iter_in_edges() if not e.available]
 						# more than one edeg not available -> multi options for other need group
@@ -862,14 +901,14 @@ class TestXC6200(unittest.TestCase):
 							break
 					if valid:
 						break
-					
+
 					route_index += 1
-				
+
 				if route_index == len(routes):
 					# no more routes to try
 					#print(f"nothing more for grp {task.grp_index}, need {task.need_index}")
 					continue
-				
+
 				# continue later with next route ...
 				stack.append(RoutingTask(
 					task.grp_index,
@@ -886,15 +925,15 @@ class TestXC6200(unittest.TestCase):
 					[],
 					task.grp_routes+[routes[route_index]]
 				))
-			
+
 			if len(routings) > 0:
 				solutions[plmt] = routings
-		
+
 		self.assertTrue(solutions)
 		print(f"{len(solutions)} found:")
 		for plmt, routings in solutions.items():
 			print(f"{plmt}: {len(routings)}")
-	
+
 	def test_get_neighbor(self):
 		tile = IcecraftPosition(2, 2)
 		test_cases = {
@@ -903,8 +942,8 @@ class TestXC6200(unittest.TestCase):
 			XC6200Direction.bot: IcecraftPosition(2, 1),
 			XC6200Direction.rgt: IcecraftPosition(3, 2),
 		}
-		
+
 		for direction, exp in test_cases.items():
 			res = XC6200RepGen.get_neighbor(tile, direction)
-			
+
 			self.assertEqual(exp, res)
