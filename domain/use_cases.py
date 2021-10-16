@@ -123,9 +123,11 @@ class RunEvoAlgo(UseCase):
 		self._parameters = {"perform": []}
 	
 	@sink_request
-	def perform(self, request: RequestObject) -> None:
+	def perform(self, request: RequestObject) -> ResponseObject:
 		with self._data_sink:
 			self._evo_algo.run()
+
+		return ResponseObject()
 
 class GenChromo(UseCase):
 	"""Generate Chromosome"""
