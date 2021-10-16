@@ -64,7 +64,7 @@ class MeasureTest(unittest.TestCase):
 class GenChromoTest(unittest.TestCase):
 	def setUp(self):
 		self.id_list = [3, 4, 28, 0, 10]
-		self.mock_id =  MockUniqueID(self.id_list)
+		self.mock_id = MockUniqueID(self.id_list)
 	
 	def test_call(self):
 		allele_indices_list = [[j*j for j in range(i+1)] for i in range(len(self.id_list))]
@@ -72,7 +72,7 @@ class GenChromoTest(unittest.TestCase):
 		dut = GenChromo(self.mock_id)
 		
 		for exp_id, exp_indices in zip(self.id_list, allele_indices_list):
-			res = dut(RequestObject(allele_indices=exp_indices))
+			res = dut(RequestObject(allele_indices=exp_indices)).chromosome
 			
 			self.assertEqual(exp_id, res.identifier)
 			self.assertEqual(exp_indices, list(res.allele_indices))

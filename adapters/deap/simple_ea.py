@@ -73,7 +73,7 @@ class Individual:
 				if new_indi is None:
 					# create new chromosome
 					req["allele_indices"] = allele_indices_tup
-					chromo = chromo_gen(req)
+					chromo = chromo_gen(req).chromosome
 					new_indi = Individual(chromo)
 				out_indis.append(new_indi)
 			

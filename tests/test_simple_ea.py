@@ -45,7 +45,7 @@ class IndividualTest(TestCase):
 			dut = Individual.wrap_alteration(alter_1, 1, chromo_gen, data_sink, info_src)
 			# change
 			req = RequestObject(allele_indices=(1, 2, 3))
-			indi = Individual(chromo_gen(req))
+			indi = Individual(chromo_gen(req).chromosome)
 			
 			res = dut(indi, 3.7)
 			
@@ -100,7 +100,7 @@ class IndividualTest(TestCase):
 			]
 			
 			for td in test_data:
-				indis = [Individual(chromo_gen(RequestObject(allele_indices=r))) for r in td.raw]
+				indis = [Individual(chromo_gen(RequestObject(allele_indices=r)).chromosome) for r in td.raw]
 				
 				res = dut(*indis)
 				

@@ -141,11 +141,11 @@ class GenChromo(UseCase):
 		self._data_sink = data_sink
 	
 	@sink_request
-	def perform(self, request: RequestObject) -> Chromosome:
+	def perform(self, request: RequestObject) -> ResponseObject:
 		new_id = self._uid_gen.get_id()
 		indices = tuple(request.allele_indices)
 		chromo = Chromosome(new_id, indices)
-		return chromo
+		return ResponseObject(chromosome=chromo)
 
 class RandomChromo(UseCase):
 	"""Generate a random chromosome"""
@@ -162,4 +162,4 @@ class RandomChromo(UseCase):
 	@sink_request
 	def perform(self, request: RequestObject) -> ResponseObject:
 		indices = [self._prng.randint(0, len(g.alleles)-1) for g in self._rep.iter_genes()]
-		return ResponseObject(chromosome=self._chromo_gen(RequestObject(allele_indices=indices)))
+		return self._chromo_gen(RequestObject(allele_indices=indices))
