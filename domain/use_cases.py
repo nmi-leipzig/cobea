@@ -160,6 +160,6 @@ class RandomChromo(UseCase):
 		self._data_sink = data_sink
 	
 	@sink_request
-	def perform(self, request: RequestObject) -> Chromosome:
+	def perform(self, request: RequestObject) -> ResponseObject:
 		indices = [self._prng.randint(0, len(g.alleles)-1) for g in self._rep.iter_genes()]
-		return self._chromo_gen(RequestObject(allele_indices=indices))
+		return ResponseObject(chromosome=self._chromo_gen(RequestObject(allele_indices=indices)))

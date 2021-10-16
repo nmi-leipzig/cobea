@@ -116,7 +116,7 @@ class RandomChromoTest(unittest.TestCase):
 		dut = RandomChromo(self.mock_prng, self.mock_rep, self.mock_id)
 		
 		for i, exp_id in enumerate(self.id_list):
-			res = dut(RequestObject())
+			res = dut(RequestObject()).chromosome
 			
 			self.assertEqual(exp_id, res.identifier)
 			self.assertEqual(self.int_list[i*gene_count:(i+1)*gene_count], list(res.allele_indices))

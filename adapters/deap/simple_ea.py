@@ -218,7 +218,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		
 	
 	def _init_pop(self, count) -> List[Individual]:
-		return [Individual(self._init_uc(RequestObject())) for _ in range(count)]
+		return [Individual(self._init_uc(RequestObject()).chromosome) for _ in range(count)]
 	
 	def _evaluate(self, indi: Individual, comb_index: Optional[int]=None, info: Mapping[str, Any]={}) -> Tuple[int]:
 		if comb_index is None:
