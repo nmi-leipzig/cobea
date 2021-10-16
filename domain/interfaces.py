@@ -115,7 +115,7 @@ class TargetManager(ABC):
 
 class FitnessFunction(ParameterUser):
 	@abstractmethod
-	def compute(self, request: RequestObject) -> float:
+	def compute(self, request: RequestObject) -> ResponseObject:
 		raise NotImplementedError()
 
 # interface to compute a fitness function

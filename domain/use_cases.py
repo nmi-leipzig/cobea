@@ -9,7 +9,8 @@ from domain.model import OutputData, Chromosome
 from domain.interfaces import DataSink, Driver, EvoAlgo, FitnessFunction, MeasureTimeout, Meter, Preprocessing,\
 PreprocessingLibrary, PosTrans, PosTransLibrary, PRNG, RepresentationGenerator, Representation, TargetConfiguration,\
 TargetManager, UniqueID
-from domain.request_model import RequestObject, ParameterUser, Parameter, set_req_defaults
+from domain.request_model import RequestObject, ParameterUser, Parameter, set_req_defaults, ResponseObject
+
 
 class UseCase(ParameterUser, DataSinkUser):
 	@set_req_defaults
@@ -108,7 +109,7 @@ class MeasureFitness(UseCase):
 		self._data_sink = data_sink
 	
 	@sink_request
-	def perform(self, request: RequestObject) -> float:
+	def perform(self, request: RequestObject) -> ResponseObject:
 		request["configuration"] = self._rep.decode(request.configuration, request.chromosome)
 		request["output_data"] = self._measure_uc(request)
 		return self._fit_func.compute(request)
