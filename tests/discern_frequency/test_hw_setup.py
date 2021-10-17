@@ -218,8 +218,8 @@ class HWSetupTest(TestCase):
 		try:
 			self.flash_device(gen, "freq_gen.asc")
 			#self.flash_device(gen, "ctr_drv_2_5.asc")
-			#self.flash_device(target, "dummy_hab.asc")
-			self.flash_device(target, "freq_hab.asc", app_path=False)
+			self.flash_device(target, "dummy_hab.asc")
+			#self.flash_device(target, "freq_hab.asc", app_path=False)
 			#self.flash_device(target, "const_target.asc")
 			
 			driver = FixedEmbedDriver(gen, "B")
