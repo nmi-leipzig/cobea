@@ -14,7 +14,7 @@ from domain.request_model import RequestObject, ParameterUser, Parameter, set_re
 
 class UseCase(ParameterUser, DataSinkUser):
 	@set_req_defaults
-	def __call__(self, request: RequestObject) -> Any:
+	def __call__(self, request: RequestObject) -> ResponseObject:
 		result = self.perform(request)
 		return result
 	
@@ -29,7 +29,7 @@ class UseCase(ParameterUser, DataSinkUser):
 		return self._data_sink
 	
 	@abstractmethod
-	def perform(self, request: RequestObject) -> Any:
+	def perform(self, request: RequestObject) -> ResponseObject:
 		raise NotImplementedError()
 
 
@@ -79,6 +79,7 @@ class Measure(UseCase):
 		self.write_to_sink("additional", {"time": cur_time})
 		
 		return ResponseObject(measurement=output_data)
+
 
 class MeasureFitness(UseCase):
 	def __init__(self,
