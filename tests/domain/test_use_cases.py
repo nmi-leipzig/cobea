@@ -29,7 +29,7 @@ class MeasureTest(unittest.TestCase):
 		req = RequestObject(retry=0)
 		#req["input_data"] = input_data
 		
-		res_data = measure_case(req)
+		res_data = measure_case(req).measurement
 		
 		self.assertEqual(exp_prep, mock_meter.prep_count)
 		self.assertEqual(output_data, res_data)
@@ -43,7 +43,7 @@ class MeasureTest(unittest.TestCase):
 			measure_case = Measure(driver, mock_meter)
 			req = RequestObject(retry=retry)
 			
-			return measure_case(req)
+			return measure_case(req).measurement
 		
 		for retry in range(5):
 			for fail_count in range(retry+1):

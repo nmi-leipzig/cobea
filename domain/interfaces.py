@@ -80,7 +80,7 @@ class MeasureTimeout(Exception):
 	pass
 
 class Meter(ParameterUser, AbstractContextManager):
-	"""Interface for aquiring data from a device
+	"""Interface for acquiring data from a device
 	
 	The context manager can be used used to open (__enter__) and close the device (__exit__)
 	"""

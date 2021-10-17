@@ -121,7 +121,7 @@ def calibrate(driver: Driver, sn=None) -> CalibrationData:
 			retry = 2,
 			measure_timeout = 20,
 		)
-		data = measure_uc(eval_req)
+		data = measure_uc(eval_req).measurement
 	
 	nd = np.array(data)
 	trig_lev = 1.5

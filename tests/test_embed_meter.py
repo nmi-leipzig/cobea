@@ -94,7 +94,7 @@ class EmbedMeterTest(TestCase):
 				
 				res = measure_case(req)
 				
-				self.assertEqual(exp_data, list(res))
+				self.assertEqual(exp_data, list(res.measurement))
 	
 	@skipIf(IcecraftManager.device_present(), "no hardware")
 	def test_with_hardware(self):

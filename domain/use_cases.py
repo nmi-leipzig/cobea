@@ -32,6 +32,7 @@ class UseCase(ParameterUser, DataSinkUser):
 	def perform(self, request: RequestObject) -> Any:
 		raise NotImplementedError()
 
+
 class Measure(UseCase):
 	def __init__(self, driver: Driver, meter: Meter, data_sink: DataSink=None, prefix: Optional[str]=None) -> None:
 		self._driver = driver
@@ -54,7 +55,7 @@ class Measure(UseCase):
 		return self._prefix
 	
 	@sink_request
-	def perform(self, request: RequestObject) -> OutputData:
+	def perform(self, request: RequestObject) -> ResponseObject:
 		attempt = 0
 		while True:
 			attempt += 1
@@ -77,7 +78,7 @@ class Measure(UseCase):
 		
 		self.write_to_sink("additional", {"time": cur_time})
 		
-		return output_data
+		return ResponseObject(measurement=output_data)
 
 class MeasureFitness(UseCase):
 	def __init__(self,
@@ -98,7 +99,7 @@ class MeasureFitness(UseCase):
 			measure_uc.parameters["__call__"], fit_func.parameters["compute"],
 		]
 		perf_params = reduce(self.meld_parameters, sub_params)
-		for provided in ["output_data"]:
+		for provided in ["measurement"]:
 			try:
 				del perf_params[provided]
 			except KeyError:
@@ -110,9 +111,13 @@ class MeasureFitness(UseCase):
 	
 	@sink_request
 	def perform(self, request: RequestObject) -> ResponseObject:
-		request["configuration"] = self._rep.decode(request.configuration, request.chromosome)
-		request["output_data"] = self._measure_uc(request)
-		return self._fit_func.compute(request)
+		self._rep.decode(request.configuration, request.chromosome)
+		request["configuration"] = request.configuration
+		res = self._measure_uc(request)
+		request["measurement"] = res.measurement
+		res.update(self._fit_func.compute(request))
+
+		return res
 
 class RunEvoAlgo(UseCase):
 	def __init__(self, evo_algo: EvoAlgo, data_sink: DataSink=None) -> None:

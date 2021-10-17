@@ -237,7 +237,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			carry_enable_state.append(self._habitat.get_bit(bit))
 		self._target.configure(self._habitat, fast=True)
 		cur_time = datetime.datetime.now(datetime.timezone.utc)
-		raw_data = self._measure_uc(eval_req)
+		raw_data = self._measure_uc(eval_req).measurement
 		data = self._prep(raw_data)
 		
 		fast_sum = 0

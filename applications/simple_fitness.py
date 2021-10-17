@@ -57,7 +57,7 @@ def main():
 	try:
 		req["target"] = target
 		
-		out_data = measure_case(req)
+		out_data = measure_case(req).measurement
 	finally:
 		ice_man.release(target)
 	

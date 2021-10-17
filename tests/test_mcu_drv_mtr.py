@@ -56,4 +56,4 @@ class MCUDrvMtrTest(TestCase):
 				measure_timeout = 10,
 			))
 			
-			self.assertEqual(data_count, len(res))
+			self.assertEqual(data_count, len(res.measurement))

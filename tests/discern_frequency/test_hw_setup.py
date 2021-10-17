@@ -242,7 +242,7 @@ class HWSetupTest(TestCase):
 				req["driver_data"] = InputData([comb_index])
 				
 				bef = time.perf_counter()
-				data = measure_uc(req)
+				data = measure_uc(req).measurement
 				aft = time.perf_counter()
 				print(f"whole measurement took {aft-bef} s")
 				if len(data) != 524288:
@@ -345,7 +345,7 @@ class HWSetupTest(TestCase):
 				req["driver_data"] = InputData([comb_index])
 				
 				bef = time.perf_counter()
-				data = measure_uc(req)
+				data = measure_uc(req).measurement
 				aft = time.perf_counter()
 				#print(f"whole measurement took {aft-bef} s")
 				data = preprocessing(data)
@@ -408,7 +408,7 @@ class HWSetupTest(TestCase):
 						retry = 3,
 						measure_timeout = 3,
 					)
-					data = measure_uc(req)
+					data = measure_uc(req).measurement
 				finally:
 					man.release(gen)
 	
@@ -520,7 +520,7 @@ class HWSetupTest(TestCase):
 				comb = idx_to_comb[comb_index]
 				req["driver_data"] = InputData([comb_index])
 				
-				data = measure_uc(req)
+				data = measure_uc(req).measurement
 				
 				sub_data = [data[len(data)*i//12:len(data)*(i+1)//12] for i in range(12)]
 				# remove unused
