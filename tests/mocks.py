@@ -58,7 +58,7 @@ class MockTargetDevice(TargetDevice):
 class MockTargetManager(TargetManager):
 	def __init__(self, size=1):
 		hardware_type = "S6C7"
-		self.devices = {s: MockTargetDevice(s, hardware_type) for s in range(size)}
+		self.devices = {s: MockTargetDevice(str(s), hardware_type) for s in range(size)}
 		self.available = set(self.devices)
 	
 	def acquire(self, serial_number: Union[str, None]) -> TargetDevice:
