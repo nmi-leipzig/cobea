@@ -3,7 +3,7 @@ import time
 
 from copy import deepcopy
 from types import TracebackType
-from typing import Any, Iterable, Mapping, Optional, Union, Type
+from typing import Any, Iterable, Mapping, Optional, Union, Type, Tuple
 
 from domain.base_structures import BitPos
 from domain.data_sink import DataSink
@@ -14,7 +14,8 @@ from domain.request_model import RequestObject, Parameter, ResponseObject
 
 
 class MockBitPos(BitPos, int):
-	pass
+	def to_ints(self) -> Tuple[int, ...]:
+		return (int(self), )
 
 
 class MockTargetDevice(TargetDevice):
