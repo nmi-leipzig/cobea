@@ -184,6 +184,7 @@ class MockDataSink(DataSink):
 	
 	def __enter__(self) -> "MockDataSink":
 		self.clear()
+		return self
 	
 	def __exit__(self,
 		exc_type: Optional[Type[BaseException]],
