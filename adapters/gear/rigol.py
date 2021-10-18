@@ -11,7 +11,7 @@ import pyvisa
 
 from domain.interfaces import IdentifiableHW, MeasureTimeout, Meter
 from domain.model import OutputData
-from domain.request_model import Parameter, RequestObject
+from domain.request_model import Parameter, ResponseObject, RequestObject
 
 @dataclass
 class SetupCmd:
@@ -203,7 +203,7 @@ class OsciDS1102E(Meter, IdentifiableHW):
 		
 		return False
 	
-	def prepare(self, request: RequestObject) -> None:
+	def prepare(self, request: RequestObject) -> ResponseObject:
 		#self.open()
 		
 		#self.read_and_print(self._osci, self._setup)
@@ -214,6 +214,8 @@ class OsciDS1102E(Meter, IdentifiableHW):
 		# for small time scales (20 ms or less) the trigger might come too fast -> wait a bit (0.03 s seem to work)
 		if self._setup.TIM.SCAL.value_ <= 0.02:
 			time.sleep(0.03)
+
+		return ResponseObject()
 	
 	def measure(self, request: RequestObject) -> OutputData:
 		start_time = time.perf_counter()

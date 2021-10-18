@@ -10,10 +10,12 @@ from domain.data_sink import DataSink
 from domain.interfaces import MeasureTimeout, Meter, PRNG, Representation, TargetConfiguration, TargetDevice,\
 TargetManager, UniqueID
 from domain.model import OutputData, Gene, Chromosome
-from domain.request_model import RequestObject, Parameter
+from domain.request_model import RequestObject, Parameter, ResponseObject
+
 
 class MockBitPos(BitPos, int):
 	pass
+
 
 class MockTargetDevice(TargetDevice):
 	def __init__(self, serial_number="9555", hardware_type="S6C7", read_data=b""):
@@ -51,6 +53,7 @@ class MockTargetDevice(TargetDevice):
 		self._written += data
 		return len(data)
 
+
 class MockTargetManager(TargetManager):
 	def __init__(self, size=1):
 		hardware_type = "S6C7"
@@ -69,6 +72,7 @@ class MockTargetManager(TargetManager):
 		assert target.serial_number in self.devices
 		self.available.add(target.serial_number)
 
+
 class MockMeter(Meter):
 	def __init__(self, output_data: OutputData, fail_count=0):
 		self.output_data = output_data
@@ -76,8 +80,9 @@ class MockMeter(Meter):
 		self.prep_count = 0
 		self.meas_count = 0
 	
-	def prepare(self, request: RequestObject) -> None:
+	def prepare(self, request: RequestObject) -> ResponseObject:
 		self.prep_count += 1
+		return ResponseObject()
 	
 	def measure(self, request: RequestObject) -> OutputData:
 		self.meas_count += 1
@@ -104,8 +109,8 @@ class RandomMeter(Meter):
 		self._measure_delay = measure_delay
 		self._rng = random.Random(seed)
 	
-	def prepare(self, request: RequestObject) -> None:
-		return None
+	def prepare(self, request: RequestObject) -> ResponseObject:
+		return ResponseObject()
 	
 	def measure(self, request: RequestObject) -> OutputData:
 		time.sleep(self._measure_delay)
@@ -114,6 +119,7 @@ class RandomMeter(Meter):
 	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 		return {"measure": [], "prepare": []}
+
 
 class MockUniqueID(UniqueID):
 	"""IDs are passed to the constructor and returned in the order given"""
@@ -124,6 +130,7 @@ class MockUniqueID(UniqueID):
 	
 	def get_id(self) -> int:
 		return self._id_list.pop()
+
 
 class MockRandInt(PRNG):
 	"""integers are passed to the constructor and returned in the order given
@@ -141,6 +148,7 @@ class MockRandInt(PRNG):
 	def randint(self, a: int, b: int) -> int:
 		return self._int_list.pop()
 
+
 class MockRepresentation(Representation):
 	"""genes are passed to the constructor"""
 	
@@ -155,6 +163,7 @@ class MockRepresentation(Representation):
 	
 	def iter_genes(self) -> Iterable[Gene]:
 		yield from self._gene_list
+
 
 class MockDataSink(DataSink):
 	"""calls to the write functions are recorded

@@ -8,7 +8,8 @@ from typing import Iterable, Mapping, Optional, Type
 
 from domain.interfaces import IdentifiableHW, Meter
 from domain.model import OutputData
-from domain.request_model import Parameter, RequestObject
+from domain.request_model import Parameter, RequestObject, ResponseObject
+
 
 class TempMeterError(Exception):
 	"""Raised when an error occurs in the operation of the temp meter"""
@@ -88,9 +89,10 @@ class TempMeter(Meter, IdentifiableHW):
 		self._arduino = None
 		return False
 	
-	def prepare(self, request: RequestObject) -> None:
+	def prepare(self, request: RequestObject) -> ResponseObject:
 		# write temperature request
 		self._arduino.write(b"s")
+		return ResponseObject()
 	
 	def measure(self, request: RequestObject) -> OutputData:
 		data = self._arduino.read(2)

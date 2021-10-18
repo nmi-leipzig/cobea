@@ -3,7 +3,8 @@ from typing import Mapping, Iterable
 
 from domain.interfaces import TargetDevice, Meter
 from domain.model import OutputData
-from domain.request_model import Parameter, RequestObject
+from domain.request_model import Parameter, RequestObject, ResponseObject
+
 
 class EmbedMeter(Meter):
 	@property
@@ -18,8 +19,8 @@ class EmbedMeter(Meter):
 			]
 		}
 	
-	def prepare(self, request: RequestObject) -> None:
-		pass
+	def prepare(self, request: RequestObject) -> ResponseObject:
+		return ResponseObject()
 	
 	def measure(self, request: RequestObject) -> OutputData:
 		# receive prefix

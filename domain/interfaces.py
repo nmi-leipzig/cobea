@@ -85,7 +85,7 @@ class Meter(ParameterUser, AbstractContextManager):
 	The context manager can be used used to open (__enter__) and close the device (__exit__)
 	"""
 	@abstractmethod
-	def prepare(self, request: RequestObject) -> None:
+	def prepare(self, request: RequestObject) -> ResponseObject:
 		raise NotImplementedError()
 	
 	@abstractmethod
@@ -139,7 +139,7 @@ class PreprocessingLibrary(ABC):
 		raise NotImplementedError()
 
 class Representation(ABC):
-	"""Interface for representating the phenotype as a genotype"""
+	"""Interface for representing the phenotype as a genotype"""
 	
 	@abstractmethod
 	def prepare_config(self, config: TargetConfiguration) -> None:

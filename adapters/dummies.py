@@ -38,7 +38,7 @@ class DummyMeter(Meter):
 	def parameters(self):
 		return {"prepare": [], "measure": []}
 	
-	def prepare(self, request: RequestObject) -> None:
+	def prepare(self, request: RequestObject) -> ResponseObject:
 		pass
 	
 	def measure(self, request: RequestObject) -> OutputData:

@@ -7,7 +7,7 @@ from adapters.dummies import DummyDriver
 from adapters.embed_meter import EmbedMeter
 from adapters.icecraft.configuration import IcecraftRawConfig, IcecraftStormConfig, block_size_from_mode
 from adapters.icecraft.target import IcecraftManager
-from domain.request_model import RequestObject
+from domain.request_model import RequestObject, ResponseObject
 from domain.use_cases import Measure
 
 from .common import check_parameter_user
@@ -36,8 +36,9 @@ class EmbedMeterTest(TestCase):
 			with self.subTest(req=req):
 				req["meter_dev"] = MagicMock()
 				exp = RequestObject(req)
-				dut.prepare(req)
-				
+				res = dut.prepare(req)
+				self.assertIsInstance(res, ResponseObject)
+
 				for var in ["prefix", "output_count", "output_format"]:
 					self.assertEqual(exp[var], req[var])
 				
@@ -79,8 +80,7 @@ class EmbedMeterTest(TestCase):
 				
 				with self.assertRaises(AssertionError):
 					res = dut.measure(req)
-				
-	
+
 	def test_use_case(self):
 		dut = EmbedMeter()
 		

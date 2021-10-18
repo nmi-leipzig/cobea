@@ -67,8 +67,8 @@ class MCUDrvMtr(Driver, Meter, IdentifiableHW):
 		self._arduino = None
 		return False
 	
-	def prepare(self, request: RequestObject) -> None:
-		pass
+	def prepare(self, request: RequestObject) -> ResponseObject:
+		return ResponseObject()
 	
 	def drive(self, request: RequestObject) -> ResponseObject:
 		for value in request.driver_data:

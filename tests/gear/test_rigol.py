@@ -17,7 +17,8 @@ except ImportError:
 
 from adapters.gear.rigol import OsciDS1102E, SetupCmd, FloatCheck, IntCheck, MultiIntCheck, MultiNoSpace
 from domain.interfaces import MeasureTimeout
-from domain.request_model import RequestObject
+from domain.request_model import RequestObject, ResponseObject
+
 
 class SetupCmdTest(TestCase):
 	def test_creation(self):
@@ -250,7 +251,14 @@ class OsciDS1102ETest(TestCase):
 		
 		with self.get_osci() as osci:
 			self.query_all(osci, dut)
-	
+
+	@skipIf(usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None, "No oscilloscope found")
+	def test_prepare(self):
+		with self.get_osci() as dut:
+			req = RequestObject(measure_timeout=0.5)
+			res = dut.prepare(req)
+			self.assertIsInstance(res, ResponseObject)
+
 	@skipIf(usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None, "No oscilloscope found")
 	def test_timeout(self):
 		setup = OsciDS1102E.create_setup()

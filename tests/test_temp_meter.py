@@ -7,7 +7,8 @@ from serial import Serial, SerialTimeoutException
 from serial.tools.list_ports import comports
 
 from adapters.temp_meter import TempMeter
-from domain.request_model import RequestObject
+from domain.request_model import ResponseObject, RequestObject
+
 
 class TempMeterTest(TestCase):
 	def get_device(self, baudrate=500000):
@@ -41,7 +42,14 @@ class TempMeterTest(TestCase):
 	
 	def test_create(self):
 		dut = TempMeter()
-	
+
+	def test_prepare(self):
+		baudrate = 500000
+		sn = self.get_device(baudrate)
+		with TempMeter(baudrate, sn) as dut:
+			res = dut.prepare(RequestObject())
+			self.assertIsInstance(res, ResponseObject)
+
 	def test_measure(self):
 		baudrate = 500000
 		sn = self.get_device(baudrate)

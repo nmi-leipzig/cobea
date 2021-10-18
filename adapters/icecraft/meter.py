@@ -4,7 +4,7 @@ from typing import Mapping
 from adapters.icecraft.configuration import block_size_from_mode
 from domain.interfaces import TargetConfiguration, TargetDevice, Meter
 from domain.model import InputData, OutputData
-from domain.request_model import RequestObject, Parameter
+from domain.request_model import RequestObject, Parameter, ResponseObject
 
 from .misc import IcecraftPosition
 
@@ -39,8 +39,8 @@ class IcecraftEmbedMeter(Meter):
 		
 		return data
 	
-	def prepare(self, request: RequestObject) -> None:
-		pass
+	def prepare(self, request: RequestObject) -> ResponseObject:
+		return ResponseObject()
 	
 	def measure(self, request: RequestObject) -> OutputData:
 		target = request.target
