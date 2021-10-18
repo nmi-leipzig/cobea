@@ -217,7 +217,7 @@ class OsciDS1102E(Meter, IdentifiableHW):
 
 		return ResponseObject()
 	
-	def measure(self, request: RequestObject) -> OutputData:
+	def measure(self, request: RequestObject) -> ResponseObject:
 		start_time = time.perf_counter()
 		while self._osci.query(":TRIG:STAT?") not in ("T'D", "STOP"):
 			if request.measure_timeout is not None and time.perf_counter() - start_time > request.measure_timeout:
@@ -228,9 +228,9 @@ class OsciDS1102E(Meter, IdentifiableHW):
 			time.sleep(self._delay)
 		
 		raw_data = self._read_data(self._data_chan)
-		
-		return self._prep(raw_data)
-	
+
+		return ResponseObject(measurement=self._prep(raw_data))
+
 	def _read_data(self, chan: int) -> bytes:
 		self._osci.write(f":WAV:DATA? CHAN{chan}")
 		

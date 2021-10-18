@@ -65,7 +65,7 @@ class Measure(UseCase):
 			# create aware datetime object; utcnow would create naive datetime object
 			cur_time = datetime.datetime.now(datetime.timezone.utc)
 			try:
-				output_data = self._meter.measure(request)
+				res = self._meter.measure(request)
 			except MeasureTimeout:
 				print(f"Got timeout on attempt {attempt}")
 				if attempt <= request.retry:
@@ -78,7 +78,7 @@ class Measure(UseCase):
 		
 		self.write_to_sink("additional", {"time": cur_time})
 		
-		return ResponseObject(measurement=output_data)
+		return res
 
 
 class MeasureFitness(UseCase):

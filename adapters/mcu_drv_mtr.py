@@ -77,14 +77,14 @@ class MCUDrvMtr(Driver, Meter, IdentifiableHW):
 			self._arduino.write(raw)
 		return ResponseObject()
 	
-	def measure(self, request: RequestObject) -> OutputData:
+	def measure(self, request: RequestObject) -> ResponseObject:
 		res = []
 		chunk_size = struct.calcsize(self._return_format)
 		for _ in range(self._return_count):
 			raw_data = self._arduino.read(chunk_size)
 			res.extend(struct.unpack(self._return_format, raw_data))
 		
-		return OutputData(res)
+		return ResponseObject(measurement=OutputData(res))
 	
 	def clean_up(self, request: RequestObject) -> ResponseObject:
 		return ResponseObject()

@@ -22,7 +22,7 @@ class EmbedMeter(Meter):
 	def prepare(self, request: RequestObject) -> ResponseObject:
 		return ResponseObject()
 	
-	def measure(self, request: RequestObject) -> OutputData:
+	def measure(self, request: RequestObject) -> ResponseObject:
 		# receive prefix
 		if len(request.prefix):
 			pre = request.meter_dev.read_bytes(len(request.prefix))
@@ -30,8 +30,8 @@ class EmbedMeter(Meter):
 		
 		# receive output data
 		data = self.read_data(request.meter_dev, request.output_count, request.output_format)
-		return OutputData(data)
-	
+		return ResponseObject(measurement=OutputData(data))
+
 	@staticmethod
 	def read_data(meter_dev: TargetDevice, count: int, format_str: str) -> list:
 		size = struct.calcsize(format_str)

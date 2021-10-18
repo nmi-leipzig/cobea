@@ -120,7 +120,7 @@ class EmbedDriverTest(TestCase):
 				dut.drive(driver_req)
 				res = meter.measure(meter_req)
 				
-				self.assertEqual(tc.driver_data, res)
+				self.assertEqual(tc.driver_data, res.measurement)
 				
 				man.release(dev)
 	

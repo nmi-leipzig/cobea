@@ -42,7 +42,7 @@ class IcecraftEmbedMeter(Meter):
 	def prepare(self, request: RequestObject) -> ResponseObject:
 		return ResponseObject()
 	
-	def measure(self, request: RequestObject) -> OutputData:
+	def measure(self, request: RequestObject) -> ResponseObject:
 		target = request.target
 		# embed input data in ram
 		config = request.configuration
@@ -70,6 +70,6 @@ class IcecraftEmbedMeter(Meter):
 		
 		# receive output data
 		data = self.read_data(target, request.output_count, request.output_format)
-		return OutputData(data)
+		return ResponseObject(measurement=OutputData(data))
 
 

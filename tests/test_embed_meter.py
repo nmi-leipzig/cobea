@@ -55,7 +55,7 @@ class EmbedMeterTest(TestCase):
 				
 				res = dut.measure(req)
 				
-				self.assertEqual(exp_data, list(res))
+				self.assertEqual(exp_data, list(res.measurement))
 	
 	@staticmethod
 	def create_data(req):
@@ -119,7 +119,7 @@ class EmbedMeterTest(TestCase):
 				
 				res = dut.measure(req)
 				
-				self.assertEqual(send_meta.initial_data+[0]*(count-len(send_meta.initial_data)), list(res))
+				self.assertEqual(send_meta.initial_data+[0]*(count-len(send_meta.initial_data)), list(res.measurement))
 		
 		man.release(device)
 	

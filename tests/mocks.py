@@ -85,13 +85,13 @@ class MockMeter(Meter):
 		self.prep_count += 1
 		return ResponseObject()
 	
-	def measure(self, request: RequestObject) -> OutputData:
+	def measure(self, request: RequestObject) -> ResponseObject:
 		self.meas_count += 1
 		
 		if self.meas_count <= self.fail_count:
 			raise MeasureTimeout()
 		
-		return self.output_data
+		return ResponseObject(measurement=self.output_data)
 	
 	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
@@ -113,9 +113,10 @@ class RandomMeter(Meter):
 	def prepare(self, request: RequestObject) -> ResponseObject:
 		return ResponseObject()
 	
-	def measure(self, request: RequestObject) -> OutputData:
+	def measure(self, request: RequestObject) -> ResponseObject:
 		time.sleep(self._measure_delay)
-		return OutputData([self._rng.random() for _ in range(self._output_len)])
+		data = OutputData([self._rng.random() for _ in range(self._output_len)])
+		return ResponseObject(measurement=data)
 	
 	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:

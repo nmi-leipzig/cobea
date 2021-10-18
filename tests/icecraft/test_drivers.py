@@ -109,7 +109,7 @@ class IcecraftRAMDriverTest(unittest.TestCase):
 				meter.prepare(read_req)
 				dut.drive(req)
 				
-				output = meter.measure(read_req)
+				output = meter.measure(read_req).measurement
 				
 				self.assertEqual(data, output)
 		

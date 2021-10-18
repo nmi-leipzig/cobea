@@ -94,8 +94,8 @@ class TempMeter(Meter, IdentifiableHW):
 		self._arduino.write(b"s")
 		return ResponseObject()
 	
-	def measure(self, request: RequestObject) -> OutputData:
+	def measure(self, request: RequestObject) -> ResponseObject:
 		data = self._arduino.read(2)
 		raw_temp = struct.unpack("<h", data)[0]
-		
-		return OutputData([raw_temp/128])
+
+		return ResponseObject(measurement=OutputData([raw_temp/128]))

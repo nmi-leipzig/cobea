@@ -89,7 +89,7 @@ class Meter(ParameterUser, AbstractContextManager):
 		raise NotImplementedError()
 	
 	@abstractmethod
-	def measure(self, request: RequestObject) -> OutputData:
+	def measure(self, request: RequestObject) -> ResponseObject:
 		raise NotImplementedError()
 	
 	# The default __enter__ is already provided by AbstractContextManager
