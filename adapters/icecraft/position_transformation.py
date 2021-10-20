@@ -11,11 +11,8 @@ class IcecraftPosTransLibrary(PosTransLibrary):
 			"expand_rectangle": tuple()
 		}
 	
-	def get_pos_trans(self, request: RequestObject) -> PosTrans:
-		func = getattr(self, request.identifier)
-		params = ParameterValues()
-		for name in self.param_dict[request.identifier]:
-			params[name] = request[name]
+	def get_item(self, identifier: str, params: ParameterValues) -> PosTrans:
+		func = getattr(self, identifier)
 		return partial(func, params=params)
 	
 	@staticmethod

@@ -1,6 +1,6 @@
 import unittest
 
-from domain.request_model import RequestObject
+from domain.request_model import RequestObject, ParameterValues
 from adapters.icecraft.position_transformation import IcecraftPosTransLibrary
 from adapters.icecraft.misc import IcecraftPosition
 
@@ -16,9 +16,7 @@ class TestIcecraftPosTransLibrary(unittest.TestCase):
 	def test_expand_rectangle_req(self):
 		ptl = IcecraftPosTransLibrary()
 		
-		req = RequestObject()
-		req["identifier"] = "expand_rectangle"
-		dut = ptl.get_pos_trans(req)
+		dut = ptl.get_item("expand_rectangle", ParameterValues())
 		
 		self.check_expand_rectangle(dut)
 	

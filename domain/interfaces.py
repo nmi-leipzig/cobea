@@ -174,7 +174,7 @@ class PosTransLibrary(ABC):
 	"""Interface for a library of position transformations"""
 	
 	@abstractmethod
-	def get_pos_trans(self, request: RequestObject) -> PosTrans:
+	def get_item(self, identifier: str, params: ParameterValues) -> PosTrans:
 		raise NotImplementedError()
 
 class EvoAlgo(ABC):

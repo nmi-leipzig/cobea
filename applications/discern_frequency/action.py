@@ -32,7 +32,7 @@ from adapters.unique_id import SimpleUID
 from domain.data_sink import DataSink
 from domain.interfaces import Driver, InputData, Meter, OutputData, TargetDevice, TargetManager
 from domain.model import AlleleAll, Chromosome, Gene
-from domain.request_model import RequestObject
+from domain.request_model import RequestObject, ParameterValues
 from domain.use_cases import Measure
 
 class CalibrationError(Exception):
@@ -45,9 +45,8 @@ class DataCollectionError(Exception):
 
 # generate tiles
 def tiles_from_corners(min_pos: Tuple[int, int], max_pos: Tuple[int, int]) -> List[IcecraftPosition]:
-	req = RequestObject(identifier="expand_rectangle", description="")
 	ptl = IcecraftPosTransLibrary()
-	exp_rect = ptl.get_pos_trans(req)
+	exp_rect = ptl.get_item("expand_rectangle", ParameterValues())
 	res = exp_rect([IcecraftPosition(*min_pos), IcecraftPosition(*max_pos)])
 	return res
 
