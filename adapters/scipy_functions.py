@@ -3,13 +3,15 @@ from scipy.stats import stats
 
 from domain.interfaces import CorrelationFunction, CorrelationFunctionLibrary
 from domain.model import InputData, OutputData
+from domain.request_model import ParameterValues
+
 
 class SciPyFunctions(CorrelationFunctionLibrary):
 	
 	def __init__(self):
 		pass
 	
-	def get_correlation_function(self, identifier: str) -> CorrelationFunction:
+	def get_item(self, identifier: str, params: ParameterValues) -> CorrelationFunction:
 		return getattr(self, identifier)
 	
 	@staticmethod

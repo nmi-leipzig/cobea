@@ -125,7 +125,7 @@ class CorrelationFunctionLibrary(ABC):
 	"""Interface for a library of correlation function implementations"""
 	
 	@abstractmethod
-	def get_correlation_function(self, identifier: str) -> CorrelationFunction:
+	def get_item(self, identifier: str, params: ParameterValues) -> CorrelationFunction:
 		raise NotImplementedError()
 
 # interface to prepare data for fitness function
