@@ -113,7 +113,7 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	return write_map, metadata
 
 def add_fpga_osci(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
-	"""Add the entries for a FPGa driver and oscilloscoope meter to an existing HDF5Sink write map and metadata"""
+	"""Add the entries for a FPGa driver and oscilloscope meter to an existing HDF5Sink write map and metadata"""
 	
 	write_map.setdefault("Measure.perform", []).append(ParamAim(["return"], "uint8", "measurement", "fitness",
 		alter=partial(compose, funcs=[itemgetter(0), attrgetter("measurement")]), as_attr=False, shape=(2**19, ), shuffle=False))

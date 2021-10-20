@@ -38,7 +38,7 @@ def sink_request(func: Callable) -> Callable:
 	
 	@functools.wraps(func)
 	def wrap(*args, **kwargs):
-		# first arg should be self, i.e. the object that the functon belongs to
+		# first arg should be self, i.e. the object that the function belongs to
 		obj = args[0]
 		func_name = func.__name__
 		params = obj.parameters[func_name]
