@@ -10,6 +10,7 @@ from adapters.scipy_preprocessing import SciPyPreprocessing
 import domain.model as model
 import domain.interfaces as interfaces
 import domain.use_cases as use_cases
+from domain.request_model import ParameterValues
 
 class SciPyFunctionsTest(unittest.TestCase):
 	def setUp(self):
@@ -41,9 +42,8 @@ class SciPyFunctionsTest(unittest.TestCase):
 		self.assertEqual(expected, res)
 
 class SciPyPreprocessingTest(unittest.TestCase):
-	def get_example_request(self):
-		return use_cases.RequestObject(
-			identifier = "select",
+	def get_example(self):
+		return "select", ParameterValues(
 			description = "select [3:5]",
 			start = 3,
 			end = 5
@@ -67,6 +67,6 @@ class SciPyPreprocessingTest(unittest.TestCase):
 	def test_get_preprocessing(self):
 		spp = SciPyPreprocessing()
 		
-		res = spp.get_preprocessing(self.get_example_request())
+		res = spp.get_item(*self.get_example())
 		self.check_example(res)
 	

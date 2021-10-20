@@ -135,7 +135,7 @@ class PreprocessingLibrary(ABC):
 	"""Interface for a library of preprocessing implementations"""
 	
 	@abstractmethod
-	def get_preprocessing(self, request: RequestObject) -> Preprocessing:
+	def get_item(self, identifier: str, params: ParameterValues) -> Preprocessing:
 		raise NotImplementedError()
 
 class Representation(ABC):

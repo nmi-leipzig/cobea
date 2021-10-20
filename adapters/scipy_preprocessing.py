@@ -6,7 +6,8 @@ from scipy.stats import stats
 
 from domain.interfaces import Preprocessing, PreprocessingLibrary
 from domain.model import InputData, OutputData
-from domain.request_model import RequestObject, ParameterValues
+from domain.request_model import ParameterValues
+
 
 class SciPyPreprocessing(PreprocessingLibrary):
 	# preprocessing identifier -> parameters required
@@ -17,11 +18,8 @@ class SciPyPreprocessing(PreprocessingLibrary):
 	def __init__(self):
 		pass
 	
-	def get_preprocessing(self, request: RequestObject) -> Preprocessing:
-		func = getattr(self, request.identifier)
-		params = ParameterValues()
-		for name in self.param_dict[request.identifier]:
-			params[name] = request[name]
+	def get_item(self, identifier: str, params: ParameterValues) -> Preprocessing:
+		func = getattr(self, identifier)
 		return partial(func, params=params)
 	
 	@staticmethod
