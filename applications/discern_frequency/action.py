@@ -59,11 +59,11 @@ def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int], in_por
 	req = RequestObject(tiles=tiles, in_ports=[in_port])
 	
 	bef = time.perf_counter()
-	rep = rep_gen(req)
+	rep = rep_gen(req).representation
 	aft = time.perf_counter()
 	print(f"rep gen took {aft-bef} s, {sum(g.alleles.size_in_bits() for g in rep.genes)} bits")
 	
-	return rep.representation
+	return rep
 
 # flash FPGAs
 def prepare_generator(gen: TargetDevice, asc_path: str) -> IcecraftRawConfig:
