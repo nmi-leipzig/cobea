@@ -43,10 +43,10 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	chromo_aim = [
 		ParamAim(
 			["return"], f"uint{chromo_bits}", "chromosome", "individual", as_attr=False, shape=(len(rep.genes), ),
-			alter=partial(compose, funcs=[itemgetter(0), attrgetter("allele_indices")]), comp_opt=9, shuffle=True
+			alter=partial(compose, funcs=[itemgetter(0), attrgetter("chromosome"), attrgetter("allele_indices")]), comp_opt=9, shuffle=True
 		),
 		ParamAim(["return"], "uint64", "chromo_id", "individual", as_attr=False, 
-			alter=partial(compose, funcs=[itemgetter(0), attrgetter("identifier")]), comp_opt=9, shuffle=True),
+			alter=partial(compose, funcs=[itemgetter(0), attrgetter("chromosome"), attrgetter("identifier")]), comp_opt=9, shuffle=True),
 	]
 	
 	write_map = {
@@ -116,7 +116,7 @@ def add_fpga_osci(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	"""Add the entries for a FPGa driver and oscilloscoope meter to an existing HDF5Sink write map and metadata"""
 	
 	write_map.setdefault("Measure.perform", []).append(ParamAim(["return"], "uint8", "measurement", "fitness",
-		as_attr=False, shape=(2**19, ), shuffle=False))
+		alter=partial(compose, funcs=[itemgetter(0), attrgetter("measurement")]), as_attr=False, shape=(2**19, ), shuffle=False))
 	
 	write_map.setdefault("calibration", []).extend([
 		ParamAim(["data"], "float64", "calibration", as_attr=False, shuffle=False),
@@ -150,7 +150,7 @@ def add_drvmtr(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	"""Add the entries for a MCU based combined driver and meter to an existing HDF5Sink write map and metadata"""
 	
 	write_map.setdefault("Measure.perform", []).append(ParamAim(["return"], "uint16", "measurement", "fitness",
-		as_attr=False, shape=(10*256, ), shuffle=False))
+		alter=partial(compose, funcs=[itemgetter(0), attrgetter("measurement")]), as_attr=False, shape=(10*256, ), shuffle=False))
 	
 	metadata.setdefault("fitness/measurement", []).append(
 		MetaEntry("description", "output of the phenotype processed by an analog integrator measured by a MCU based ADC" 
@@ -162,7 +162,7 @@ def add_temp(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	temp_map = {
 		"temperature.perform": [
 			ParamAim(["return"], "float16", "celsius", "temperature", as_attr=False,
-				alter=partial(compose, funcs=[itemgetter(0), itemgetter(0)]), comp_opt=9, shuffle=True),
+				alter=partial(compose, funcs=[itemgetter(0), attrgetter("measurement"), itemgetter(0)]), comp_opt=9, shuffle=True),
 		],
 		"temperature.additional": [
 			ParamAim(["time"], "float64", "time", "temperature", as_attr=False,
