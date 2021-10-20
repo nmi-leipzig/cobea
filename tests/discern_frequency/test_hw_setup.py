@@ -415,12 +415,17 @@ class HWSetupTest(TestCase):
 	def check_fpga(self, fpga):
 		# flash echo
 		self.flash_device(fpga, "echo.asc", app_path=False)
-		
-		# write and read data
+
+		# prepare test data
+		test_data = [[b"\x3f"], [b"\xff"]]
 		for part_size, part_count in (list(itertools.product([1, 2, 3, 4, 15, 16], range(1, 3)))
 		+ list(itertools.product([32, 1024], (1, 2)))):
-			#print(f"{part_count} x {part_size} bytes")
-			part_list = [bytes(random.getrandbits(8) for _ in range(part_size)) for _ in range(part_count)]
+			test_data.append([bytes(random.getrandbits(8) for _ in range(part_size)) for _ in range(part_count)])
+
+		# write and read data
+		for part_list in test_data:
+			part_size = len(part_list[0])
+			part_count = len(part_list)
 			# write parts
 			with self.subTest(fpga=fpga.serial_number, part_size=part_size, part_count=part_count, mode="write chunks"):
 				fpga.reset()
@@ -439,8 +444,7 @@ class HWSetupTest(TestCase):
 				for part in part_list:
 					res = fpga.read_bytes(part_size)
 					self.assertEqual(part, res)
-				
-	
+
 	def test_fpgas(self):
 		try:
 			driver_sn, target_sn = self.detect_fpgas()
