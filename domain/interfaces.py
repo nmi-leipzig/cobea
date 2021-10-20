@@ -121,22 +121,36 @@ class FitnessFunction(ParameterUser):
 # interface to compute a fitness function
 CorrelationFunction = Callable[[InputData, OutputData], float]
 
-class CorrelationFunctionLibrary(ABC):
+
+class ItemLibrary(ABC):
+	"""Base for libraries.
+
+	Libraries can for example provide implementations of simple functions based on different frameworks.
+	"""
+	@abstractmethod
+	def get_item(self, identifier: str, params: ParameterValues) -> Any:
+		raise NotImplementedError()
+
+
+class CorrelationFunctionLibrary(ItemLibrary):
 	"""Interface for a library of correlation function implementations"""
 	
 	@abstractmethod
 	def get_item(self, identifier: str, params: ParameterValues) -> CorrelationFunction:
 		raise NotImplementedError()
 
+
 # interface to prepare data for fitness function
 Preprocessing = Callable[[InputData, OutputData], Tuple[InputData, OutputData]]
 
-class PreprocessingLibrary(ABC):
+
+class PreprocessingLibrary(ItemLibrary):
 	"""Interface for a library of preprocessing implementations"""
 	
 	@abstractmethod
 	def get_item(self, identifier: str, params: ParameterValues) -> Preprocessing:
 		raise NotImplementedError()
+
 
 class Representation(ABC):
 	"""Interface for representing the phenotype as a genotype"""
@@ -167,15 +181,18 @@ class RepresentationGenerator(ParameterUser):
 	def __call__(self, request: RequestObject) -> ResponseObject:
 		raise NotImplementedError()
 
+
 # position transformation
 PosTrans = Callable[[Sequence[ElementPosition]], Sequence[ElementPosition]]
 
-class PosTransLibrary(ABC):
+
+class PosTransLibrary(ItemLibrary):
 	"""Interface for a library of position transformations"""
 	
 	@abstractmethod
 	def get_item(self, identifier: str, params: ParameterValues) -> PosTrans:
 		raise NotImplementedError()
+
 
 class EvoAlgo(ABC):
 	@abstractmethod
