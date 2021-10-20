@@ -52,10 +52,9 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	write_map = {
 		"Measure.perform": [
 			ParamAim(["driver_data"], "uint8", "s_t_index", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-		],
-		"Measure.additional": [
-			ParamAim(["time"], "float64", "time", "fitness", as_attr=False,
-				alter=partial(compose, funcs=[itemgetter(0), methodcaller("timestamp")]), comp_opt=9, shuffle=True),
+			ParamAim(["return"], "float64", "time", "fitness", as_attr=False,
+				 alter=partial(compose, funcs=[itemgetter(0), attrgetter("time"), methodcaller("timestamp")]), comp_opt=9,
+				 shuffle=True),
 		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
