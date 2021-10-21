@@ -113,6 +113,15 @@ class TargetManager(ABC):
 	def release(self, target: TargetDevice) -> None:
 		raise NotImplementedError()
 
+
+class InputGen(ParameterUser):
+	"""Interface for input data generator"""
+
+	@abstractmethod
+	def generate(self, request: RequestObject) -> ResponseObject:
+		raise NotImplementedError()
+
+
 class FitnessFunction(ParameterUser):
 	@abstractmethod
 	def compute(self, request: RequestObject) -> ResponseObject:

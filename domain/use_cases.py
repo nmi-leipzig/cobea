@@ -2,13 +2,13 @@ import datetime
 
 from abc import ABC, abstractmethod
 from functools import reduce
-from typing import Any, Dict, Iterable, Mapping, Optional
+from typing import Any, Dict, Iterable, Mapping, Optional, Callable
 
 from domain.data_sink import DataSink, DataSinkUser, sink_request
 from domain.model import OutputData, Chromosome
-from domain.interfaces import DataSink, Driver, EvoAlgo, FitnessFunction, MeasureTimeout, Meter, Preprocessing,\
-PreprocessingLibrary, PosTrans, PosTransLibrary, PRNG, RepresentationGenerator, Representation, TargetConfiguration,\
-TargetManager, UniqueID
+from domain.interfaces import DataSink, Driver, EvoAlgo, FitnessFunction, MeasureTimeout, Meter, Preprocessing, \
+	PreprocessingLibrary, PosTrans, PosTransLibrary, PRNG, RepresentationGenerator, Representation, TargetConfiguration, \
+	TargetManager, UniqueID, TargetDevice, InputGen
 from domain.request_model import RequestObject, ParameterUser, Parameter, set_req_defaults, ResponseObject
 
 
@@ -81,20 +81,33 @@ class Measure(UseCase):
 		return res
 
 
+class DecTarget(UseCase):
+	"""Decodes the genotype (chromosome) to the actual phenotype (configured target)."""
+
+	def __init__(self, rep: Representation, habitat: TargetConfiguration, target: TargetDevice,):
+		self._rep = rep
+		self._habitat = habitat
+		self._target = target
+
+
 class MeasureFitness(UseCase):
 	def __init__(self,
-		rep: Representation,
+		decode_uc: DecTarget,
 		measure_uc: Measure,
+		input_gen: InputGen,
 		fit_func: FitnessFunction,
+		prep: Callable[[OutputData], OutputData] = lambda x: x,
 		data_sink: DataSink=None
 	) -> None:
-		self._rep = rep
 		self._measure_uc = measure_uc
 		self._fit_func = fit_func
-		
+		self._prep = prep
+		self._data_sink = data_sink
+
+		rep.prepare_config(habitat)
+
 		sub_params = [
 			[
-				Parameter("configuration", TargetConfiguration),
 				Parameter("chromosome", Chromosome),
 			],
 			measure_uc.parameters["__call__"], fit_func.parameters["compute"],
@@ -107,12 +120,11 @@ class MeasureFitness(UseCase):
 				# not needed
 				pass
 		self._parameters = {"perform": perf_params}
-		
-		self._data_sink = data_sink
-	
+
 	@sink_request
 	def perform(self, request: RequestObject) -> ResponseObject:
 		self._rep.decode(request.configuration, request.chromosome)
+		self._target.configure(self._habitat, fast=True)
 		request["configuration"] = request.configuration
 		res = self._measure_uc(request)
 		request["measurement"] = res.measurement
