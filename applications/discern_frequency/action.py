@@ -266,6 +266,7 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 		raise Exception(f"unsupported driver type '{info.driver_type}'")
 	
 	setup.target = man.acquire(info.target_sn)
+	setup.target.set_fast(True)
 	stack.callback(man.release, setup.target)
 	
 	metadata.setdefault("fitness/measurement", []).extend([

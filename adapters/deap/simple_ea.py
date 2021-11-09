@@ -235,7 +235,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		carry_enable_state = []
 		for bit in self._rep.iter_carry_bits():
 			carry_enable_state.append(self._habitat.get_bit(bit))
-		self._target.configure(self._habitat, fast=True)
+		self._target.configure(self._habitat)
 		cur_time = datetime.datetime.now(datetime.timezone.utc)
 		raw_data = self._measure_uc(eval_req).measurement
 		data = self._prep(raw_data)
