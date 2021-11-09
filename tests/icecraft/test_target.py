@@ -17,6 +17,9 @@ class IcecraftDeviceTest(unittest.TestCase):
 		
 		return device
 	
+	def test_creation_mock(self):
+		dut = icecraft.IcecraftDevice(MagicMock())
+	
 	def test_set_fast(self):
 		dut = icecraft.IcecraftDevice(MagicMock())
 		self.assertTrue(dut._fast)
