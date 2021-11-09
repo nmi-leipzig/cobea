@@ -1,6 +1,8 @@
 import os
 import unittest
 
+from unittest.mock import MagicMock
+
 import adapters.icecraft as icecraft
 from adapters.icecraft import RAMMode
 
@@ -14,6 +16,14 @@ class IcecraftDeviceTest(unittest.TestCase):
 		device.configure(config)
 		
 		return device
+	
+	def test_set_fast(self):
+		dut = icecraft.IcecraftDevice(MagicMock())
+		self.assertTrue(dut._fast)
+		
+		for exp in [True, False, False, True]:
+			dut.set_fast(exp)
+			self.assertEqual(exp, dut._fast)
 	
 	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")
 	def test_creation(self):

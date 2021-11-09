@@ -12,6 +12,7 @@ class IcecraftDevice(TargetDevice):
 	
 	def __init__(self, device: FPGABoard) -> None:
 		self._device = device
+		self._fast = True
 	
 	@property
 	def serial_number(self) -> str:
@@ -20,6 +21,9 @@ class IcecraftDevice(TargetDevice):
 	@property
 	def hardware_type(self) -> str:
 		return HX8K_BOARD
+	
+	def set_fast(self, value: bool) -> None:
+		self._fast = value
 	
 	def close(self) -> None:
 		self._device.close()
@@ -30,9 +34,9 @@ class IcecraftDevice(TargetDevice):
 	def reset(self) -> None:
 		self._device.reset_buffer(True, True)
 	
-	def configure(self, configuration: TargetConfiguration, fast: bool=False) -> None:
+	def configure(self, configuration: TargetConfiguration) -> None:
 		# just use the configuration as if it was for the correct device
-		bitstream = configuration.get_bitstream(opt=fast)
+		bitstream = configuration.get_bitstream(opt=self._fast)
 		self._device.flash_bitstream(bitstream)
 	
 	def read_bytes(self, size: int) -> bytes:
