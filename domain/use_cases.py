@@ -1,6 +1,7 @@
 import datetime
 
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from functools import reduce
 from typing import Any, Dict, Iterable, Mapping, Optional, Callable
 
@@ -83,11 +84,22 @@ class Measure(UseCase):
 
 class DecTarget(UseCase):
 	"""Decodes the genotype (chromosome) to the actual phenotype (configured target)."""
-
-	def __init__(self, rep: Representation, habitat: TargetConfiguration, target: TargetDevice,):
+	
+	def __init__(self, rep: Representation, habitat: TargetConfiguration, target: TargetDevice,
+	data_sink: DataSink=None) -> None:
 		self._rep = rep
 		self._habitat = habitat
 		self._target = target
+		self._data_sink = data_sink
+		self._parameters = {"perform": [Parameter("chromosome", Chromosome)]}
+	
+	@sink_request
+	def perform(self, request: RequestObject) -> ResponseObject:
+		self._rep.decode(self._habitat, request.chromosome)
+		self._target.configure(self._habitat)
+		res = ResponseObject(configuration=deepcopy(self._habitat))
+		
+		return res
 
 
 class MeasureFitness(UseCase):

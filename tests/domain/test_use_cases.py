@@ -6,10 +6,11 @@ import unittest
 import unittest.mock as mock
 
 from adapters.dummies import DummyDriver
+from adapters.simtar import SimtarBitPos, SimtarConfig, SimtarDev, SimtarRepGen
 from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 from domain.interfaces import MeasureTimeout
-from domain.model import InputData, OutputData, Gene
-from domain.use_cases import Measure, GenChromo, RandomChromo
+from domain.model import Chromosome, InputData, OutputData, Gene
+from domain.use_cases import DecTarget, GenChromo, Measure, RandomChromo
 from domain.request_model import RequestObject
 
 from ..mocks import MockTargetManager, MockMeter, MockUniqueID, MockRandInt, MockRepresentation, MockBitPos
@@ -60,6 +61,62 @@ class MeasureTest(unittest.TestCase):
 		
 		measure_case = Measure(driver, mock_meter)
 		check_parameter_user(self, measure_case)
+
+
+class DecTargetTest(unittest.TestCase):
+	def setUp(self):
+		gen = SimtarRepGen()
+		req = RequestObject(always_active=True)
+		self.rep = gen(req).representation
+		self.habitat = SimtarConfig()
+		self.rep.prepare_config(self.habitat)
+		self.target = SimtarDev()
+		self.dut = DecTarget(self.rep, self.habitat, self.target)
+	
+	def all_outputs(self):
+		outputs = []
+		for i in range(16):
+			self.target.write_bytes(bytes([i]))
+			outputs.append(self.target.read_bytes(1))
+		return outputs
+	
+	def test_create(self):
+		# nothing to do as dut is created in setUp
+		pass
+	
+	def test_call(self):
+		req = RequestObject(chromosome=Chromosome(0, (0, )))
+		res = self.dut(req)
+		
+		# check target
+		outputs = self.all_outputs()
+		self.assertEqual([b"\x00"]*16, outputs)
+		
+		# check config in response
+		values = [res.configuration.get_bit(SimtarBitPos(i)) for i in range(17)]
+		self.assertEqual([False]*16+[True], values)
+	
+	def test_modification_leak(self):
+		# alteration to the returned configuration should not alter the habitat
+		req1 = RequestObject(chromosome=Chromosome(0, (0, )))
+		res1 = self.dut(req1)
+		before = self.all_outputs()
+		
+		# reset active flag
+		# dut is configured as always active, the Chromosome can't change that
+		# but a direct manipulation of the habitat can
+		res1.configuration.set_bit(SimtarBitPos(16), False)
+		
+		req2 = RequestObject(chromosome=Chromosome(0, (0, )))
+		res2 = self.dut(req2)
+		after = self.all_outputs()
+		
+		# all outputs would be b'\xff' if active bit was also reset in the habitat
+		self.assertEqual(before, after)
+	
+	def test_parameter_user(self):
+		check_parameter_user(self, self.dut)
+
 
 class GenChromoTest(unittest.TestCase):
 	def setUp(self):
