@@ -55,6 +55,26 @@ class SimtarDevTest(TestCase):
 					val = dut.read_bytes(1)
 					self.assertEqual(exp, val)
 	
+	def test_meter(self):
+		dut = SimtarDev()
+		mtr = EmbedMeter()
+		for data, exp_list in self.test_data:
+			with self.subTest(data=data):
+				config = SimtarConfig(data)
+				dut.configure(config)
+				for i, exp in enumerate(exp_list):
+					dut.write_bytes(bytes([i]))
+					req = RequestObject(
+						prefix = bytes(),
+						output_count = 1,
+						output_format = "B",
+						meter_dev = dut,
+					)
+					res = mtr.measure(req)
+					
+					self.assertEqual(exp[0], res.measurement[0])
+		
+	
 	def test_driver(self):
 		dut = SimtarDev()
 		drv = FixedEmbedDriver(dut, "B")
@@ -68,4 +88,5 @@ class SimtarDevTest(TestCase):
 					
 					val = dut.read_bytes(1)
 					self.assertEqual(exp, val)
-		
+	
+
