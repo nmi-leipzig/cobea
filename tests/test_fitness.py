@@ -4,6 +4,8 @@ from adapters.fitness import ReduceFF
 from domain.model import InputData, OutputData
 from domain.request_model import RequestObject
 
+from .common import check_parameter_user
+
 
 class ReduceFFTest(TestCase):
 	def test_create(self):
@@ -16,4 +18,7 @@ class ReduceFFTest(TestCase):
 		res = dut.compute(req)
 		
 		self.assertEqual(sum(data), res.fitness)
-		
+	
+	def test_parameter_user(self):
+		dut = ReduceFF(lambda a, b: b)
+		check_parameter_user(self, dut)
