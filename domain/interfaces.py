@@ -127,6 +127,7 @@ class InputGen(ParameterUser):
 
 
 class FitnessFunction(ParameterUser):
+	@property
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 		# driver_data is expected value for driver input
 		return {"compute": [
