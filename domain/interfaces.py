@@ -68,6 +68,10 @@ class TargetDevice(IdentifiableHW):
 
 
 class Driver(ParameterUser):
+	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
+		# driver_data is expected value for driver input
+		return {"drive": [Parameter("driver_data", InputData)], "clean_up": []}
+	
 	@abstractmethod
 	def drive(self, request: RequestObject) -> ResponseObject:
 		raise NotImplementedError()
@@ -116,7 +120,7 @@ class TargetManager(ABC):
 
 class InputGen(ParameterUser):
 	"""Interface for input data generator"""
-
+	
 	@abstractmethod
 	def generate(self, request: RequestObject) -> ResponseObject:
 		raise NotImplementedError()

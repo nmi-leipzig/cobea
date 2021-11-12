@@ -49,15 +49,6 @@ class FixedEmbedDriver(EmbedDriver):
 		self._driver_dev = driver_dev
 		self._driver_format = driver_format
 	
-	@property
-	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
-		return {
-			"drive": [
-				Parameter("driver_data", InputData),
-			],
-			"clean_up": [],
-		}
-	
 	def drive(self, request: RequestObject) -> ResponseObject:
 		self.write_data(self._driver_dev, request.driver_data, self._driver_format)
 		return ResponseObject()
