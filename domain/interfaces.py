@@ -127,6 +127,13 @@ class InputGen(ParameterUser):
 
 
 class FitnessFunction(ParameterUser):
+	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
+		# driver_data is expected value for driver input
+		return {"compute": [
+			Parameter("driver_data", InputData),
+			Parameter("measurement", OutputData),
+		]}
+	
 	@abstractmethod
 	def compute(self, request: RequestObject) -> ResponseObject:
 		raise NotImplementedError()
