@@ -18,7 +18,7 @@ from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 from domain.interfaces import Driver, FitnessFunction, InputGen, MeasureTimeout, Meter, Representation, TargetConfiguration, TargetDevice
 from domain.model import Chromosome, InputData, OutputData, Gene
 from domain.use_cases import DecTarget, GenChromo, Measure, MeasureFitness, RandomChromo
-from domain.request_model import RequestObject
+from domain.request_model import ResponseObject, RequestObject
 
 from ..mocks import MockTargetManager, MockMeter, MockUniqueID, MockRandInt, MockRepresentation, MockBitPos
 from ..common import check_parameter_user
@@ -71,14 +71,14 @@ class MeasureTest(unittest.TestCase):
 
 
 class DecTargetTest(unittest.TestCase):
-	def setUp(self):
+	def create_dut(self, extract_info=None):
 		gen = SimtarRepGen()
 		req = RequestObject(always_active=True)
 		self.rep = gen(req).representation
 		self.habitat = SimtarConfig()
 		self.rep.prepare_config(self.habitat)
 		self.target = SimtarDev()
-		self.dut = DecTarget(self.rep, self.habitat, self.target)
+		self.dut = DecTarget(self.rep, self.habitat, self.target, extract_info=extract_info)
 	
 	def all_outputs(self):
 		outputs = []
@@ -88,11 +88,12 @@ class DecTargetTest(unittest.TestCase):
 		return outputs
 	
 	def test_create(self):
-		# nothing to do as dut is created in setUp
-		pass
+		self.create_dut()
 	
 	def test_call(self):
-		req = RequestObject(chromosome=Chromosome(0, (0, )))
+		self.create_dut()
+		chromo_id = 0
+		req = RequestObject(chromosome=Chromosome(chromo_id, (0, )))
 		res = self.dut(req)
 		
 		# check target
@@ -102,9 +103,13 @@ class DecTargetTest(unittest.TestCase):
 		# check config in response
 		values = [res.configuration.get_bit(SimtarBitPos(i)) for i in range(17)]
 		self.assertEqual([False]*16+[True], values)
+		
+		# check chromo id 
+		self.assertEqual(chromo_id, res.chromo_index)
 	
 	def test_modification_leak(self):
 		# alteration to the returned configuration should not alter the habitat
+		self.create_dut()
 		req1 = RequestObject(chromosome=Chromosome(0, (0, )))
 		res1 = self.dut(req1)
 		before = self.all_outputs()
@@ -121,7 +126,23 @@ class DecTargetTest(unittest.TestCase):
 		# all outputs would be b'\xff' if active bit was also reset in the habitat
 		self.assertEqual(before, after)
 	
+	def test_extract_info(self):
+		def ex_func(rep, habitat, chromo):
+			self.assertEqual(self.rep, rep)
+			self.assertEqual(self.habitat, habitat)
+			
+			return ResponseObject(new_data=(chromo.identifier, sum(chromo.allele_indices)))
+		
+		self.create_dut(extract_info=ex_func)
+		exp_chromo = Chromosome(5, (0, ))
+		req = RequestObject(chromosome=exp_chromo)
+		res = self.dut(req)
+		
+		self.assertIn("new_data", res)
+		self.assertEqual(res.new_data, (5, 0))
+	
 	def test_parameter_user(self):
+		self.create_dut()
 		check_parameter_user(self, self.dut)
 
 

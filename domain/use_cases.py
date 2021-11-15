@@ -3,7 +3,7 @@ import datetime
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from functools import reduce
-from typing import Any, Dict, Iterable, Mapping, Optional, Callable
+from typing import Any, Dict, Iterable, Mapping, NewType, Optional, Callable
 
 from domain.data_sink import DataSink, DataSinkUser, sink_request
 from domain.model import OutputData, Chromosome
@@ -82,14 +82,18 @@ class Measure(UseCase):
 		return res
 
 
+ExInfoCallable = NewType("ExInfoCallable", Callable[[Representation, TargetConfiguration, Chromosome], ResponseObject])
+
+
 class DecTarget(UseCase):
 	"""Decodes the genotype (chromosome) to the actual phenotype (configured target)."""
 	
-	def __init__(self, rep: Representation, habitat: TargetConfiguration, target: TargetDevice,
-	data_sink: DataSink=None) -> None:
+	def __init__(self, rep: Representation, habitat: TargetConfiguration, target: TargetDevice, extract_info:
+	Optional[ExInfoCallable]=None, data_sink: DataSink=None) -> None:
 		self._rep = rep
 		self._habitat = habitat
 		self._target = target
+		self._extract_info = extract_info
 		self._data_sink = data_sink
 		self._parameters = {"perform": [Parameter("chromosome", Chromosome)]}
 	
@@ -98,6 +102,8 @@ class DecTarget(UseCase):
 		self._rep.decode(self._habitat, request.chromosome)
 		self._target.configure(self._habitat)
 		res = ResponseObject(configuration=deepcopy(self._habitat), chromo_index=request.chromosome.identifier)
+		if self._extract_info:
+			res.update(self._extract_info(self._rep, self._habitat, request.chromosome))
 		
 		return res
 
