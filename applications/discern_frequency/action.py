@@ -33,7 +33,7 @@ from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink
 from domain.interfaces import Driver, FitnessFunction, InputData, Meter, OutputData, TargetDevice, TargetManager
 from domain.model import AlleleAll, Chromosome, Gene
-from domain.request_model import RequestObject, ParameterValues
+from domain.request_model import ResponseObject, RequestObject, ParameterValues
 from domain.use_cases import Measure
 
 class CalibrationError(Exception):
@@ -171,7 +171,7 @@ class FreqSumFF(FitnessFunction):
 			else:
 				slow_sum += auc
 		
-		fit = abs(slow_sum/self._slow_div - fast_sum/self._fast_div)/(self._slow_cout + self._fast_count)
+		fit = abs(slow_sum/self._slow_div - fast_sum/self._fast_div)/(self._slow_count + self._fast_count)
 		return ResponseObject(
 			fit=fit,
 			fast_sum=fast_sum,
