@@ -162,6 +162,9 @@ class FreqSumFF(FitnessFunction):
 		self._driver_table = lexicographic_combinations(self._slow_count, self._fast_count)
 	
 	def compute(self, request: RequestObject) -> ResponseObject:
+		if len(request.measurement) != self._slow_count + self._fast_count:
+			raise ValueError(f"Worng amount of measurements: {len(request.measurement)} instead of {self._slow_count + self._fast_count}")
+		
 		comb_seq = self._driver_table[request.driver_data[0]]
 		fast_sum = 0
 		slow_sum = 0
