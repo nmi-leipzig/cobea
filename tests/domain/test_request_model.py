@@ -180,6 +180,27 @@ class ParameterUserTest(unittest.TestCase):
 				with self.assertRaises(tc.error):
 					res = ParameterUser.meld_parameters(tc.a, tc.b)
 	
+	def test_filter_parameters(self):
+		class FilterTC(NamedTuple):
+			desc: str
+			params: Iterable[Parameter]
+			names: Iterable[Parameter]
+			exp: List[Parameter]
+		
+		test_cases = [
+			FilterTC("empty filter list", [Parameter("fst", int), Parameter("scd", str)], [], 
+			[Parameter("fst", int), Parameter("scd", str)], ),
+			FilterTC("normal case", [Parameter("fst", int), Parameter("scd", str)], ["scd"], [Parameter("fst", int)]),
+			FilterTC("no match", [Parameter("fst", int), Parameter("scd", str)], ["trd"], 
+			[Parameter("fst", int), Parameter("scd", str)]),
+			FilterTC("all match", [Parameter("fst", int), Parameter("scd", str)], ["fst", "scd"], []),
+			FilterTC("tuple input", (Parameter("fst", int), Parameter("scd", str)), ("scd", ), [Parameter("fst", int)]),
+		]
+		for tc in test_cases:
+			with self.subTest(desc=tc.desc):
+				res = ParameterUser.filter_parameters(tc.params, tc.names)
+				self.assertEqual(tc.exp, res)
+	
 	def check_def_in_req(self, def_map, req):
 		"""check default values in request"""
 		for name, val in def_map.items():

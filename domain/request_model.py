@@ -130,3 +130,8 @@ class ParameterUser(ABC):
 				raise ValueError(f"multiple different for {param.name}")
 		
 		return p_list
+	
+	@staticmethod
+	def filter_parameters(params: Iterable[Parameter], names: Iterable[str]) -> List[Parameter]:
+		name_set = set(names)
+		return [p for p in params if p.name not in name_set]
