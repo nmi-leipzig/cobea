@@ -29,8 +29,9 @@ from adapters.prng import BuiltInPRNG
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
+from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink
-from domain.interfaces import Driver, InputData, Meter, OutputData, TargetDevice, TargetManager
+from domain.interfaces import Driver, FitnessFunction, InputData, Meter, OutputData, TargetDevice, TargetManager
 from domain.model import AlleleAll, Chromosome, Gene
 from domain.request_model import RequestObject, ParameterValues
 from domain.use_cases import Measure
@@ -147,6 +148,38 @@ def get_git_commit() -> str:
 		return label
 	except:
 		return "UNKNOWN"
+
+class FreqSumFF(FitnessFunction):
+	"""Fitness function for discerning frequencies.
+	
+	Implementation of the formula provided by Thompson in the original paper.
+	"""
+	def __init__(self, slow_count: int, fast_count: int, slow_div: float=30730.746, fast_div: float=30527.973):
+		self._slow_count = slow_count
+		self._fast_count = fast_count
+		self._slow_div = slow_div
+		self._fast_div = fast_div
+		self._driver_table = lexicographic_combinations(self._slow_count, self._fast_count)
+	
+	def compute(self, request: RequestObject) -> ResponseObject:
+		comb_seq = self._driver_table[request.driver_data[0]]
+		fast_sum = 0
+		slow_sum = 0
+		for i, auc in enumerate(request.measurement):
+			if ((comb_seq >> i) & 1):
+				fast_sum += auc
+			else:
+				slow_sum += auc
+		
+		fit = abs(slow_sum/self._slow_div - fast_sum/self._fast_div)/(self._slow_cout + self._fast_count)
+		return ResponseObject(
+			fit=fit,
+			fast_sum=fast_sum,
+			slow_sum=slow_sum,
+			#"chromo_index": indi.chromo.identifier,
+			#"carry_enable": carry_enable_state,
+			#"time": cur_time,
+		)
 
 class DriverType(Enum):
 	FPGA = auto()
