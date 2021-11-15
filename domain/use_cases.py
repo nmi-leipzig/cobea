@@ -106,42 +106,52 @@ class MeasureFitness(UseCase):
 	def __init__(self,
 		decode_uc: DecTarget,
 		measure_uc: Measure,
-		input_gen: InputGen,
 		fit_func: FitnessFunction,
+		input_gen: Optional[InputGen],
 		prep: Callable[[OutputData], OutputData] = lambda x: x,
 		data_sink: DataSink=None
 	) -> None:
+		self._decode_uc = decode_uc
 		self._measure_uc = measure_uc
 		self._fit_func = fit_func
+		self._input_gen = input_gen
 		self._prep = prep
 		self._data_sink = data_sink
-
-		rep.prepare_config(habitat)
-
+		
 		sub_params = [
 			[
 				Parameter("chromosome", Chromosome),
 			],
-			measure_uc.parameters["__call__"], fit_func.parameters["compute"],
+			decode_uc.parameters["__call__"], measure_uc.parameters["__call__"], fit_func.parameters["compute"],
 		]
+		provided_list = ["measurement", "raw_measurement"]
+		
+		if input_gen:
+			sub_params.append(input_gen.parameters["generate"])
+			provided_list.append("driver_data")
+		
 		perf_params = reduce(self.meld_parameters, sub_params)
-		for provided in ["measurement"]:
-			try:
-				del perf_params[provided]
-			except KeyError:
-				# not needed
-				pass
+		perf_params = self.filter_parameters(perf_params, provided_list)
 		self._parameters = {"perform": perf_params}
-
+	
 	@sink_request
 	def perform(self, request: RequestObject) -> ResponseObject:
-		self._rep.decode(request.configuration, request.chromosome)
-		self._target.configure(self._habitat, fast=True)
-		request["configuration"] = request.configuration
-		res = self._measure_uc(request)
-		request["measurement"] = res.measurement
-		res.update(self._fit_func.compute(request))
-
+		req = RequestObject(request)
+		res = self._decode_uc(request)
+		
+		if self._input_gen:
+			gen_res = self._input_gen.generate(req)
+			res.update(gen_res)
+			# result is needed for measure
+			req.update(gen_res)
+		
+		mea_res = self._measure_uc(req)
+		res.update(mea_res)
+		res["raw_measurement"] = req["raw_measurement"] = res.measurement
+		res["measurement"] = req["measurement"] = self._prep(res.measurement)
+		
+		res.update(self._fit_func.compute(req))
+		
 		return res
 
 class RunEvoAlgo(UseCase):
