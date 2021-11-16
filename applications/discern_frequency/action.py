@@ -179,9 +179,6 @@ class FreqSumFF(FitnessFunction):
 			fit=fit,
 			fast_sum=fast_sum,
 			slow_sum=slow_sum,
-			#"chromo_index": indi.chromo.identifier,
-			#"carry_enable": carry_enable_state,
-			#"time": cur_time,
 		)
 
 class DriverType(Enum):
@@ -245,6 +242,19 @@ def create_preprocessing_mcu(sub_count: int) -> Callable[[OutputData], OutputDat
 		return OutputData(sum_bursts)
 	
 	return func
+
+
+def extract_carry_enable(rep: IcecraftRep, habitat: IcecraftRawConfig, chromo: Chromosome) -> ResponseObject:
+	"""Extracts the carry enable state for icecraft targets
+	
+	Intended to passed to the extract_info parameter of DecTarget.__init__.
+	"""
+	carry_enable_state = []
+	for bit in rep.iter_carry_bits():
+		carry_enable_state.append(habitat.get_bit(bit))
+	
+	return ResponseObject(carry_enable=carry_enable_state)
+
 
 def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: ParamAimMap, metadata: MetaEntryMap
 		) -> MeasureSetup:

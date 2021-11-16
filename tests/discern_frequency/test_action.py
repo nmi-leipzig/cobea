@@ -1,7 +1,8 @@
 from unittest import TestCase
 
-from applications.discern_frequency.action import FreqSumFF
-from domain.model import InputData, OutputData
+from adapters.icecraft import IcecraftPosition, IcecraftRawConfig, IcecraftRepGen
+from applications.discern_frequency.action import extract_carry_enable, FreqSumFF
+from domain.model import Chromosome, InputData, OutputData
 from domain.request_model import ResponseObject, RequestObject
 
 
@@ -38,4 +39,23 @@ class FreqSumFFTest(TestCase):
 				with self.assertRaises(exp):
 					res = dut.compute(req)
 				
+
+
+class ActionTest(TestCase):
+	def test_extract_carry_enable(self):
+		rep_gen = IcecraftRepGen()
+		req = RequestObject(tiles=[IcecraftPosition(5, 17)], output_lutffs=[])
+		rep = rep_gen(req).representation
 		
+		carry_bits = list(rep.iter_carry_bits())
+		self.assertEqual(8, len(carry_bits))
+		
+		habitat = IcecraftRawConfig.create_empty()
+		genes = list(rep.iter_genes())
+		chromo = Chromosome(7, (0,)*len(genes))
+		
+		res = extract_carry_enable(rep, habitat, chromo)
+		self.assertEqual(len(carry_bits), len(res.carry_enable))
+		for bit, val in zip(carry_bits, res.carry_enable):
+			exp = habitat.get_bit(bit)
+			self.assertEqual(exp, val)
