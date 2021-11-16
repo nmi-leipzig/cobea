@@ -5,7 +5,7 @@ from collections import defaultdict
 
 from domain.interfaces import Representation, RepresentationGenerator, TargetConfiguration
 from domain.model import Gene, Chromosome
-from domain.request_model import ResponseObject, RequestObject, Parameter
+from domain.request_model import Parameter, ResponseObject, RequestObject, set_req_defaults
 from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 
 from .misc import IcecraftPosition, IcecraftLUTPosition, IcecraftColBufCtrl, \
@@ -142,6 +142,7 @@ class IcecraftRepGen(RepresentationGenerator):
 	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 		return self._parameters
 	
+	@set_req_defaults
 	def __call__(self, request: RequestObject) -> ResponseObject:
 		tiles = request.tiles
 		
