@@ -1,4 +1,4 @@
-from typing import Mapping
+from typing import Iterable, Mapping
 
 from adapters.icecraft.configuration import block_size_from_mode
 from domain.interfaces import TargetConfiguration, TargetDevice, Driver
@@ -21,7 +21,7 @@ class IcecraftRAMDriver(Driver):
 		], "clean_up": []}
 	
 	@property
-	def parameters(self) -> Mapping[str, Parameter]:
+	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 		return self._parameters
 	
 	def drive(self, request: RequestObject) -> ResponseObject:

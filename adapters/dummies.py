@@ -1,12 +1,12 @@
 """Dummies that do nothing"""
 
 from types import TracebackType
-from typing import Any, Mapping, Optional, Type
+from typing import Any, Iterable, Mapping, Optional, Type
 
 from domain.data_sink import DataSink
 from domain.interfaces import Driver, Meter
 from domain.model import OutputData
-from domain.request_model import ResponseObject, RequestObject
+from domain.request_model import ResponseObject, RequestObject, Parameter
 
 class DummyDataSink(DataSink):
 	def write(self, source: str, data_dict: Mapping[str, Any]) -> None:
@@ -24,7 +24,7 @@ class DummyDataSink(DataSink):
 
 class DummyDriver(Driver):
 	@property
-	def parameters(self):
+	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 		return {"drive": [], "clean_up": []}
 	
 	def drive(self, request: RequestObject) -> ResponseObject:
@@ -35,7 +35,7 @@ class DummyDriver(Driver):
 
 class DummyMeter(Meter):
 	@property
-	def parameters(self):
+	def parameters(self) -> Mapping[str, Iterable[Parameter]]:
 		return {"prepare": [], "measure": []}
 	
 	def prepare(self, request: RequestObject) -> ResponseObject:
