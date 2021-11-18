@@ -12,6 +12,7 @@ def create_arg_parser():
 	arg_parser.add_argument("-m", "--meter", type=str, help="serial number of the meter")
 	arg_parser.add_argument("--temperature", type=str, help="serial number of the temperature reader; empty string for"
 		" autodetect; leave out to deactivate temperature measurement")
+	arg_parser.add_argument("-o", "--output", type=str, help="name of the HDF5 output file")
 	
 	sub_parsers = arg_parser.add_subparsers()
 	run_parser = sub_parsers.add_parser("run", help="run an EA")

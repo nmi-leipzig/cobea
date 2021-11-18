@@ -411,7 +411,9 @@ def run(args: Namespace) -> None:
 			
 			measure_setup = create_measure_setup(setup_info, stack, write_map, metadata)
 		
-		sink = ParallelSink(HDF5Sink, (write_map, metadata))
+		cur_date = datetime.now(timezone.utc)
+		hdf5_filename = args.output or f"evo-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
+		sink = ParallelSink(HDF5Sink, (write_map, metadata, hdf5_filename))
 		
 		stack.enter_context(sink)
 		
@@ -538,7 +540,7 @@ def remeasure(args: Namespace) -> None:
 		
 		# prepare sink
 		cur_date = datetime.now(timezone.utc)
-		hdf5_filename = f"re-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
+		hdf5_filename = args.output or f"re-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
 		sink = ParallelSink(HDF5Sink, (write_map, metadata, hdf5_filename))
 		stack.enter_context(sink)
 		
