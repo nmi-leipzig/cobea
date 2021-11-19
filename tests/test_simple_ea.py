@@ -1,12 +1,21 @@
 from dataclasses import dataclass
-from typing import Any, List, Mapping, Optional, Tuple
+from typing import Any, Callable, List, Mapping, Optional, Tuple
 from unittest import TestCase
 
-from adapters.deap.simple_ea import Individual, InfoSource
+from adapters.deap.simple_ea import EvalMode, Individual, InfoSource, SimpleEA
+from adapters.embed_driver import FixedEmbedDriver
+from adapters.embed_meter import FixedEmbedMeter
+from adapters.simtar import SimtarConfig, SimtarDev, SimtarRepGen
+from adapters.prng import BuiltInPRNG
 from adapters.unique_id import SimpleUID
+from domain.interfaces import Driver, Meter, OutputData, PRNG, Representation, TargetConfiguration, TargetDevice, UniqueID
+from domain.data_sink import DataSink
 from domain.model import Chromosome
 from domain.request_model import RequestObject
-from domain.use_cases import GenChromo
+from domain.use_cases import GenChromo, Measure
+
+from .mocks import MockDataSink
+
 
 class MockIS(InfoSource):
 	def __init__(self, info: Mapping[str, Any]) -> None:
@@ -114,3 +123,82 @@ class IndividualTest(TestCase):
 						self.assertEqual(indis[eq], res[index])
 					
 					self.assertEqual(exp, res[index].chromo.allele_indices)
+
+class SimpleEATest(TestCase):
+	@dataclass
+	class SEAData:
+		dut: SimpleEA = None
+		#mf_uc: MeasureFitness = None
+		rep: Representation = None
+		habitat: TargetConfiguration = None
+		target: TargetDevice = None
+		#dec_uc: DecTarget = None
+		drv: Driver = None
+		mtr: Meter = None
+		mea_uc: Measure = None
+		#ff: FitnessFunction = None
+		#uc_req: RequestObject = None # prepared request for call to MeasureFitness
+		prep: Callable[[OutputData], OutputData] = None
+		#drv_list: List[InputData] = None
+		#gen: Optional[InputGen] = None
+		uid_gen: UniqueID = None
+		prng: PRNG = None
+		sink: DataSink = None
+	
+	def create_dut_data(self):
+		res = self.SEAData()
+		res.sink = MockDataSink()
+		# dec
+		gen = SimtarRepGen()
+		req = RequestObject(always_active=False)
+		res.rep = gen(req).representation
+		rep = res.rep
+		def icb():
+			for gene in rep.iter_genes():
+				yield from gene.bit_positions
+		res.rep.iter_carry_bits = icb
+		
+		res.habitat = SimtarConfig()
+		res.rep.prepare_config(res.habitat)
+		
+		res.target = SimtarDev()
+		#res.dec_uc = DecTarget(res.rep, res.habitat, res.target)
+		
+		# Measure
+		res.drv = FixedEmbedDriver(res.target, "B")
+		res.mtr = FixedEmbedMeter(res.target, 1, "B")
+		res.mea_uc = Measure(res.drv, res.mtr, data_sink=res.sink)
+		
+		#FitnessFunction
+		#res.ff = ReduceFF(lambda a, b: a+b)
+		
+		# prepare request
+		#res.uc_req = RequestObject(
+		#	prefix = bytes(),
+		#	output_count = 1,
+		#	output_format = "B",
+		#	meter_dev = res.target,
+		#)
+		
+		#InputGen
+		#res.drv_list = [InputData([i]) for i in range(16)]
+		#res.gen = SeqGen(res.drv_list)
+		
+		res.prep = lambda a: OutputData(([float(v) for v in a]*10)[:10])
+		#res.mf_uc = MeasureFitness(res.dec_uc, res.mea_uc, res.ff, res.gen, prep=res.prep)
+		
+		res.uid_gen = SimpleUID()
+		res.prng = BuiltInPRNG()
+		
+		res.dut = SimpleEA(res.rep, res.mea_uc, res.uid_gen, res.prng, res.habitat, res.target, res.sink, res.prep)
+		
+		return res
+	
+	def test_create(self):
+		dut_data = self.create_dut_data()
+	
+	def test_run(self):
+		dut_data = self.create_dut_data()
+		dut = dut_data.dut
+		dut.run(5, 3, 0.7, 0.5, EvalMode.ALL)
+		#print(dut_data.sink.write_list)
