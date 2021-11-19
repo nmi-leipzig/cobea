@@ -157,6 +157,17 @@ def add_drvmtr(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 			" performed")
 	)
 
+def add_dummy(write_map: ParamAimMap, metadata: MetaEntryMap, sub_count: int) -> None:
+	"""Add the entries for a dummy driver and random meter to an existing HDF5Sink write map and metadata"""
+	
+	write_map.setdefault("Measure.perform", []).append(ParamAim(["return"], "float64", "measurement", "fitness",
+		alter=partial(compose, funcs=[itemgetter(0), attrgetter("measurement")]), as_attr=False, shape=(10*sub_count, ), shuffle=False))
+	
+	metadata.setdefault("fitness/measurement", []).append(
+		MetaEntry("description", f"random output for simulating a measurement; 10 bursts each {sub_count} measurements")
+	)
+	
+
 def add_temp(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	temp_map = {
 		"temperature.perform": [

@@ -1,7 +1,12 @@
+import os
+
+from argparse import Namespace
 from unittest import TestCase
 
+import h5py
+
 from adapters.icecraft import IcecraftPosition, IcecraftRawConfig, IcecraftRepGen
-from applications.discern_frequency.action import extract_carry_enable, FreqSumFF
+from applications.discern_frequency.action import extract_carry_enable, FreqSumFF, run
 from domain.model import Chromosome, InputData, OutputData
 from domain.request_model import ResponseObject, RequestObject
 
@@ -42,6 +47,10 @@ class FreqSumFFTest(TestCase):
 
 
 class ActionTest(TestCase):
+	def setUp(self):
+		import applications.discern_frequency
+		self.app_path = os.path.dirname(os.path.abspath(applications.discern_frequency.__file__))
+	
 	def test_extract_carry_enable(self):
 		rep_gen = IcecraftRepGen()
 		req = RequestObject(tiles=[IcecraftPosition(5, 17)], output_lutffs=[])
@@ -59,3 +68,35 @@ class ActionTest(TestCase):
 		for bit, val in zip(carry_bits, res.carry_enable):
 			exp = habitat.get_bit(bit)
 			self.assertEqual(exp, val)
+	
+	def test_run_dummy(self):
+		out_filename = "tmp.test_run_dummy.h5"
+		# delete previous results
+		try:
+			os.remove(out_filename)
+		except FileNotFoundError:
+			pass
+		
+		args = Namespace(
+			output = out_filename,
+			dummy = True,
+			temperature = None,
+			habitat = os.path.join(self.app_path, "nhabitat.asc"),
+			area = [10, 29, 10, 29],
+			in_port = ["10", "29", "lft"],
+			out_port = ["10", "29", "top"],
+			habitat_con = None,
+			freq_gen_con = None,
+			pop_size = 5,
+			generations = 3,
+			crossover_prob = 0.7,
+			mutation_prob = 0.001756,
+			eval_mode = "ALL",
+		)
+		run(args)
+		
+		with h5py.File(out_filename, "r") as res:
+			self.assertIn("fitness", res)
+			self.assertIn("measurement", res["fitness"])
+		
+		#os.remove(out_filename)

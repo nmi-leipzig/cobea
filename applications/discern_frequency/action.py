@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import auto, Enum
 from typing import Any, Callable, Iterable, List, Mapping, Optional, Tuple
+from unittest.mock import MagicMock
 
 import h5py
 
@@ -17,11 +18,12 @@ import applications.discern_frequency.write_map_util as write_map_util
 
 from adapters.embed_driver import FixedEmbedDriver
 from adapters.deap.simple_ea import EvalMode, Individual, SimpleEA
-from adapters.dummies import DummyDriver, DummyMeter
+from adapters.dummies import DummyDriver
 from adapters.gear.rigol import FloatCheck, IntCheck, OsciDS1102E, SetupCmd
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftBitPosition, IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen,\
 IcecraftManager, IcecraftRawConfig, XC6200Port, XC6200Direction
+from adapters.minvia import MinviaDriver
 from adapters.mcu_drv_mtr import MCUDrvMtr
 from adapters.parallel_collector import CollectorDetails, InitDetails, ParallelCollector
 from adapters.parallel_sink import ParallelSink
@@ -33,8 +35,10 @@ from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink
 from domain.interfaces import Driver, FitnessFunction, InputData, Meter, OutputData, TargetDevice, TargetManager
 from domain.model import AlleleAll, Chromosome, Gene
-from domain.request_model import ResponseObject, RequestObject, ParameterValues
+from domain.request_model import ResponseObject, RequestObject, Parameter, ParameterValues
 from domain.use_cases import Measure
+from tests.mocks import RandomMeter
+
 
 class CalibrationError(Exception):
 	"""Indicates an error during calibration"""
@@ -244,6 +248,18 @@ def create_preprocessing_mcu(sub_count: int) -> Callable[[OutputData], OutputDat
 	return func
 
 
+def create_preprocessing_dummy(sub_count: int) -> Callable[[OutputData], OutputData]:
+	
+	def func(raw_data: OutputData) -> OutputData:
+		assert (len(raw_data)//sub_count)*sub_count == len(raw_data)
+		
+		sums = [sum(raw_data[i: i+sub_count]) for i in range(0, len(raw_data), sub_count)]
+		
+		return OutputData(sums)
+	
+	return func
+
+
 def extract_carry_enable(rep: IcecraftRep, habitat: IcecraftRawConfig, chromo: Chromosome) -> ResponseObject:
 	"""Extracts the carry enable state for icecraft targets
 	
@@ -387,19 +403,17 @@ def run(args: Namespace) -> None:
 	
 	with ExitStack() as stack:
 		if use_dummy:
-			from unittest.mock import MagicMock
+			sub_count = 25
 			measure_setup = MeasureSetup(
-				driver = DummyDriver(),
+				driver = MinviaDriver(drive_params=[Parameter("driver_data", InputData)]),
 				target = MagicMock(),
 				#target = DummyTargetDevice(),
-				meter = DummyMeter(),
+				meter = RandomMeter(sub_count*10, 0.1),
 				cal_data = CalibrationData(None, 0, 0, 0, 0),
 				sink_writes = [],
-				preprocessing = lambda x: x,
+				preprocessing = create_preprocessing_dummy(sub_count),
 			)
-			
-			print("dummies don't support real EA -> abort")
-			return
+			write_map_util.add_dummy(write_map, metadata, sub_count)
 		else:
 			setup_info = MeasureSetupInfo(
 				args.target,
