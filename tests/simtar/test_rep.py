@@ -49,6 +49,7 @@ class SimtarRepTest(TestCase):
 		
 		dut = self.create(False)
 		config = SimtarConfig()
+		dut.prepare_config(config)
 		for i, (indices, exp_list) in enumerate(test_data):
 			chromo = Chromosome(i, indices)
 			dut.decode(config, chromo)
