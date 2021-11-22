@@ -93,6 +93,7 @@ def run_algo(rep: IcecraftRep) -> None:
 			
 			hab_path = os.path.join(APP_PATH, "nhabitat.asc")
 			hab_config = IcecraftRawConfig.create_from_filename(hab_path)
+			rep.prepare_config(hab_config)
 			
 			ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target, sink)
 			

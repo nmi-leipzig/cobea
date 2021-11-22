@@ -451,6 +451,7 @@ def run(args: Namespace) -> None:
 		sink.write("habitat", {
 			"text": hab_config.to_text(),
 		})
+		rep.prepare_config(hab_config)
 		
 		seed = int(datetime.utcnow().timestamp())
 		prng = BuiltInPRNG(seed)
@@ -572,6 +573,7 @@ def remeasure(args: Namespace) -> None:
 			"output": rep.output,
 			"colbufctrl": rep.colbufctrl,
 		})
+		rep.prepare_config(hab_config)
 		
 		sink.write("misc", {
 			"git_commit": get_git_commit(),

@@ -98,7 +98,6 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		self._measure_uc = measure_uc
 		self._init_uc = RandomChromo(prng, rep, uid_gen, data_sink)
 		self._chromo_gen = GenChromo(uid_gen, data_sink)
-		rep.prepare_config(habitat)
 		self._habitat = habitat
 		self._target = target
 		self._data_sink = data_sink
