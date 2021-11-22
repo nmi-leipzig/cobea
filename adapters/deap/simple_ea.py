@@ -20,7 +20,7 @@ from domain.data_sink import DataSink, DataSinkUser
 from domain.interfaces import EvoAlgo, FitnessFunction, InputData, PRNG, Representation, UniqueID
 from domain.model import Chromosome, OutputData
 from domain.request_model import RequestObject
-from domain.use_cases import DecTarget, GenChromo, Measure, RandomChromo
+from domain.use_cases import DecTarget, GenChromo, Measure, MeasureFitness, RandomChromo
 
 class EvalMode(Enum):
 	NEW = auto()
@@ -91,20 +91,15 @@ class Individual:
 		return wrapped_func
 
 class SimpleEA(EvoAlgo, DataSinkUser):
-	def __init__(self, rep: Representation, measure_uc: Measure, dec_uc: DecTarget, fit_func: FitnessFunction,
+	def __init__(self, rep: Representation, measure_fit_uc: MeasureFitness,
 		uid_gen: UniqueID, prng: PRNG, data_sink: DataSink, prep: Callable[[OutputData], OutputData]=lambda x: x) -> None:
 		
 		self._rep = rep
-		self._measure_uc = measure_uc
-		self._dec_uc = dec_uc
-		self._fit_func = fit_func
+		self._measure_fit_uc = measure_fit_uc
 		self._init_uc = RandomChromo(prng, rep, uid_gen, data_sink)
 		self._chromo_gen = GenChromo(uid_gen, data_sink)
 		self._data_sink = data_sink
 		self._prep = prep
-		
-		self._driver_table = lexicographic_combinations(5, 5)
-		self._input_gen = RandIntGen(prng, 0, len(self._driver_table)-1)
 	
 	@property
 	def data_sink(self) -> DataSink:
@@ -220,35 +215,15 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 	def _init_pop(self, count) -> List[Individual]:
 		return [Individual(self._init_uc(RequestObject()).chromosome) for _ in range(count)]
 	
-	def _evaluate(self, indi: Individual, comb_index: Optional[int]=None, info: Mapping[str, Any]={}) -> Tuple[int]:
-		if comb_index is None:
-			comb_index = self._input_gen.generate(RequestObject()).driver_data[0]
+	def _evaluate(self, indi: Individual, info: Mapping[str, Any]={}) -> Tuple[int]:
+		mes_req = RequestObject(chromosome=indi.chromo)
+		mes_req.update(info)
+		mes_res = self._measure_fit_uc(mes_req)
 		
-		eval_req = RequestObject(
-			driver_data = InputData([comb_index]),
-			#retry = 0,
-			measure_timeout = None,
-		)
-		
-		dec_req = RequestObject(chromosome=indi.chromo)
-		dec_res = self._dec_uc(dec_req)
-		
-		cur_time = datetime.datetime.now(datetime.timezone.utc)
-		mes_res = self._measure_uc(eval_req)
-		raw_data = mes_res.measurement
-		data = self._prep(raw_data)
-		
-		fit_req = RequestObject(driver_data=eval_req.driver_data, measurement=data)
-		fit_res = self._fit_func.compute(fit_req)
-		sink_data = {
-			"chromo_index": indi.chromo.identifier,
-			"time": cur_time,
-		}
-		sink_data.update(dec_res)
-		sink_data.update(fit_res)
-		sink_data.update(info)
+		sink_data = dict(mes_req)
+		sink_data.update(mes_res)
 		self.write_to_sink("fitness", sink_data)
-		return (fit_res.fitness, )
+		return (mes_res.fitness, )
 	
 	def create_toolbox(self, mutation_prob: float, info_src: InfoSource) -> base.Toolbox:
 		#creator.create("TestFit", base.Fitness, weights=(1.0,))

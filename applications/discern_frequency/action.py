@@ -38,7 +38,7 @@ from domain.interfaces import Driver, FitnessFunction, InputData, InputGen, Mete
 TargetManager
 from domain.model import AlleleAll, Chromosome, Gene
 from domain.request_model import ResponseObject, RequestObject, Parameter, ParameterValues
-from domain.use_cases import DecTarget, ExInfoCallable, Measure
+from domain.use_cases import DecTarget, ExInfoCallable, Measure, MeasureFitness
 from tests.mocks import RandomMeter
 
 
@@ -485,8 +485,9 @@ def run(args: Namespace) -> None:
 		adapter_setup = create_adapter_setup()
 		
 		dec_uc = DecTarget(rep, hab_config, measure_setup.target, extract_info=extract_carry_enable)
+		mf_uc = MeasureFitness(dec_uc, measure_uc, adapter_setup.fit_func, adapter_setup.input_gen, prep=measure_setup.preprocessing, data_sink=sink)
 		
-		ea = SimpleEA(rep, measure_uc, dec_uc, adapter_setup.fit_func, SimpleUID(), adapter_setup.prng, sink, prep=measure_setup.preprocessing)
+		ea = SimpleEA(rep, mf_uc, SimpleUID(), adapter_setup.prng, sink)
 		
 		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob, EvalMode[args.eval_mode])
 		

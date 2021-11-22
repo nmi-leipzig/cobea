@@ -6,15 +6,16 @@ from adapters.deap.simple_ea import EvalMode, Individual, InfoSource, SimpleEA
 from adapters.embed_driver import FixedEmbedDriver
 from adapters.embed_meter import FixedEmbedMeter
 from adapters.fitness import ReduceFF
+from adapters.input_gen import SeqGen
 from adapters.simtar import SimtarConfig, SimtarDev, SimtarRepGen
 from adapters.prng import BuiltInPRNG
 from adapters.unique_id import SimpleUID
-from domain.interfaces import Driver, FitnessFunction, Meter, OutputData, PRNG, Representation, TargetConfiguration, \
-	TargetDevice, UniqueID
+from domain.interfaces import Driver, FitnessFunction, InputGen, Meter, OutputData, PRNG, Representation, \
+	TargetConfiguration, TargetDevice, UniqueID
 from domain.data_sink import DataSink
-from domain.model import Chromosome
+from domain.model import Chromosome, InputData
 from domain.request_model import RequestObject
-from domain.use_cases import DecTarget, GenChromo, Measure
+from domain.use_cases import DecTarget, GenChromo, Measure, MeasureFitness
 
 from .mocks import MockDataSink
 
@@ -130,19 +131,18 @@ class SimpleEATest(TestCase):
 	@dataclass
 	class SEAData:
 		dut: SimpleEA = None
-		#mf_uc: MeasureFitness = None
+		mf_uc: MeasureFitness = None
 		rep: Representation = None
 		habitat: TargetConfiguration = None
 		target: TargetDevice = None
-		#dec_uc: DecTarget = None
+		dec_uc: DecTarget = None
 		drv: Driver = None
 		mtr: Meter = None
 		mea_uc: Measure = None
-		#ff: FitnessFunction = None
-		#uc_req: RequestObject = None # prepared request for call to MeasureFitness
+		ff: FitnessFunction = None
 		prep: Callable[[OutputData], OutputData] = None
-		#drv_list: List[InputData] = None
-		#gen: Optional[InputGen] = None
+		drv_list: List[InputData] = None
+		gen: Optional[InputGen] = None
 		uid_gen: UniqueID = None
 		prng: PRNG = None
 		sink: DataSink = None
@@ -174,25 +174,17 @@ class SimpleEATest(TestCase):
 		FitnessFunction
 		res.ff = ReduceFF(lambda a, b: a+b)
 		
-		# prepare request
-		#res.uc_req = RequestObject(
-		#	prefix = bytes(),
-		#	output_count = 1,
-		#	output_format = "B",
-		#	meter_dev = res.target,
-		#)
-		
-		#InputGen
-		#res.drv_list = [InputData([i]) for i in range(16)]
-		#res.gen = SeqGen(res.drv_list)
+		# InputGen
+		res.drv_list = [InputData([i]) for i in range(16)]
+		res.gen = SeqGen(res.drv_list)
 		
 		res.prep = lambda a: OutputData(([float(v) for v in a]*10)[:10])
-		#res.mf_uc = MeasureFitness(res.dec_uc, res.mea_uc, res.ff, res.gen, prep=res.prep)
+		res.mf_uc = MeasureFitness(res.dec_uc, res.mea_uc, res.ff, res.gen, prep=res.prep)
 		
 		res.uid_gen = SimpleUID()
 		res.prng = BuiltInPRNG()
 		
-		res.dut = SimpleEA(res.rep, res.mea_uc, res.dec_uc, res.ff, res.uid_gen, res.prng, res.sink, res.prep)
+		res.dut = SimpleEA(res.rep, res.mf_uc, res.uid_gen, res.prng, res.sink, res.prep)
 		
 		return res
 	
