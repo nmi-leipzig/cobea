@@ -203,6 +203,7 @@ class MeasureSetup:
 	target: Optional[TargetDevice] = None
 	meter: Optional[Meter] = None
 	cal_data: Optional[CalibrationData] = None
+	fit_func: Optional[FitnessFunction] = None
 	sink_writes: List[Tuple[str, Mapping[str, Any]]] = field(default_factory=list)
 	preprocessing: Callable[[OutputData], OutputData] = lambda x: x
 
@@ -331,6 +332,8 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 	setup.target.set_fast(True)
 	stack.callback(man.release, setup.target)
 	
+	setup.fit_func = FreqSumFF(5, 5)
+	
 	metadata.setdefault("fitness/measurement", []).extend([
 		MetaEntry("target_serial_number", setup.target.serial_number),
 		MetaEntry("target_hardware", setup.target.hardware_type),
@@ -410,6 +413,7 @@ def run(args: Namespace) -> None:
 				#target = DummyTargetDevice(),
 				meter = RandomMeter(sub_count*10, 0.1),
 				cal_data = CalibrationData(None, 0, 0, 0, 0),
+				fit_func = FreqSumFF(5, 5),
 				sink_writes = [],
 				preprocessing = create_preprocessing_dummy(sub_count),
 			)
@@ -454,11 +458,9 @@ def run(args: Namespace) -> None:
 		rep.prepare_config(hab_config)
 		dec_uc = DecTarget(rep, hab_config, measure_setup.target, extract_info=extract_carry_enable)
 		
-		fit_func = FreqSumFF(5, 5)
-		
 		seed = int(datetime.utcnow().timestamp())
 		prng = BuiltInPRNG(seed)
-		ea = SimpleEA(rep, measure_uc, dec_uc, fit_func, SimpleUID(), prng, sink, prep=measure_setup.preprocessing)
+		ea = SimpleEA(rep, measure_uc, dec_uc, measure_setup.fit_func, SimpleUID(), prng, sink, prep=measure_setup.preprocessing)
 		
 		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob, EvalMode[args.eval_mode])
 		
