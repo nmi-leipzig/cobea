@@ -14,6 +14,7 @@ from deap import creator
 from deap import base
 from deap import algorithms
 
+from adapters.input_gen import RandIntGen
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink, DataSinkUser
 from domain.interfaces import EvoAlgo, FitnessFunction, InputData, PRNG, Representation, UniqueID
@@ -103,6 +104,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		self._prep = prep
 		
 		self._driver_table = lexicographic_combinations(5, 5)
+		self._input_gen = RandIntGen(prng, 0, len(self._driver_table)-1)
 	
 	@property
 	def data_sink(self) -> DataSink:
@@ -220,8 +222,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 	
 	def _evaluate(self, indi: Individual, comb_index: Optional[int]=None, info: Mapping[str, Any]={}) -> Tuple[int]:
 		if comb_index is None:
-			comb_index = random.choice(range(len(self._driver_table)))
-		comb_seq = self._driver_table[comb_index]
+			comb_index = self._input_gen.generate(RequestObject()).driver_data[0]
 		
 		eval_req = RequestObject(
 			driver_data = InputData([comb_index]),
@@ -237,23 +238,9 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		raw_data = mes_res.measurement
 		data = self._prep(raw_data)
 		
-		"""
-		fast_sum = 0
-		slow_sum = 0
-		for i, auc in enumerate(data):
-			if ((comb_seq >> i) & 1):
-				fast_sum += auc
-			else:
-				slow_sum += auc
-		
-		fit = abs(slow_sum/30730.746 - fast_sum/30527.973)/10
-		"""
 		fit_req = RequestObject(driver_data=eval_req.driver_data, measurement=data)
 		fit_res = self._fit_func.compute(fit_req)
 		sink_data = {
-			#"fitness": fit,
-			#"fast_sum": fast_sum,
-			#"slow_sum": slow_sum,
 			"chromo_index": indi.chromo.identifier,
 			"time": cur_time,
 		}
