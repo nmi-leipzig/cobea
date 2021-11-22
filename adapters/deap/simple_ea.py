@@ -245,7 +245,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		
 		fit = abs(slow_sum/30730.746 - fast_sum/30527.973)/10
 		sink_data = {
-			"fit": fit,
+			"fitness": fit,
 			"fast_sum": fast_sum,
 			"slow_sum": slow_sum,
 			"chromo_index": indi.chromo.identifier,

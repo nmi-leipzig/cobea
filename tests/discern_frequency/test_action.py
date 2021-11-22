@@ -28,7 +28,7 @@ class FreqSumFFTest(TestCase):
 			with self.subTest(comb_idx=comb_idx, exp=exp):
 				req = RequestObject(driver_data = InputData([comb_idx]), measurement=OutputData(data))
 				res = dut.compute(req)
-				self.assertAlmostEqual(exp, res.fit, 15)
+				self.assertAlmostEqual(exp, res.fitness, 15)
 	
 	def test_compute_error(self):
 		test_cases = [# combination index, measurement, expected error

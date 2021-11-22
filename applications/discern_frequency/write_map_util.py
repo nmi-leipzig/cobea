@@ -204,7 +204,7 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep, pop
 	
 	ea_map = {
 		"SimpleEA.fitness": [
-			ParamAim(["fit"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+			ParamAim(["fitness"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 			ParamAim(["fast_sum"], "float64", "fast_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 			ParamAim(["slow_sum"], "float64", "slow_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 			ParamAim(["chromo_index"], "uint64", "chromo_id", "fitness", as_attr=False, comp_opt=9, shuffle=True),

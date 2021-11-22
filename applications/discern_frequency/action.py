@@ -167,7 +167,7 @@ class FreqSumFF(FitnessFunction):
 	
 	def compute(self, request: RequestObject) -> ResponseObject:
 		if len(request.measurement) != self._slow_count + self._fast_count:
-			raise ValueError(f"Worng amount of measurements: {len(request.measurement)} instead of {self._slow_count + self._fast_count}")
+			raise ValueError(f"Wrong amount of measurements: {len(request.measurement)} instead of {self._slow_count + self._fast_count}")
 		
 		comb_seq = self._driver_table[request.driver_data[0]]
 		fast_sum = 0
@@ -180,7 +180,7 @@ class FreqSumFF(FitnessFunction):
 		
 		fit = abs(slow_sum/self._slow_div - fast_sum/self._fast_div)/(self._slow_count + self._fast_count)
 		return ResponseObject(
-			fit=fit,
+			fitness=fit,
 			fast_sum=fast_sum,
 			slow_sum=slow_sum,
 		)
@@ -517,7 +517,7 @@ def remeasure(args: Namespace) -> None:
 			write_map_util.add_temp(write_map, metadata)
 		re_map = {
 			"SimpleEA.fitness": [
-				ParamAim(["fit"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+				ParamAim(["fitness"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 				ParamAim(["fast_sum"], "float64", "fast_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 				ParamAim(["slow_sum"], "float64", "slow_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 				ParamAim(["chromo_index"], "uint64", "chromo_id", "fitness", as_attr=False, comp_opt=9, shuffle=True),
