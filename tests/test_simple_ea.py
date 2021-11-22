@@ -5,10 +5,12 @@ from unittest import TestCase
 from adapters.deap.simple_ea import EvalMode, Individual, InfoSource, SimpleEA
 from adapters.embed_driver import FixedEmbedDriver
 from adapters.embed_meter import FixedEmbedMeter
+from adapters.fitness import ReduceFF
 from adapters.simtar import SimtarConfig, SimtarDev, SimtarRepGen
 from adapters.prng import BuiltInPRNG
 from adapters.unique_id import SimpleUID
-from domain.interfaces import Driver, Meter, OutputData, PRNG, Representation, TargetConfiguration, TargetDevice, UniqueID
+from domain.interfaces import Driver, FitnessFunction, Meter, OutputData, PRNG, Representation, TargetConfiguration, \
+	TargetDevice, UniqueID
 from domain.data_sink import DataSink
 from domain.model import Chromosome
 from domain.request_model import RequestObject
@@ -169,8 +171,8 @@ class SimpleEATest(TestCase):
 		res.mtr = FixedEmbedMeter(res.target, 1, "B")
 		res.mea_uc = Measure(res.drv, res.mtr, data_sink=res.sink)
 		
-		#FitnessFunction
-		#res.ff = ReduceFF(lambda a, b: a+b)
+		FitnessFunction
+		res.ff = ReduceFF(lambda a, b: a+b)
 		
 		# prepare request
 		#res.uc_req = RequestObject(
@@ -190,7 +192,7 @@ class SimpleEATest(TestCase):
 		res.uid_gen = SimpleUID()
 		res.prng = BuiltInPRNG()
 		
-		res.dut = SimpleEA(res.rep, res.mea_uc, res.dec_uc, res.uid_gen, res.prng, res.sink, res.prep)
+		res.dut = SimpleEA(res.rep, res.mea_uc, res.dec_uc, res.ff, res.uid_gen, res.prng, res.sink, res.prep)
 		
 		return res
 	

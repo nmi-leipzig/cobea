@@ -16,7 +16,7 @@ from deap import algorithms
 
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink, DataSinkUser
-from domain.interfaces import EvoAlgo, InputData, PRNG, Representation, UniqueID
+from domain.interfaces import EvoAlgo, FitnessFunction, InputData, PRNG, Representation, UniqueID
 from domain.model import Chromosome, OutputData
 from domain.request_model import RequestObject
 from domain.use_cases import DecTarget, GenChromo, Measure, RandomChromo
@@ -90,12 +90,13 @@ class Individual:
 		return wrapped_func
 
 class SimpleEA(EvoAlgo, DataSinkUser):
-	def __init__(self, rep: Representation, measure_uc: Measure, dec_uc: DecTarget, uid_gen: UniqueID, prng: PRNG,
-		data_sink: DataSink, prep: Callable[[OutputData], OutputData]=lambda x: x) -> None:
+	def __init__(self, rep: Representation, measure_uc: Measure, dec_uc: DecTarget, fit_func: FitnessFunction,
+		uid_gen: UniqueID, prng: PRNG, data_sink: DataSink, prep: Callable[[OutputData], OutputData]=lambda x: x) -> None:
 		
 		self._rep = rep
 		self._measure_uc = measure_uc
 		self._dec_uc = dec_uc
+		self._fit_func = fit_func
 		self._init_uc = RandomChromo(prng, rep, uid_gen, data_sink)
 		self._chromo_gen = GenChromo(uid_gen, data_sink)
 		self._data_sink = data_sink
@@ -232,9 +233,11 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		dec_res = self._dec_uc(dec_req)
 		
 		cur_time = datetime.datetime.now(datetime.timezone.utc)
-		raw_data = self._measure_uc(eval_req).measurement
+		mes_res = self._measure_uc(eval_req)
+		raw_data = mes_res.measurement
 		data = self._prep(raw_data)
 		
+		"""
 		fast_sum = 0
 		slow_sum = 0
 		for i, auc in enumerate(data):
@@ -244,17 +247,21 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 				slow_sum += auc
 		
 		fit = abs(slow_sum/30730.746 - fast_sum/30527.973)/10
+		"""
+		fit_req = RequestObject(driver_data=eval_req.driver_data, measurement=data)
+		fit_res = self._fit_func.compute(fit_req)
 		sink_data = {
-			"fitness": fit,
-			"fast_sum": fast_sum,
-			"slow_sum": slow_sum,
+			#"fitness": fit,
+			#"fast_sum": fast_sum,
+			#"slow_sum": slow_sum,
 			"chromo_index": indi.chromo.identifier,
 			"time": cur_time,
 		}
 		sink_data.update(dec_res)
+		sink_data.update(fit_res)
 		sink_data.update(info)
 		self.write_to_sink("fitness", sink_data)
-		return (fit, )
+		return (fit_res.fitness, )
 	
 	def create_toolbox(self, mutation_prob: float, info_src: InfoSource) -> base.Toolbox:
 		#creator.create("TestFit", base.Fitness, weights=(1.0,))

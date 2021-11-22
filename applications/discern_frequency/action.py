@@ -454,9 +454,11 @@ def run(args: Namespace) -> None:
 		rep.prepare_config(hab_config)
 		dec_uc = DecTarget(rep, hab_config, measure_setup.target, extract_info=extract_carry_enable)
 		
+		fit_func = FreqSumFF(5, 5)
+		
 		seed = int(datetime.utcnow().timestamp())
 		prng = BuiltInPRNG(seed)
-		ea = SimpleEA(rep, measure_uc, dec_uc, SimpleUID(), prng, sink, prep=measure_setup.preprocessing)
+		ea = SimpleEA(rep, measure_uc, dec_uc, fit_func, SimpleUID(), prng, sink, prep=measure_setup.preprocessing)
 		
 		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob, EvalMode[args.eval_mode])
 		
@@ -591,10 +593,12 @@ def remeasure(args: Namespace) -> None:
 		for bit, val in zip(carry_bits, carry_values):
 			hab_config.set_bit(bit, val)
 		
+		fit_func = FreqSumFF(5, 5)
+		
 		prng = BuiltInPRNG()
 		
 		# run measurement
-		ea = SimpleEA(rep, measure_uc, dec_uc, SimpleUID(), prng, cal_data.trig_len, sink)
+		ea = SimpleEA(rep, measure_uc, dec_uc, fit_func, SimpleUID(), prng, cal_data.trig_len, sink)
 		indi = Individual(chromo)
 		for r in range(args.rounds):
 			for comb_index in comb_list:
