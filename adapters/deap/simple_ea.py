@@ -16,10 +16,10 @@ from deap import algorithms
 
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink, DataSinkUser
-from domain.interfaces import EvoAlgo, InputData, PRNG, Representation, TargetConfiguration, TargetDevice, UniqueID
+from domain.interfaces import EvoAlgo, InputData, PRNG, Representation, UniqueID
 from domain.model import Chromosome, OutputData
 from domain.request_model import RequestObject
-from domain.use_cases import GenChromo, Measure, RandomChromo
+from domain.use_cases import DecTarget, GenChromo, Measure, RandomChromo
 
 class EvalMode(Enum):
 	NEW = auto()
@@ -90,16 +90,14 @@ class Individual:
 		return wrapped_func
 
 class SimpleEA(EvoAlgo, DataSinkUser):
-	def __init__(self, rep: Representation, measure_uc: Measure,
-		uid_gen: UniqueID, prng: PRNG, habitat: TargetConfiguration, target: TargetDevice, data_sink: DataSink,
-		prep: Callable[[OutputData], OutputData]=lambda x: x) -> None:
+	def __init__(self, rep: Representation, measure_uc: Measure, dec_uc: DecTarget, uid_gen: UniqueID, prng: PRNG,
+		data_sink: DataSink, prep: Callable[[OutputData], OutputData]=lambda x: x) -> None:
 		
 		self._rep = rep
 		self._measure_uc = measure_uc
+		self._dec_uc = dec_uc
 		self._init_uc = RandomChromo(prng, rep, uid_gen, data_sink)
 		self._chromo_gen = GenChromo(uid_gen, data_sink)
-		self._habitat = habitat
-		self._target = target
 		self._data_sink = data_sink
 		self._prep = prep
 		
@@ -230,11 +228,9 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			measure_timeout = None,
 		)
 		
-		self._rep.decode(self._habitat, indi.chromo)
-		carry_enable_state = []
-		for bit in self._rep.iter_carry_bits():
-			carry_enable_state.append(self._habitat.get_bit(bit))
-		self._target.configure(self._habitat)
+		dec_req = RequestObject(chromosome=indi.chromo)
+		dec_res = self._dec_uc(dec_req)
+		
 		cur_time = datetime.datetime.now(datetime.timezone.utc)
 		raw_data = self._measure_uc(eval_req).measurement
 		data = self._prep(raw_data)
@@ -253,9 +249,9 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			"fast_sum": fast_sum,
 			"slow_sum": slow_sum,
 			"chromo_index": indi.chromo.identifier,
-			"carry_enable": carry_enable_state,
 			"time": cur_time,
 		}
+		sink_data.update(dec_res)
 		sink_data.update(info)
 		self.write_to_sink("fitness", sink_data)
 		return (fit, )

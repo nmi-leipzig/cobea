@@ -36,7 +36,7 @@ from domain.data_sink import DataSink
 from domain.interfaces import Driver, FitnessFunction, InputData, Meter, OutputData, TargetDevice, TargetManager
 from domain.model import AlleleAll, Chromosome, Gene
 from domain.request_model import ResponseObject, RequestObject, Parameter, ParameterValues
-from domain.use_cases import Measure
+from domain.use_cases import DecTarget, ExInfoCallable, Measure
 from tests.mocks import RandomMeter
 
 
@@ -452,11 +452,11 @@ def run(args: Namespace) -> None:
 			"text": hab_config.to_text(),
 		})
 		rep.prepare_config(hab_config)
+		dec_uc = DecTarget(rep, hab_config, measure_setup.target, extract_info=extract_carry_enable)
 		
 		seed = int(datetime.utcnow().timestamp())
 		prng = BuiltInPRNG(seed)
-		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, measure_setup.target, sink,
-			prep=measure_setup.preprocessing)
+		ea = SimpleEA(rep, measure_uc, dec_uc, SimpleUID(), prng, sink, prep=measure_setup.preprocessing)
 		
 		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob, EvalMode[args.eval_mode])
 		
@@ -585,6 +585,7 @@ def remeasure(args: Namespace) -> None:
 			start_temp(args.temperature, stack, sink)
 		
 		measure_uc = Measure(driver, meter, sink)
+		dec_uc = DecTarget(rep, hab_config, target, extract_info=extract_carry_enable)
 		
 		# set carry enable correctly
 		for bit, val in zip(carry_bits, carry_values):
@@ -593,7 +594,7 @@ def remeasure(args: Namespace) -> None:
 		prng = BuiltInPRNG()
 		
 		# run measurement
-		ea = SimpleEA(rep, measure_uc, SimpleUID(), prng, hab_config, target, cal_data.trig_len, sink)
+		ea = SimpleEA(rep, measure_uc, dec_uc, SimpleUID(), prng, cal_data.trig_len, sink)
 		indi = Individual(chromo)
 		for r in range(args.rounds):
 			for comb_index in comb_list:

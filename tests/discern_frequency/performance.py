@@ -36,8 +36,8 @@ from adapters.parallel_sink import ParallelSink
 from adapters.prng import BuiltInPRNG
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
-from applications.discern_frequency.action import create_xc6200_rep
-from domain.use_cases import Measure
+from applications.discern_frequency.action import create_xc6200_rep, extract_carry_enable
+from domain.use_cases import DecTarget, Measure
 from tests.mocks import RandomMeter
 
 
@@ -95,7 +95,9 @@ def run_algo(rep: IcecraftRep) -> None:
 			hab_config = IcecraftRawConfig.create_from_filename(hab_path)
 			rep.prepare_config(hab_config)
 			
-			ea = SimpleEA(rep, measure_uc, SimpleUID(), BuiltInPRNG(), hab_config, target, sink)
+			dec_uc = DecTarget(rep, hab_config, target, extract_info=extract_carry_enable)
+			
+			ea = SimpleEA(rep, measure_uc, dec_uc, SimpleUID(), BuiltInPRNG(), sink)
 			
 			ea.run(pop_size, 8, 0.7, 0.001756)
 			#ea.run(50, 600, 0.7, 0.001756)

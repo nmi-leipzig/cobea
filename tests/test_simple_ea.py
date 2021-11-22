@@ -12,7 +12,7 @@ from domain.interfaces import Driver, Meter, OutputData, PRNG, Representation, T
 from domain.data_sink import DataSink
 from domain.model import Chromosome
 from domain.request_model import RequestObject
-from domain.use_cases import GenChromo, Measure
+from domain.use_cases import DecTarget, GenChromo, Measure
 
 from .mocks import MockDataSink
 
@@ -162,7 +162,7 @@ class SimpleEATest(TestCase):
 		res.rep.prepare_config(res.habitat)
 		
 		res.target = SimtarDev()
-		#res.dec_uc = DecTarget(res.rep, res.habitat, res.target)
+		res.dec_uc = DecTarget(res.rep, res.habitat, res.target)
 		
 		# Measure
 		res.drv = FixedEmbedDriver(res.target, "B")
@@ -190,7 +190,7 @@ class SimpleEATest(TestCase):
 		res.uid_gen = SimpleUID()
 		res.prng = BuiltInPRNG()
 		
-		res.dut = SimpleEA(res.rep, res.mea_uc, res.uid_gen, res.prng, res.habitat, res.target, res.sink, res.prep)
+		res.dut = SimpleEA(res.rep, res.mea_uc, res.dec_uc, res.uid_gen, res.prng, res.sink, res.prep)
 		
 		return res
 	
