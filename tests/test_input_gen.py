@@ -52,7 +52,8 @@ class RandIntGenTest(TestCase):
 				dut = self.create_dut(int_list, min_int, max_int)
 				for exp in int_list:
 					res = dut.generate(RequestObject())
-					self.assertEqual(exp, res.driver_data)
+					self.assertIsInstance(res.driver_data, InputData)
+					self.assertEqual(exp, res.driver_data[0])
 	
 	def test_parameter_user(self):
 		dut = self.create_dut()

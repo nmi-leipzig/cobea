@@ -36,4 +36,4 @@ class RandIntGen(InputGen):
 	
 	def generate(self, request: RequestObject) -> ResponseObject:
 		val = self._prng.randint(self._min_int, self._max_int)
-		return ResponseObject(driver_data=val)
+		return ResponseObject(driver_data=InputData([val]))
