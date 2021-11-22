@@ -23,6 +23,7 @@ from adapters.gear.rigol import FloatCheck, IntCheck, OsciDS1102E, SetupCmd
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftBitPosition, IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen,\
 IcecraftManager, IcecraftRawConfig, XC6200Port, XC6200Direction
+from adapters.input_gen import RandIntGen
 from adapters.minvia import MinviaDriver
 from adapters.mcu_drv_mtr import MCUDrvMtr
 from adapters.parallel_collector import CollectorDetails, InitDetails, ParallelCollector
@@ -33,7 +34,8 @@ from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink
-from domain.interfaces import Driver, FitnessFunction, InputData, Meter, OutputData, TargetDevice, TargetManager
+from domain.interfaces import Driver, FitnessFunction, InputData, InputGen, Meter, OutputData, PRNG, TargetDevice, \
+TargetManager
 from domain.model import AlleleAll, Chromosome, Gene
 from domain.request_model import ResponseObject, RequestObject, Parameter, ParameterValues
 from domain.use_cases import DecTarget, ExInfoCallable, Measure
@@ -163,13 +165,13 @@ class FreqSumFF(FitnessFunction):
 		self._fast_count = fast_count
 		self._slow_div = slow_div
 		self._fast_div = fast_div
-		self._driver_table = lexicographic_combinations(self._slow_count, self._fast_count)
+		self._comb_table = lexicographic_combinations(self._slow_count, self._fast_count)
 	
 	def compute(self, request: RequestObject) -> ResponseObject:
 		if len(request.measurement) != self._slow_count + self._fast_count:
 			raise ValueError(f"Wrong amount of measurements: {len(request.measurement)} instead of {self._slow_count + self._fast_count}")
 		
-		comb_seq = self._driver_table[request.driver_data[0]]
+		comb_seq = self._comb_table[request.driver_data[0]]
 		fast_sum = 0
 		slow_sum = 0
 		for i, auc in enumerate(request.measurement):
@@ -184,6 +186,10 @@ class FreqSumFF(FitnessFunction):
 			fast_sum=fast_sum,
 			slow_sum=slow_sum,
 		)
+	
+	@property
+	def comb_count(self) -> int:
+		return len(self._comb_table)
 
 class DriverType(Enum):
 	FPGA = auto()
@@ -203,9 +209,18 @@ class MeasureSetup:
 	target: Optional[TargetDevice] = None
 	meter: Optional[Meter] = None
 	cal_data: Optional[CalibrationData] = None
-	fit_func: Optional[FitnessFunction] = None
+	input_gen: Optional[InputGen] = None
 	sink_writes: List[Tuple[str, Mapping[str, Any]]] = field(default_factory=list)
 	preprocessing: Callable[[OutputData], OutputData] = lambda x: x
+
+
+@dataclass
+class AdapterSetup:
+	seed: Optional[int] = None
+	prng: Optional[PRNG] = None
+	fit_func: Optional[FitnessFunction] = None
+	input_gen: Optional[InputGen] = None
+
 
 def create_preprocessing_fpga(meter: Meter, meter_setup: SetupCmd, cal_data: CalibrationData) -> Callable[[OutputData], OutputData]:
 	convert = meter.raw_to_volt_func()
@@ -332,8 +347,6 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 	setup.target.set_fast(True)
 	stack.callback(man.release, setup.target)
 	
-	setup.fit_func = FreqSumFF(5, 5)
-	
 	metadata.setdefault("fitness/measurement", []).extend([
 		MetaEntry("target_serial_number", setup.target.serial_number),
 		MetaEntry("target_hardware", setup.target.hardware_type),
@@ -342,6 +355,20 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 	])
 	
 	return setup
+
+
+def create_adapter_setup() -> AdapterSetup:
+	setup = AdapterSetup()
+	
+	setup.seed = int(datetime.utcnow().timestamp())
+	setup.prng = BuiltInPRNG(setup.seed)
+	
+	setup.fit_func = FreqSumFF(5, 5)
+	
+	setup.input_gen = RandIntGen(setup.prng, 0, setup.fit_func.comb_count)
+	
+	return setup
+
 
 def collector_prep(driver: DummyDriver, meter: TempMeter, measure: Measure, sink: ParallelSink) -> None:
 	sink.write("meta.temp", {
@@ -413,7 +440,6 @@ def run(args: Namespace) -> None:
 				#target = DummyTargetDevice(),
 				meter = RandomMeter(sub_count*10, 0.1),
 				cal_data = CalibrationData(None, 0, 0, 0, 0),
-				fit_func = FreqSumFF(5, 5),
 				sink_writes = [],
 				preprocessing = create_preprocessing_dummy(sub_count),
 			)
@@ -456,15 +482,15 @@ def run(args: Namespace) -> None:
 			"text": hab_config.to_text(),
 		})
 		rep.prepare_config(hab_config)
+		adapter_setup = create_adapter_setup()
+		
 		dec_uc = DecTarget(rep, hab_config, measure_setup.target, extract_info=extract_carry_enable)
 		
-		seed = int(datetime.utcnow().timestamp())
-		prng = BuiltInPRNG(seed)
-		ea = SimpleEA(rep, measure_uc, dec_uc, measure_setup.fit_func, SimpleUID(), prng, sink, prep=measure_setup.preprocessing)
+		ea = SimpleEA(rep, measure_uc, dec_uc, adapter_setup.fit_func, SimpleUID(), adapter_setup.prng, sink, prep=measure_setup.preprocessing)
 		
 		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob, EvalMode[args.eval_mode])
 		
-		sink.write("prng", {"seed": seed, "final_state": prng.get_state()})
+		sink.write("prng", {"seed": adapter_setup.seed, "final_state": adapter_setup.prng.get_state()})
 
 def remeasure(args: Namespace) -> None:
 	pkg_path = os.path.dirname(os.path.abspath(__file__))
@@ -595,12 +621,13 @@ def remeasure(args: Namespace) -> None:
 		for bit, val in zip(carry_bits, carry_values):
 			hab_config.set_bit(bit, val)
 		
-		fit_func = FreqSumFF(5, 5)
+		adapter_setup =create_adapter_setup()
 		
-		prng = BuiltInPRNG()
+		#TODO: prep
+		#mf_uc = MeasureFitness(dec_uc, measure_uc, fit_func, , data_sink=sink)
 		
 		# run measurement
-		ea = SimpleEA(rep, measure_uc, dec_uc, fit_func, SimpleUID(), prng, cal_data.trig_len, sink)
+		ea = SimpleEA(rep, measure_uc, dec_uc, adapter_setup.fit_func, SimpleUID(), adapter_setup.prng, cal_data.trig_len, sink)
 		indi = Individual(chromo)
 		for r in range(args.rounds):
 			for comb_index in comb_list:
