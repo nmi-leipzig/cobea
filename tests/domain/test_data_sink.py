@@ -80,11 +80,12 @@ class SinkRequestTest(TestCase):
 			sink.clear()
 			
 			num = 5
-			req = RequestObject(num=num)
+			other = "abc"
+			req = RequestObject(num=num, other=other)
 			res = dut.sink_req(req)
 			self.assertEqual(num, res)
 			
-			exp = ("FullDSU.sink_req", {"num": num, "return": num})
+			exp = ("FullDSU.sink_req", {"num": num, "other": other, "return": num})
 			self.assertEqual(1, len(sink.write_list), "Wrong number of calls to data sink")
 			self.assertEqual([exp], sink.write_list)
 		

@@ -41,12 +41,11 @@ def sink_request(func: Callable) -> Callable:
 		# first arg should be self, i.e. the object that the function belongs to
 		obj = args[0]
 		func_name = func.__name__
-		params = obj.parameters[func_name]
 		
 		req = get_req(*args, **kwargs)
 		
 		# copy data from request
-		values = {p.name: req[p.name] for p in params}
+		values = dict(req)
 		
 		# execute decorated function
 		res = func(*args, **kwargs)
