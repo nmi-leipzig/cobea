@@ -365,7 +365,7 @@ def create_adapter_setup() -> AdapterSetup:
 	
 	setup.fit_func = FreqSumFF(5, 5)
 	
-	setup.input_gen = RandIntGen(setup.prng, 0, setup.fit_func.comb_count)
+	setup.input_gen = RandIntGen(setup.prng, 0, setup.fit_func.comb_count-1)
 	
 	return setup
 
