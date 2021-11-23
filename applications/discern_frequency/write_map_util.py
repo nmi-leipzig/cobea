@@ -199,26 +199,49 @@ def add_temp(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	write_map.update(temp_map)
 	metadata.update(temp_meta)
 
-def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep, pop_size: int,) -> None:
-	"""Add the entries for an evolutionary algorithm to an existing HDF5Sink write map"""
-	
+
+def add_measure(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep) -> None:
+	"""Add the entries for MeasureFitness use case"""
 	ea_map = {
-		"SimpleEA.fitness": [
-			ParamAim(["fitness"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			ParamAim(["fast_sum"], "float64", "fast_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			ParamAim(["slow_sum"], "float64", "slow_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			ParamAim(["chromo_index"], "uint64", "chromo_id", "fitness", as_attr=False, comp_opt=9, shuffle=True),
+		"MeasureFitness.perform": [
+			ParamAim(["return"], "float64", "value", "fitness", as_attr=False, alter=partial(compose, funcs=[
+				itemgetter(0), attrgetter("fitness")]), comp_opt=9, shuffle=True),
+			ParamAim(["return"], "float64", "fast_sum", "fitness", as_attr=False, alter=partial(compose, funcs=[
+				itemgetter(0), attrgetter("fast_sum")]), comp_opt=9, shuffle=True),
+			ParamAim(["return"], "float64", "slow_sum", "fitness", as_attr=False, alter=partial(compose, funcs=[
+				itemgetter(0), attrgetter("slow_sum")]), comp_opt=9, shuffle=True),
+			ParamAim(["chromosome"], "uint64", "chromo_id", "fitness", as_attr=False, alter=partial(compose, funcs=[
+				itemgetter(0), attrgetter("identifier")]), comp_opt=9, shuffle=True),
 			ParamAim(
-				["carry_enable"],
+				["return"],
 				bool,
 				"carry_enable",
 				"fitness",
 				as_attr=False,
+				alter=partial(compose, funcs=[itemgetter(0), attrgetter("carry_enable")]),
 				shape=(len(list(rep.iter_carry_bits())), ),
 				comp_opt=4,
 			),
 			ParamAim(["generation"], "uint64", "generation", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 		],
+	}
+	
+	ea_meta = {
+		"fitness/value": [MetaEntry("description", "actual fitness value")],
+		"fitness/fast_sum": [MetaEntry("description", "aggregated area under the curve for all 10 kHz bursts")],
+		"fitness/slow_sum": [MetaEntry("description", "aggregated area under the curve for all 1 kHz bursts")],
+		"fitness/chromo_id": [MetaEntry("description", "ID of the corresponding chromosome")],
+		"fitness/generation": [MetaEntry("description", "generation in which the fitness was evaluated")],
+	}
+	
+	write_map.update(ea_map)
+	metadata.update(ea_meta)
+
+
+def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> None:
+	"""Add the entries for an evolutionary algorithm to an existing HDF5Sink write map"""
+	
+	ea_map = {
 		"SimpleEA.ea_params": [
 			ParamAim(["pop_size"], "uint64", "pop_size"),
 			ParamAim(["gen_count"], "uint64", "gen_count"),
@@ -254,11 +277,6 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep, pop
 	}
 	
 	ea_meta = {
-		"fitness/value": [MetaEntry("description", "actual fitness value")],
-		"fitness/fast_sum": [MetaEntry("description", "aggregated area under the curve for all 10 kHz bursts")],
-		"fitness/slow_sum": [MetaEntry("description", "aggregated area under the curve for all 1 kHz bursts")],
-		"fitness/chromo_id": [MetaEntry("description", "ID of the corresponding chromosome")],
-		"fitness/generation": [MetaEntry("description", "generation in which the fitness was evaluated")],
 		"population": [MetaEntry("description", "IDs of the chromosomes included in each generation")],
 		"crossover": [MetaEntry("description", "IDs of the chromosomes participating in and resulting from crossover")],
 		"crossover/generation": [MetaEntry("description", "value i means crossover occured while generating generation "
@@ -278,7 +296,8 @@ def create_for_run(rep: IcecraftRep, pop_size: int, chromo_bits: 16, temp: bool=
 	write_map, metadata = create_base(rep, chromo_bits)
 	if temp:
 		add_temp(write_map, metadata)
-	add_ea(write_map, metadata, rep, pop_size)
+	add_ea(write_map, metadata, pop_size)
+	add_measure(write_map, metadata, rep)
 	
 	return write_map, metadata
 
