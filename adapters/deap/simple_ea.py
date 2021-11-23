@@ -220,9 +220,6 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		mes_req.update(info)
 		mes_res = self._measure_fit_uc(mes_req)
 		
-		sink_data = dict(mes_req)
-		sink_data.update(mes_res)
-		self.write_to_sink("fitness", sink_data)
 		return (mes_res.fitness, )
 	
 	def create_toolbox(self, mutation_prob: float, info_src: InfoSource) -> base.Toolbox:
