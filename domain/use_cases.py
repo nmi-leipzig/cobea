@@ -101,7 +101,7 @@ class DecTarget(UseCase):
 	def perform(self, request: RequestObject) -> ResponseObject:
 		self._rep.decode(self._habitat, request.chromosome)
 		self._target.configure(self._habitat)
-		res = ResponseObject(configuration=deepcopy(self._habitat), chromo_index=request.chromosome.identifier)
+		res = ResponseObject(configuration=deepcopy(self._habitat))
 		if self._extract_info:
 			res.update(self._extract_info(self._rep, self._habitat, request.chromosome))
 		

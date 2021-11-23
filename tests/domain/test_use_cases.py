@@ -103,9 +103,6 @@ class DecTargetTest(unittest.TestCase):
 		# check config in response
 		values = [res.configuration.get_bit(SimtarBitPos(i)) for i in range(17)]
 		self.assertEqual([False]*16+[True], values)
-		
-		# check chromo id 
-		self.assertEqual(chromo_id, res.chromo_index)
 	
 	def test_modification_leak(self):
 		# alteration to the returned configuration should not alter the habitat
