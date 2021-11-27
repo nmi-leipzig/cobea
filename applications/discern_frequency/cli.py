@@ -13,6 +13,7 @@ def create_arg_parser():
 	arg_parser.add_argument("--temperature", type=str, help="serial number of the temperature reader; empty string for"
 		" autodetect; leave out to deactivate temperature measurement")
 	arg_parser.add_argument("-o", "--output", type=str, help="name of the HDF5 output file")
+	arg_parser.add_argument("--dummy", action="store_true", help="use dummies instead of real hardware")
 	
 	sub_parsers = arg_parser.add_subparsers()
 	run_parser = sub_parsers.add_parser("run", help="run an EA")
@@ -31,7 +32,6 @@ def create_arg_parser():
 	run_parser.add_argument("--mutation-prob", type=float, required=True, help="probability that a mutation takes"
 		" place")
 	run_parser.add_argument("--eval-mode", default="NEW", type=str, choices=[e.name for e in EvalMode], help="which individuals in each generation are evaluated; NEW -> ones without fitness value; ELITE -> without fitness value and elites; ALL -> all")
-	run_parser.add_argument("--dummy", action="store_true", help="use dummies instead of real hardware")
 	run_parser.add_argument("--habitat", type=str, required=True, help="ASC file of the base configuration for the "
 		"target FPGA; provides the periphery of the evolved area")
 	run_parser.add_argument("--habitat-con", type=str, help="description of the connections of the habitat")
