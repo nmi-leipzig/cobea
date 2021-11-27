@@ -14,6 +14,7 @@ def create_arg_parser():
 		" autodetect; leave out to deactivate temperature measurement")
 	arg_parser.add_argument("-o", "--output", type=str, help="name of the HDF5 output file")
 	arg_parser.add_argument("--dummy", action="store_true", help="use dummies instead of real hardware")
+	arg_parser.add_argument("--freq-gen-type", default="FPGA", type=str, choices=[d.name for d in DriverType], help="")
 	
 	sub_parsers = arg_parser.add_subparsers()
 	run_parser = sub_parsers.add_parser("run", help="run an EA")
@@ -37,7 +38,6 @@ def create_arg_parser():
 	run_parser.add_argument("--habitat-con", type=str, help="description of the connections of the habitat")
 	run_parser.add_argument("--freq-gen", type=str, help="configuration file of the frequency generator;"
 		" ASC format")
-	run_parser.add_argument("--freq-gen-type", default="FPGA", type=str, choices=[d.name for d in DriverType], help="")
 	run_parser.add_argument("--freq-gen-con", type=str, help="description of the connections of the frequency "
 		"generator")
 	
