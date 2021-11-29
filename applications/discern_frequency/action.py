@@ -357,6 +357,21 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 	return setup
 
 
+def create_dummy_setup(sub_count: int, write_map: ParamAimMap, metadata: MetaEntryMap) -> MeasureSetup:
+	measure_setup = MeasureSetup(
+		driver = MinviaDriver(drive_params=[Parameter("driver_data", InputData)]),
+		target = MagicMock(),
+		#target = DummyTargetDevice(),
+		meter = RandomMeter(sub_count*10, 0.1),
+		cal_data = CalibrationData(None, 0, 0, 0, 0),
+		sink_writes = [],
+		preprocessing = create_preprocessing_dummy(sub_count),
+	)
+	write_map_util.add_dummy(write_map, metadata, sub_count)
+	
+	return measure_setup
+
+
 def create_adapter_setup() -> AdapterSetup:
 	setup = AdapterSetup()
 	
@@ -433,17 +448,7 @@ def run(args: Namespace) -> None:
 	
 	with ExitStack() as stack:
 		if use_dummy:
-			sub_count = 25
-			measure_setup = MeasureSetup(
-				driver = MinviaDriver(drive_params=[Parameter("driver_data", InputData)]),
-				target = MagicMock(),
-				#target = DummyTargetDevice(),
-				meter = RandomMeter(sub_count*10, 0.1),
-				cal_data = CalibrationData(None, 0, 0, 0, 0),
-				sink_writes = [],
-				preprocessing = create_preprocessing_dummy(sub_count),
-			)
-			write_map_util.add_dummy(write_map, metadata, sub_count)
+			measure_setup = create_dummy_setup(25, write_map, metadata)
 		else:
 			setup_info = MeasureSetupInfo(
 				args.target,
@@ -547,6 +552,7 @@ def remeasure(args: Namespace) -> None:
 		if rec_temp:
 			write_map_util.add_temp(write_map, metadata)
 		re_map = {
+		#TODO: adapt to sink writes from MeasureFitness
 			"SimpleEA.fitness": [
 				ParamAim(["fitness"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 				ParamAim(["fast_sum"], "float64", "fast_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
