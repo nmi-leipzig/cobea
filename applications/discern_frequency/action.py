@@ -194,6 +194,7 @@ class FreqSumFF(FitnessFunction):
 class DriverType(Enum):
 	FPGA = auto()
 	DRVMTR = auto()
+	DUMMY = auto()
 
 @dataclass
 class MeasureSetupInfo:
