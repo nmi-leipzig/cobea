@@ -9,7 +9,7 @@ from contextlib import ExitStack
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import auto, Enum
-from typing import Any, Callable, Iterable, List, Mapping, Optional, Tuple
+from typing import Any, Callable, Iterable, List, Mapping, Optional, TextIO, Tuple
 from unittest.mock import MagicMock
 
 import h5py
@@ -73,8 +73,8 @@ def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int], in_por
 	return rep
 
 # flash FPGAs
-def prepare_generator(gen: TargetDevice, asc_path: str) -> IcecraftRawConfig:
-	config = IcecraftRawConfig.create_from_filename(asc_path)
+def prepare_generator(gen: TargetDevice, asc_file: TextIO) -> IcecraftRawConfig:
+	config = IcecraftRawConfig.create_from_file(asc_file)
 	gen.configure(config)
 	
 	return config
@@ -202,7 +202,7 @@ class MeasureSetupInfo:
 	meter_sn: str
 	driver_sn: Optional[str] = None
 	driver_type: DriverType = DriverType.DRVMTR
-	driver_asc_path: Optional[str] = None
+	driver_asc_file: Optional[TextIO] = None
 
 @dataclass
 class MeasureSetup:
@@ -304,7 +304,7 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 		gen = man.acquire(info.driver_sn)
 		stack.callback(man.release, gen)
 		
-		fg_config = prepare_generator(gen, info.driver_asc_path)
+		fg_config = prepare_generator(gen, info.driver_asc_file)
 		setup.driver = FixedEmbedDriver(gen, "B")
 		
 		cal_data = calibrate(setup.driver, info.meter_sn)
@@ -453,15 +453,16 @@ def run(args: Namespace) -> None:
 		if use_dummy:
 			measure_setup = create_dummy_setup(25, write_map, metadata)
 		else:
-			setup_info = MeasureSetupInfo(
-				args.target,
-				args.meter,
-				args.generator,
-				DriverType[args.freq_gen_type],
-				args.freq_gen,
-			)
-			
-			measure_setup = create_measure_setup(setup_info, stack, write_map, metadata)
+			with open(args.freq_gen, "r") as asc_file:
+				setup_info = MeasureSetupInfo(
+					args.target,
+					args.meter,
+					args.generator,
+					DriverType[args.freq_gen_type],
+					asc_file,
+				)
+				
+				measure_setup = create_measure_setup(setup_info, stack, write_map, metadata)
 		
 		cur_date = datetime.now(timezone.utc)
 		hdf5_filename = args.output or f"evo-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
