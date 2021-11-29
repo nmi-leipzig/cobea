@@ -349,6 +349,7 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 	stack.callback(man.release, setup.target)
 	
 	metadata.setdefault("fitness/measurement", []).extend([
+		MetaEntry("driver_type", info.driver_type.name),
 		MetaEntry("target_serial_number", setup.target.serial_number),
 		MetaEntry("target_hardware", setup.target.hardware_type),
 		MetaEntry("meter_serial_number", setup.meter.serial_number),
@@ -368,6 +369,7 @@ def create_dummy_setup(sub_count: int, write_map: ParamAimMap, metadata: MetaEnt
 		sink_writes = [],
 		preprocessing = create_preprocessing_dummy(sub_count),
 	)
+	metadata.setdefault("fitness/measurement", []).append(MetaEntry("driver_type", DriverType.DUMMY.name))
 	write_map_util.add_dummy(write_map, metadata, sub_count)
 	
 	return measure_setup
