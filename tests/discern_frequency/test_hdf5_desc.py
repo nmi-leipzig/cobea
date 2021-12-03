@@ -8,7 +8,7 @@ from adapters.hdf5_sink import MetaEntry, ParamAim
 from applications.discern_frequency.hdf5_desc import add_meta, HDF5Desc, pa_gen
 
 
-class TestHDF5Desc(TestCase):
+class HDF5DescTest(TestCase):
 	def test_pa_gen(self):
 		@dataclass
 		class PATC:
