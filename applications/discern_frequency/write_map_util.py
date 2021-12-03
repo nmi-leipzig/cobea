@@ -8,6 +8,7 @@ from typing import Any, Iterable, List, Tuple
 from adapters.gear.rigol import FloatCheck, IntCheck, SetupCmd
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftRep
+from applications.discern_frequency.hdf5_desc import pa_gen
 
 def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
 	return [
@@ -69,10 +70,8 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 				ParamAim(["colbufctrl"], "uint16", "colbufctrl_index", "mapping", alter=partial(compose, funcs=[
 					itemgetter(0), partial(map, attrgetter("index")), list])),
 			],
-		"habitat": [ParamAim(
-			["text"], "uint8", "habitat", as_attr=False,
-			alter=partial(compose, funcs=[itemgetter(0), partial(bytearray, encoding="utf-8")]), comp_opt=9
-		),],
+		"habitat": [pa_gen("habitat", ["text"], alter=partial(compose, funcs=[itemgetter(0), partial(bytearray,
+			encoding="utf-8")]), comp_opt=9),],
 	}
 	
 	metadata = {
@@ -112,7 +111,7 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	return write_map, metadata
 
 def add_fpga_osci(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
-	"""Add the entries for a FPGa driver and oscilloscope meter to an existing HDF5Sink write map and metadata"""
+	"""Add the entries for a FPGA driver and oscilloscope meter to an existing HDF5Sink write map and metadata"""
 	
 	write_map.setdefault("Measure.perform", []).append(ParamAim(["return"], "uint8", "measurement", "fitness",
 		alter=partial(compose, funcs=[itemgetter(0), attrgetter("measurement")]), as_attr=False, shape=(2**19, ), shuffle=False))
