@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 
-from adapters.hdf5_sink import ParamAim
+from adapters.hdf5_sink import MetaEntry, MetaEntryMap, ParamAim
 
 
 class HDF5Desc(NamedTuple):
@@ -21,6 +21,7 @@ class HDF5Desc(NamedTuple):
 
 HDF5_DICT= {
 	"habitat": HDF5Desc("uint8", "habitat", "/", False, tuple()),
+	"habitat.desc": HDF5Desc(str, "description", "habitat"),
 }
 
 def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> ParamAim:
@@ -32,3 +33,14 @@ def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> Par
 	"""
 	desc = HDF5_DICT[gen_name]
 	return ParamAim(req_names, *desc, **kwargs)
+
+def add_meta(metadata: MetaEntryMap, meta_name: str, value: Any) -> None:
+	"""Add MetaEntry to metadata
+	
+	The MetaEntry is created from data retrieved by meta_name
+	"""
+	desc = HDF5_DICT[meta_name]
+	if not desc.as_attr:
+		raise ValueError(f"{meta_name} can't be stored as metadata: as_attr is False")
+	entry = MetaEntry(desc.h5_name, value, desc.data_type)
+	metadata.setdefault(desc.h5_path, []).append(entry)

@@ -8,7 +8,7 @@ from typing import Any, Iterable, List, Tuple
 from adapters.gear.rigol import FloatCheck, IntCheck, SetupCmd
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftRep
-from applications.discern_frequency.hdf5_desc import pa_gen
+from applications.discern_frequency.hdf5_desc import add_meta, pa_gen
 
 def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
 	return [
@@ -92,11 +92,9 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 			"bits defined by the genotype")],
 		"mapping/carry_data": [MetaEntry("description", "data describing how to derive the carry bits from the "
 			"configuration bits defined by the genotype")],
-		"habitat": [
-			MetaEntry("description", "basic configuration of the target FPGA that defines the periphery of the evolved "
-				"part; the values are bytes of the asc format"),
-		],
 	}
+	add_meta(metadata, "habitat.desc", "basic configuration of the target FPGA that defines the periphery of the "
+		"evolved part; the values are bytes of the asc format")
 	
 	for i, cd in enumerate(rep.iter_carry_data()):
 		metadata[f"mapping/carry_data/carry_data_{i}"] = [

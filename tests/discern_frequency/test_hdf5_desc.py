@@ -4,8 +4,8 @@ from typing import Any, Dict, List
 from unittest import TestCase
 
 
-from adapters.hdf5_sink import ParamAim
-from applications.discern_frequency.hdf5_desc import HDF5Desc, pa_gen
+from adapters.hdf5_sink import MetaEntry, ParamAim
+from applications.discern_frequency.hdf5_desc import add_meta, HDF5Desc, pa_gen
 
 
 class TestHDF5Desc(TestCase):
@@ -33,3 +33,17 @@ class TestHDF5Desc(TestCase):
 				self.assertEqual(tc.exp, res)
 	
 	#def test_with_sink
+	
+	def test_add_meta(self):
+		metadata = {}
+		value = "my desc"
+		add_meta(metadata, "habitat.desc", value)
+		
+		self.assertEqual(1, len(metadata))
+		self.assertIn("habitat", metadata)
+		self.assertEqual([MetaEntry("description", value, str)], metadata["habitat"])
+	
+	def test_add_meta_error(self):
+		metadata = {}
+		with self.assertRaises(ValueError):
+			add_meta(metadata, "habitat", b"123")
