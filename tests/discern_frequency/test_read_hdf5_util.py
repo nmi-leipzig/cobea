@@ -50,23 +50,27 @@ class WriteReadHDF5Test(TestCase):
 		chromo_id = 7
 		exp = Chromosome(chromo_id, (2, 5, 1, 9))
 		
-		hdf5_filename = "tmp.test_read_write_chromosome.h5"
-		del_files([hdf5_filename])
-		
-		chromo_desc = HDF5_DICT["chromo.indices"]
-		write_map = {"th": [
-			ParamAim(["chromo"], "uint16", chromo_desc.h5_name, chromo_desc.h5_path, chromo_desc.as_attr, shape=(4, ),
-				alter=partial(compose, funcs=[itemgetter(0), attrgetter("allele_indices")])
-			),
-			pa_gen("chromo.id", ["chromo"],  alter=partial(compose, funcs=[itemgetter(0), attrgetter("identifier")])),
-		]}
-		
-		with HDF5Sink(write_map, filename=hdf5_filename) as sink:
-			sink.write("th", {"chromo": exp})
-		
-		with h5py.File(hdf5_filename, "r") as hdf5_file:
-			res = read_chromosome(hdf5_file, chromo_id)
-		
-		self.assertEqual(exp, res)
-		
-		del_files([hdf5_filename])
+		for width in [8, 16, 32]:
+			with self.subTest(width=width):
+				hdf5_filename = "tmp.test_read_write_chromosome.h5"
+				del_files([hdf5_filename])
+				
+				chromo_desc = HDF5_DICT["chromo.indices"]
+				write_map = {"th": [
+					ParamAim(["chromo"], f"uint{width}", chromo_desc.h5_name, chromo_desc.h5_path, chromo_desc.as_attr,
+						shape=(4, ), alter=partial(compose, funcs=[itemgetter(0), attrgetter("allele_indices")])
+					),
+					pa_gen(
+						"chromo.id", ["chromo"],  alter=partial(compose, funcs=[itemgetter(0), attrgetter("identifier")])
+					),
+				]}
+				
+				with HDF5Sink(write_map, filename=hdf5_filename) as sink:
+					sink.write("th", {"chromo": exp})
+				
+				with h5py.File(hdf5_filename, "r") as hdf5_file:
+					res = read_chromosome(hdf5_file, chromo_id)
+				
+				self.assertEqual(exp, res)
+				
+				del_files([hdf5_filename])
