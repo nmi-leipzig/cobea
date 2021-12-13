@@ -8,7 +8,7 @@ from typing import Any, Iterable, List, Tuple
 from adapters.gear.rigol import FloatCheck, IntCheck, SetupCmd
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftRep
-from applications.discern_frequency.hdf5_desc import add_meta, pa_gen
+from applications.discern_frequency.hdf5_desc import add_meta, HDF5_DICT, pa_gen
 
 def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
 	return [
@@ -41,13 +41,17 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	
 	# use attrgetter and so on to allow pickling for multiprocessing
 	
+	chromo_desc = HDF5_DICT["chromo.indices"]
 	chromo_aim = [
 		ParamAim(
-			["return"], f"uint{chromo_bits}", "chromosome", "individual", as_attr=False, shape=(len(rep.genes), ),
-			alter=partial(compose, funcs=[itemgetter(0), attrgetter("chromosome"), attrgetter("allele_indices")]), comp_opt=9, shuffle=True
+			["return"], f"uint{chromo_bits}", chromo_desc.h5_name, chromo_desc.h5_path, as_attr=chromo_desc.as_attr,
+			shape=(len(rep.genes), ), alter=partial(compose, funcs=[itemgetter(0), attrgetter("chromosome"),
+			attrgetter("allele_indices")]), comp_opt=9, shuffle=True
 		),
-		ParamAim(["return"], "uint64", "chromo_id", "individual", as_attr=False, 
-			alter=partial(compose, funcs=[itemgetter(0), attrgetter("chromosome"), attrgetter("identifier")]), comp_opt=9, shuffle=True),
+		pa_gen(
+			"chromo.id", ["return"], alter=partial(compose, funcs=[itemgetter(0), attrgetter("chromosome"),
+			attrgetter("identifier")]), comp_opt=9, shuffle=True
+		),
 	]
 	
 	write_map = {
