@@ -79,9 +79,6 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	}
 	
 	metadata = {
-		"individual": [MetaEntry("description", "data for the genotype")],
-		"individual/chromo_id": [MetaEntry("description", "unique ID of every chromosome")],
-		"individual/chromosome": [MetaEntry("description", "allele choices for every chromosome")],
 		"fitness": [MetaEntry("description", "data regarding the fitness values")],
 		"fitness/s_t_index": [MetaEntry("description", "index of the s-t-combination used for determining the order of "
 			"5 1 kHz and 5 10 kHz bursts")],
@@ -99,6 +96,9 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	}
 	add_meta(metadata, "habitat.desc", "basic configuration of the target FPGA that defines the periphery of the "
 		"evolved part; the values are bytes of the asc format")
+	add_meta(metadata, "chromo.desc", "data for the genotype")
+	add_meta(metadata, "chromo.id.desc", "unique ID of every chromosome")
+	add_meta(metadata, "chromo.indices.desc", "allele choices for every chromosome")
 	
 	for i, cd in enumerate(rep.iter_carry_data()):
 		metadata[f"mapping/carry_data/carry_data_{i}"] = [

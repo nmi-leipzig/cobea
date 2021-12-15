@@ -22,9 +22,12 @@ class HDF5Desc(NamedTuple):
 HDF5_DICT= {
 	"habitat": HDF5Desc("uint8", "habitat", "/", False, tuple()),
 	"habitat.desc": HDF5Desc(str, "description", "habitat"),
+	"chromo.desc": HDF5Desc(str, "description", "individual"), 
 	"chromo.id": HDF5Desc("uint64", "chromo_id", "individual", False),
+	"chromo.id.desc": HDF5Desc(str, "description", "individual/chromo_id"), 
 	# type and shape have to be derived from representation
 	"chromo.indices": HDF5Desc("dyn", "chromosome", "individual", False),
+	"chromo.indices.desc": HDF5Desc(str, "description", "individual/chromosome"), 
 }
 
 def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> ParamAim:
