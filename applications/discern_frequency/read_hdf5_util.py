@@ -31,3 +31,7 @@ def read_chromosome(hdf5_file: h5py.File, identifier: int) -> Chromosome:
 	
 	allele_indices = tuple(data_from_desc(hdf5_file, idx_desc)[chromo_index])
 	return Chromosome(identifier, allele_indices)
+
+def read_s_t_index(hdf5_file: h5py.File, fit_index: int) -> int:
+	desc = HDF5_DICT["fitness.st"]
+	return data_from_desc(hdf5_file, desc)[fit_index]

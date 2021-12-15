@@ -9,7 +9,7 @@ import h5py
 from adapters.hdf5_sink import compose, HDF5Sink, ParamAim
 from adapters.icecraft import IcecraftRawConfig
 from applications.discern_frequency.hdf5_desc import HDF5_DICT, pa_gen
-from applications.discern_frequency.read_hdf5_util import read_chromosome, read_habitat
+from applications.discern_frequency.read_hdf5_util import read_chromosome, read_habitat, read_s_t_index
 from domain.model import Chromosome
 
 from .common import del_files, TEST_DATA_DIR
@@ -74,3 +74,21 @@ class WriteReadHDF5Test(TestCase):
 				self.assertEqual(exp, res)
 				
 				del_files([hdf5_filename])
+	
+	def test_write_read_s_t_index(self):
+		exp = 173
+		
+		hdf5_filename = "tmp.test_read_write_s_t_index.h5"
+		del_files([hdf5_filename])
+		
+		write_map = {"th": [pa_gen("fitness.st", ["st"])]}
+		
+		with HDF5Sink(write_map, filename=hdf5_filename) as sink:
+			sink.write("th", {"st": exp})
+		
+		with h5py.File(hdf5_filename, "r") as hdf5_file:
+			res = read_s_t_index(hdf5_file, 0)
+		
+		self.assertEqual(exp, res)
+		
+		del_files([hdf5_filename])

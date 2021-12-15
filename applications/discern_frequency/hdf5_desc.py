@@ -27,7 +27,8 @@ HDF5_DICT= {
 	"chromo.id.desc": HDF5Desc(str, "description", "individual/chromo_id"), 
 	# type and shape have to be derived from representation
 	"chromo.indices": HDF5Desc("dyn", "chromosome", "individual", False),
-	"chromo.indices.desc": HDF5Desc(str, "description", "individual/chromosome"), 
+	"chromo.indices.desc": HDF5Desc(str, "description", "individual/chromosome"),
+	"fitness.st": HDF5Desc("uint8", "s_t_index", "fitness", False),
 }
 
 def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> ParamAim:
