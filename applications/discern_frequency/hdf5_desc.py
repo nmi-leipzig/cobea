@@ -38,7 +38,7 @@ HDF5_DICT= {
 	"carry_data.enable": HDF5Desc("uint16", "carry_enable", r"mapping/carry_data/carry_data_{}"),
 	"carry_data.bits": HDF5Desc("uint16", r"carry_use_{}_bits", r"mapping/carry_data/carry_data_{}"),
 	"carry_data.values": HDF5Desc(bool, r"carry_use_{}_values", r"mapping/carry_data/carry_data_{}"),
-	
+	"carry_data.desc": HDF5Desc(str, "description", "mapping/carry_data"),
 }
 
 def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> ParamAim:

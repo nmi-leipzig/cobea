@@ -86,8 +86,6 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 		"mapping": [MetaEntry("description", "mapping of the genotype (allele indices) to configuration bits")],
 		"mapping/genes": [MetaEntry("description", "part of the configuration bits that is configurable")],
 		"mapping/constant": [MetaEntry("description", "part of the configuration bits that is fixed")],
-		"mapping/carry_data": [MetaEntry("description", "data describing how to derive the carry bits from the "
-			"configuration bits defined by the genotype")],
 	}
 	add_meta(metadata, "habitat.desc", "basic configuration of the target FPGA that defines the periphery of the "
 		"evolved part; the values are bytes of the asc format")
@@ -98,6 +96,8 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 		"5 10 kHz bursts")
 	add_meta(metadata, "carry_enable.desc", "values of carry enable bits; derived from the configuration bits defined "
 		"by the genotype")
+	add_meta(metadata, "carry_data.desc", "data describing how to derive the carry bits from the configuration bits "
+		"defined by the genotype")
 	
 	add_carry_data(metadata, rep.iter_carry_data())
 	
