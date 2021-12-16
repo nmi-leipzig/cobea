@@ -109,8 +109,7 @@ class WriteReadHDF5Test(TestCase):
 		with h5py.File(hdf5_filename, "r") as hdf5_file:
 			res = read_carry_enable_values(hdf5_file, idx)
 		
-		print(res)
 		
 		self.assertEqual(carry_values[idx], res)
 		
-		#del_files([hdf5_filename])
+		del_files([hdf5_filename])
