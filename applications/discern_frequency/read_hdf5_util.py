@@ -1,9 +1,9 @@
-from typing import Any, List
+from typing import Any, List, Union
 
 import h5py
 import numpy as np
 
-from adapters.icecraft import IcecraftBitPosition, IcecraftRawConfig
+from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, IcecraftRawConfig, PartConf
 from applications.discern_frequency.hdf5_desc import HDF5Desc, HDF5_DICT
 from domain.model import Chromosome
 
@@ -45,3 +45,57 @@ def read_carry_enable_bits(hdf5_file: h5py.File) -> List[IcecraftBitPosition]:
 	desc = HDF5_DICT["carry_enable.bits"]
 	raw = data_from_desc(hdf5_file, desc)
 	return [IcecraftBitPosition(*c) for c in raw]
+
+def get_with_index(hdf5_file: h5py.File, desc: HDF5Desc, index: int) -> Union[h5py.Group, h5py.AttributeManager]:
+	"""Returns group or attributes when formating path with an index"""
+	
+	grp = hdf5_file[desc.h5_path.format(index)]
+	if desc.as_attr:
+		return grp.attrs
+	return grp
+
+def read_carry_use(hdf5_file: h5py.File, cd_index) -> List[PartConf]:
+	res = []
+	bit_desc = HDF5_DICT["carry_data.bits"]
+	val_desc = HDF5_DICT["carry_data.values"]
+	
+	bit_grp = get_with_index(hdf5_file, bit_desc, cd_index)
+	val_grp = get_with_index(hdf5_file, val_desc, cd_index)
+	pc_index = 0
+	while True:
+		try:
+			bit_raw = bit_grp[bit_desc.h5_name.format(pc_index)].tolist()
+		except KeyError:
+			break
+		
+		val_raw = val_grp[val_desc.h5_name.format(pc_index)].tolist()
+		
+		res.append(PartConf(tuple(IcecraftBitPosition(*c) for c in bit_raw), tuple(val_raw)))
+		
+		pc_index += 1
+	
+	return res
+
+def read_carry_data(hdf5_file: h5py.File) -> CarryDataMap:
+	cd_map = {}
+	lut_desc = HDF5_DICT["carry_data.lut"]
+	ena_desc = HDF5_DICT["carry_data.enable"]
+	
+	cd_index = 0
+	while True:
+		try:
+			ena_grp = get_with_index(hdf5_file, ena_desc, cd_index)
+		except KeyError:
+			break
+		
+		enable_raw = ena_grp[ena_desc.h5_name].tolist()
+		enable = tuple(IcecraftBitPosition(*c) for c in enable_raw)
+		lut_index = get_with_index(hdf5_file, lut_desc, cd_index)[lut_desc.h5_name].item()
+		
+		carry_data = CarryData(lut_index, enable, read_carry_use(hdf5_file, cd_index))
+		cd_map.setdefault(enable[0].tile, {})[lut_index] = carry_data
+		
+		
+		cd_index += 1
+	
+	return cd_map

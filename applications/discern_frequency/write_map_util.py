@@ -8,7 +8,7 @@ from typing import Any, Iterable, List, Tuple
 from adapters.gear.rigol import FloatCheck, IntCheck, SetupCmd
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftRep
-from applications.discern_frequency.hdf5_desc import add_meta, HDF5_DICT, pa_gen
+from applications.discern_frequency.hdf5_desc import add_carry_data, add_meta, HDF5_DICT, pa_gen
 
 def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
 	return [
@@ -99,15 +99,7 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	add_meta(metadata, "carry_enable.desc", "values of carry enable bits; derived from the configuration bits defined "
 		"by the genotype")
 	
-	for i, cd in enumerate(rep.iter_carry_data()):
-		metadata[f"mapping/carry_data/carry_data_{i}"] = [
-			MetaEntry("lut_index", cd.lut_index, "uint8"),
-			MetaEntry("carry_enable", [astuple(b) for b in cd.carry_enable], "uint16"),
-		] + [
-			MetaEntry(f"carry_use_{k}_bits", [astuple(b) for b in p.bits], "uint16") for k, p in enumerate(cd.carry_use)
-		] + [
-			MetaEntry(f"carry_use_{k}_values", p.values, bool) for k, p in enumerate(cd.carry_use)
-		]
+	add_carry_data(metadata, rep.iter_carry_data())
 	
 	return write_map, metadata
 

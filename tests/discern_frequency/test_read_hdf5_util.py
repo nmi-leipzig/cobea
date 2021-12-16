@@ -7,10 +7,10 @@ from unittest import TestCase
 import h5py
 
 from adapters.hdf5_sink import compose, HDF5Sink, ParamAim
-from adapters.icecraft import IcecraftBitPosition, IcecraftRawConfig
-from applications.discern_frequency.hdf5_desc import HDF5_DICT, pa_gen
+from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, IcecraftPosition, IcecraftRawConfig, PartConf
+from applications.discern_frequency.hdf5_desc import add_carry_data, HDF5_DICT, pa_gen
 from applications.discern_frequency.read_hdf5_util import read_chromosome, read_habitat, read_s_t_index,\
-	read_carry_enable_values, read_carry_enable_bits
+	read_carry_data, read_carry_enable_bits, read_carry_enable_values
 from domain.model import Chromosome
 
 from .common import del_files, TEST_DATA_DIR
@@ -129,5 +129,44 @@ class WriteReadHDF5Test(TestCase):
 			res = read_carry_enable_bits(hdf5_file)
 		
 		self.assertEqual(bits, res)
+		
+		del_files([hdf5_filename])
+	
+	def test_write_read_carry_data(self):
+		exp = {
+			IcecraftPosition(3, 4): {
+				0: CarryData(0, (IcecraftBitPosition(3, 4, 13, 4), ), [
+					PartConf((IcecraftBitPosition(3, 4, 3, 3), ), (True, ))
+				]),
+				1: CarryData(1, (IcecraftBitPosition(3, 4, 13, 5), IcecraftBitPosition(3, 4, 13, 6)), [
+					PartConf((IcecraftBitPosition(3, 5, 3, 3), IcecraftBitPosition(3, 5, 3, 7), ), (True, False))
+				]),
+			},
+			IcecraftPosition(7, 9): {
+				2: CarryData(2, (IcecraftBitPosition(7, 9, 13, 4), ), [
+					PartConf((IcecraftBitPosition(7, 9, 3, 3), ), (True, ))
+				]),
+				5: CarryData(5, (IcecraftBitPosition(7, 9, 13, 5), ), [
+					PartConf((IcecraftBitPosition(8, 9, 3, 3), IcecraftBitPosition(8, 10, 3, 7), ), (True, False))
+				]),
+			},
+		}
+		
+		hdf5_filename = "tmp.test_read_write_carry_data.h5"
+		del_files([hdf5_filename])
+		
+		metadata = {}
+		def iter_carry_data(cdm):
+			for lut_map in exp.values():
+				yield from lut_map.values()
+		add_carry_data(metadata, iter_carry_data(exp))
+		
+		with HDF5Sink({}, metadata=metadata, filename=hdf5_filename) as sink:
+			pass
+		
+		with h5py.File(hdf5_filename, "r") as hdf5_file:
+			res = read_carry_data(hdf5_file)
+		
+		self.assertEqual(exp, res)
 		
 		del_files([hdf5_filename])

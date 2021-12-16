@@ -3,11 +3,12 @@
 Especially data that is required for both reading and writing.
 """
 
-from dataclasses import dataclass
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple
+from dataclasses import astuple, dataclass
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 
 from adapters.hdf5_sink import MetaEntry, MetaEntryMap, ParamAim
+from adapters.icecraft import CarryData
 
 
 class HDF5Desc(NamedTuple):
@@ -33,6 +34,11 @@ HDF5_DICT= {
 	"carry_enable.values": HDF5Desc(bool, "carry_enable", "fitness", False, None),
 	"carry_enable.bits": HDF5Desc("uint16", "bits", "fitness/carry_enable"),
 	"carry_enable.desc": HDF5Desc(str, "description", "fitness/carry_enable"),
+	"carry_data.lut": HDF5Desc("uint8", "lut_index", r"mapping/carry_data/carry_data_{}"),
+	"carry_data.enable": HDF5Desc("uint16", "carry_enable", r"mapping/carry_data/carry_data_{}"),
+	"carry_data.bits": HDF5Desc("uint16", r"carry_use_{}_bits", r"mapping/carry_data/carry_data_{}"),
+	"carry_data.values": HDF5Desc(bool, r"carry_use_{}_values", r"mapping/carry_data/carry_data_{}"),
+	
 }
 
 def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> ParamAim:
@@ -69,3 +75,23 @@ def add_meta(metadata: MetaEntryMap, meta_name: str, value: Any) -> None:
 		raise ValueError(f"{meta_name} can't be stored as metadata: as_attr is False")
 	entry = MetaEntry(desc.h5_name, value, desc.data_type)
 	metadata.setdefault(desc.h5_path, []).append(entry)
+
+def add_carry_data(metadata: MetaEntryMap, cd_iter: Iterable[CarryData]) -> None:
+	lut_desc = HDF5_DICT["carry_data.lut"]
+	ena_desc = HDF5_DICT["carry_data.enable"]
+	bit_desc = HDF5_DICT["carry_data.bits"]
+	val_desc = HDF5_DICT["carry_data.values"]
+	for i, cd in enumerate(cd_iter):
+		metadata.setdefault(lut_desc.h5_path.format(i), []).append(
+			MetaEntry(lut_desc.h5_name, cd.lut_index, lut_desc.data_type)
+		)
+		metadata.setdefault(ena_desc.h5_path.format(i), []).append(
+			MetaEntry(ena_desc.h5_name, [astuple(b) for b in cd.carry_enable], ena_desc.data_type)
+		)
+		metadata.setdefault(bit_desc.h5_path.format(i), []).extend([
+			MetaEntry(bit_desc.h5_name.format(k), [astuple(b) for b in p.bits], bit_desc.data_type) 
+			for k, p in enumerate(cd.carry_use)
+		])
+		metadata.setdefault(val_desc.h5_path.format(i), []).extend([
+			MetaEntry(val_desc.h5_name.format(k), p.values, val_desc.data_type) for k, p in enumerate(cd.carry_use)
+		])
