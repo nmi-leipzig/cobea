@@ -41,12 +41,11 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	
 	# use attrgetter and so on to allow pickling for multiprocessing
 	
-	chromo_desc = HDF5_DICT["chromo.indices"]
 	chromo_aim = [
-		ParamAim(
-			["return"], f"uint{chromo_bits}", chromo_desc.h5_name, chromo_desc.h5_path, as_attr=chromo_desc.as_attr,
-			shape=(len(rep.genes), ), alter=partial(compose, funcs=[itemgetter(0), attrgetter("chromosome"),
-			attrgetter("allele_indices")]), comp_opt=9, shuffle=True
+		pa_gen(
+			"chromo.indices", ["return"], data_type=f"uint{chromo_bits}", shape=(len(rep.genes), ),
+			alter=partial(compose, funcs=[itemgetter(0), attrgetter("chromosome"), attrgetter("allele_indices")]),
+			comp_opt=9, shuffle=True
 		),
 		pa_gen(
 			"chromo.id", ["return"], alter=partial(compose, funcs=[itemgetter(0), attrgetter("chromosome"),
