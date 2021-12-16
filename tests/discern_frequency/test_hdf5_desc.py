@@ -25,6 +25,15 @@ class HDF5DescTest(TestCase):
 			PATC("all kwargs", "habitat", ["over", "out"], {
 				"alter": func, "compress": "lzf", "comp_opt": 3, "shuffle": True
 			}, ParamAim(["over", "out"], "uint8", "habitat", "/", False, tuple(), func, "lzf", 3, True)),
+			PATC("override type", "habitat", ["in"], {"data_type": "uint16"}, ParamAim(
+				["in"], "uint16", "habitat", "/", False, tuple()
+			)),
+			PATC("override shape", "habitat", ["in"], {"shape": (6, )}, ParamAim(
+				["in"], "uint8", "habitat", "/", False, (6, )
+			)),
+			PATC("override type and shape", "habitat", ["in"], {"data_type": "uint16", "shape": (6, )}, ParamAim(
+				["in"], "uint16", "habitat", "/", False, (6, )
+			)),
 		]
 		
 		for tc in cases:

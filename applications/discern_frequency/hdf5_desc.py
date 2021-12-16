@@ -37,9 +37,23 @@ def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> Par
 	(req_)names are passed as parameter
 	data_type, h5_name, h5_path, as_attr and shape are retrieved by gen_name
 	other entries of ParamAim can be passed as kwargs
+	data_type and shape can also be overritten by kwargs
 	"""
 	desc = HDF5_DICT[gen_name]
-	return ParamAim(req_names, *desc, **kwargs)
+	
+	try:
+		typ = kwargs["data_type"]
+		del kwargs["data_type"]
+	except KeyError:
+		typ = desc.data_type
+	
+	try:
+		shape = kwargs["shape"]
+		del kwargs["shape"]
+	except KeyError:
+		shape = desc.shape
+	
+	return ParamAim(req_names, typ, desc.h5_name, desc.h5_path, desc.as_attr, shape, **kwargs)
 
 def add_meta(metadata: MetaEntryMap, meta_name: str, value: Any) -> None:
 	"""Add MetaEntry to metadata
