@@ -15,12 +15,6 @@ from domain.model import Chromosome
 from .common import del_files, TEST_DATA_DIR
 
 
-class ReadHDF5UtilTest(TestCase):
-	def test_read_habitat(self):
-		with h5py.File(os.path.join(TEST_DATA_DIR, "run-fpga.h5"), "r") as hdf5_file:
-			res = read_habitat(hdf5_file)
-
-
 class WriteReadHDF5Test(TestCase):
 	"""test cycle of writing to and reading from HDF5"""
 	
