@@ -79,8 +79,6 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	
 	metadata = {
 		"fitness": [MetaEntry("description", "data regarding the fitness values")],
-		"fitness/s_t_index": [MetaEntry("description", "index of the s-t-combination used for determining the order of "
-			"5 1 kHz and 5 10 kHz bursts")],
 		"fitness/time": [
 			MetaEntry("description", "time the measurement started; timezone UTC"),
 			MetaEntry("unit", "seconds since 01.01.1970 00:00:00")
@@ -96,6 +94,8 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	add_meta(metadata, "chromo.desc", "data for the genotype")
 	add_meta(metadata, "chromo.id.desc", "unique ID of every chromosome")
 	add_meta(metadata, "chromo.indices.desc", "allele choices for every chromosome")
+	add_meta(metadata, "fitness.st.desc", "index of the s-t-combination used for determining the order of 5 1 kHz and "
+		"5 10 kHz bursts")
 	add_meta(metadata, "carry_enable.desc", "values of carry enable bits; derived from the configuration bits defined "
 		"by the genotype")
 	
