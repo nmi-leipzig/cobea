@@ -1,16 +1,16 @@
 import os
 
 from functools import partial
-from operator import attrgetter, itemgetter
+from operator import attrgetter, itemgetter, methodcaller
 from unittest import TestCase
 
 import h5py
 
 from adapters.hdf5_sink import compose, HDF5Sink, ParamAim
-from adapters.icecraft import IcecraftRawConfig
+from adapters.icecraft import IcecraftBitPosition, IcecraftRawConfig
 from applications.discern_frequency.hdf5_desc import HDF5_DICT, pa_gen
 from applications.discern_frequency.read_hdf5_util import read_chromosome, read_habitat, read_s_t_index,\
-	read_carry_enable_values
+	read_carry_enable_values, read_carry_enable_bits
 from domain.model import Chromosome
 
 from .common import del_files, TEST_DATA_DIR
@@ -109,7 +109,25 @@ class WriteReadHDF5Test(TestCase):
 		with h5py.File(hdf5_filename, "r") as hdf5_file:
 			res = read_carry_enable_values(hdf5_file, idx)
 		
-		
 		self.assertEqual(carry_values[idx], res)
+		
+		del_files([hdf5_filename])
+	
+	def test_write_read_carry_enable_bits(self):
+		bits = [IcecraftBitPosition(4, 3, 0, 51), IcecraftBitPosition(4, 3, 0, 50), IcecraftBitPosition(12, 3, 4, 13)]
+		
+		hdf5_filename = "tmp.test_read_write_carry_enable_bits.h5"
+		del_files([hdf5_filename])
+		
+		write_map = {"th": [pa_gen("carry_enable.bits", ["ceb"], alter=partial(compose, funcs=[
+			itemgetter(0), partial(map, methodcaller("to_ints")), list]))]}
+		
+		with HDF5Sink(write_map, filename=hdf5_filename) as sink:
+			sink.write("th", {"ceb": bits})
+		
+		with h5py.File(hdf5_filename, "r") as hdf5_file:
+			res = read_carry_enable_bits(hdf5_file)
+		
+		self.assertEqual(bits, res)
 		
 		del_files([hdf5_filename])

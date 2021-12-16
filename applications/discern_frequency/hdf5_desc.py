@@ -30,6 +30,7 @@ HDF5_DICT= {
 	"chromo.indices.desc": HDF5Desc(str, "description", "individual/chromosome"),
 	"fitness.st": HDF5Desc("uint8", "s_t_index", "fitness", False),
 	"carry_enable.values": HDF5Desc(bool, "carry_enable", "fitness", False, None),
+	"carry_enable.bits": HDF5Desc("uint16", "bits", "fitness/carry_enable"),
 }
 
 def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> ParamAim:

@@ -3,7 +3,7 @@ from typing import Any, List
 import h5py
 import numpy as np
 
-from adapters.icecraft import IcecraftRawConfig
+from adapters.icecraft import IcecraftBitPosition, IcecraftRawConfig
 from applications.discern_frequency.hdf5_desc import HDF5Desc, HDF5_DICT
 from domain.model import Chromosome
 
@@ -40,3 +40,8 @@ def read_carry_enable_values(hdf5_file: h5py.File, fit_index: int) -> List[bool]
 	desc = HDF5_DICT["carry_enable.values"]
 	data = data_from_desc(hdf5_file, desc)[fit_index]
 	return data.tolist()
+
+def read_carry_enable_bits(hdf5_file: h5py.File) -> List[IcecraftBitPosition]:
+	desc = HDF5_DICT["carry_enable.bits"]
+	raw = data_from_desc(hdf5_file, desc)
+	return [IcecraftBitPosition(*c) for c in raw]

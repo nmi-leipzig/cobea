@@ -64,7 +64,7 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 		"GenChromo.perform": chromo_aim,
 		"Action.rep": HDF5Sink.create_gene_aims("genes", len(rep.genes), h5_path="mapping/genes")+\
 			HDF5Sink.create_gene_aims("const", len(rep.constant), h5_path="mapping/constant")+[
-				ParamAim(["carry_bits"], "uint16", "bits", "fitness/carry_enable",
+				pa_gen("carry_enable.bits", ["carry_bits"],
 					alter=partial(compose, funcs=[itemgetter(0), partial(map, methodcaller("to_ints")), list])),
 				ParamAim(["output"], "uint16", "output_lutff", "mapping", alter=partial(compose, funcs=[itemgetter(0),
 					partial(map, astuple), list])),
