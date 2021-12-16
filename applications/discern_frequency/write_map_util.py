@@ -213,16 +213,8 @@ def add_measure(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep
 				itemgetter(0), attrgetter("slow_sum")]), comp_opt=9, shuffle=True),
 			ParamAim(["chromosome"], "uint64", "chromo_id", "fitness", as_attr=False, alter=partial(compose, funcs=[
 				itemgetter(0), attrgetter("identifier")]), comp_opt=9, shuffle=True),
-			ParamAim(
-				["return"],
-				bool,
-				"carry_enable",
-				"fitness",
-				as_attr=False,
-				alter=partial(compose, funcs=[itemgetter(0), attrgetter("carry_enable")]),
-				shape=(len(list(rep.iter_carry_bits())), ),
-				comp_opt=4,
-			),
+			pa_gen("carry_enable.values", ["return"], alter=partial(compose, funcs=[itemgetter(0),
+				attrgetter("carry_enable")]), shape=(len(list(rep.iter_carry_bits())), ), comp_opt=4),
 			ParamAim(["generation"], "uint64", "generation", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 		],
 	}

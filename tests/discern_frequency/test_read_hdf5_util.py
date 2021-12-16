@@ -9,7 +9,8 @@ import h5py
 from adapters.hdf5_sink import compose, HDF5Sink, ParamAim
 from adapters.icecraft import IcecraftRawConfig
 from applications.discern_frequency.hdf5_desc import HDF5_DICT, pa_gen
-from applications.discern_frequency.read_hdf5_util import read_chromosome, read_habitat, read_s_t_index
+from applications.discern_frequency.read_hdf5_util import read_chromosome, read_habitat, read_s_t_index,\
+	read_carry_enable_values
 from domain.model import Chromosome
 
 from .common import del_files, TEST_DATA_DIR
@@ -86,3 +87,30 @@ class WriteReadHDF5Test(TestCase):
 		self.assertEqual(exp, res)
 		
 		del_files([hdf5_filename])
+	
+	def test_write_read_carry_enable_values(self):
+		carry_values = [
+			[True, False, False],
+			[False, False, False],
+			[True, False, True],
+			[False, True, False],
+		]
+		idx = 2
+		
+		hdf5_filename = "tmp.test_read_write_carry_enable_values.h5"
+		del_files([hdf5_filename])
+		
+		write_map = {"th": [pa_gen("carry_enable.values", ["cev"], shape=(len(carry_values[0]), ))]}
+		
+		with HDF5Sink(write_map, filename=hdf5_filename) as sink:
+			for cev in carry_values:
+				sink.write("th", {"cev": cev})
+		
+		with h5py.File(hdf5_filename, "r") as hdf5_file:
+			res = read_carry_enable_values(hdf5_file, idx)
+		
+		print(res)
+		
+		self.assertEqual(carry_values[idx], res)
+		
+		#del_files([hdf5_filename])

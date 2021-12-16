@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, List
 
 import h5py
 import numpy as np
@@ -35,3 +35,8 @@ def read_chromosome(hdf5_file: h5py.File, identifier: int) -> Chromosome:
 def read_s_t_index(hdf5_file: h5py.File, fit_index: int) -> int:
 	desc = HDF5_DICT["fitness.st"]
 	return data_from_desc(hdf5_file, desc)[fit_index]
+
+def read_carry_enable_values(hdf5_file: h5py.File, fit_index: int) -> List[bool]:
+	desc = HDF5_DICT["carry_enable.values"]
+	data = data_from_desc(hdf5_file, desc)[fit_index]
+	return data.tolist()
