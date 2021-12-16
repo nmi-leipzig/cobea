@@ -88,8 +88,6 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 		"mapping": [MetaEntry("description", "mapping of the genotype (allele indices) to configuration bits")],
 		"mapping/genes": [MetaEntry("description", "part of the configuration bits that is configurable")],
 		"mapping/constant": [MetaEntry("description", "part of the configuration bits that is fixed")],
-		"fitness/carry_enable": [MetaEntry("description", "values of carry enable bits; derived from the configuration "
-			"bits defined by the genotype")],
 		"mapping/carry_data": [MetaEntry("description", "data describing how to derive the carry bits from the "
 			"configuration bits defined by the genotype")],
 	}
@@ -98,6 +96,8 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	add_meta(metadata, "chromo.desc", "data for the genotype")
 	add_meta(metadata, "chromo.id.desc", "unique ID of every chromosome")
 	add_meta(metadata, "chromo.indices.desc", "allele choices for every chromosome")
+	add_meta(metadata, "carry_enable.desc", "values of carry enable bits; derived from the configuration bits defined "
+		"by the genotype")
 	
 	for i, cd in enumerate(rep.iter_carry_data()):
 		metadata[f"mapping/carry_data/carry_data_{i}"] = [
