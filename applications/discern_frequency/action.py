@@ -33,6 +33,7 @@ from adapters.prng import BuiltInPRNG
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
+from applications.discern_frequency.read_hdf5_util import read_habitat
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink
 from domain.interfaces import Driver, FitnessFunction, InputData, InputGen, Meter, OutputData, PRNG, TargetDevice, \
@@ -553,8 +554,7 @@ def remeasure(args: Namespace) -> None:
 		stack.enter_context(hdf5_file)
 		
 		# habitat
-		hab_text = hdf5_file["habitat"][:].tobytes().decode(encoding="utf-8")
-		hab_config = IcecraftRawConfig.from_text(hab_text)
+		hab_config = read_habitat(hdf5_file)
 		
 		# rep
 		genes = HDF5Sink.extract_genes(hdf5_file["mapping/genes"], IcecraftBitPosition)
