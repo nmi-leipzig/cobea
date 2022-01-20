@@ -1,7 +1,7 @@
 import os
 
 from argparse import Namespace
-from unittest import TestCase
+from unittest import skip, TestCase
 from unittest.mock import MagicMock
 
 import h5py
@@ -147,4 +147,38 @@ class ActionTest(TestCase):
 		
 		# clean up
 		self.delete([hdf5_filename])
+	
+	@skip("not implemented yet")
+	def test_run_remeasure_dummy(self):
+		run_filename = "tmp.test_run_remeasure_dummy.run.h5"
+		out1_filename = "tmp.test_run_remeasure_dummy.re1.h5"
+		out2_filename = "tmp.test_run_remeasure_dummy.re2.h5"
+		fn_list = [run_filename, out1_filename, out2_filename]
+		self.delete(fn_list)
 		
+		self.run_dummy(run_filename)
+		
+		args = Namespace(
+			output = out1_filename,
+			dummy = True,
+			temperature = None,
+			freq_gen_type = None,
+			data_file = run_filename,
+			index = 7,
+			rounds = 1,
+			comb_index = None,
+		)
+		remeasure(args)
+		
+		# check
+		self.check_hdf5(out1_filename)
+		
+		# remeasure the result of remeasure
+		args.output = out2_filename
+		args.data_file = out1_filename
+		remeasure(args)
+		
+		# check
+		self.check_hdf5(out2_filename)
+		
+		self.delete(fn_list)
