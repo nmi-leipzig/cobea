@@ -9,6 +9,7 @@ from contextlib import ExitStack
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import auto, Enum
+from io import StringIO
 from typing import Any, Callable, Iterable, List, Mapping, Optional, TextIO, Tuple
 from unittest.mock import MagicMock
 
@@ -375,6 +376,42 @@ def create_dummy_setup(sub_count: int, write_map: ParamAimMap, metadata: MetaEnt
 	return measure_setup
 
 
+def setup_from_args_hdf5(args: Namespace, hdf5_file: h5py.File, write_map: ParamAimMap, metadata: MetaEntryMap
+) -> MeasureSetup:
+	"""create MeasureSetup from arguments and existing HDF5 file"""
+	
+	if args.dummy:
+		measure_setup = create_dummy_setup(25, write_map, metadata)
+	else:
+		# driver
+		try:
+			drv_type = DriverType[args.freq_gen_type or hdf5_file["fitness/measurement"].attrs["driver_type"]]
+		except KeyError as ke:
+			raise ValueError("Driver type defined neither in HDF5 nor via argument")
+		
+		with ExitStack() as stack:
+			freq_gen_file = None
+			if args.freq_gen:
+				freq_gen_file = open(args.freq_gen, "r")
+				stack.enter_context(freq_gen_file)
+			elif drv_type == DriverType.FPGA:
+				freq_gen_text = hdf5_file["freq_gen"][:].tobytes().decode(encoding="utf-8")
+				freq_gen_file = StringIO(freq_gen_text)
+				stack.enter_context(freq_gen_file)
+			
+			setup_info = MeasureSetupInfo(
+				args.target or hdf5_file["fitness/measurement"].attrs["target_serial_number"],
+				args.meter or hdf5_file["fitness/measurement"].attrs["meter_serial_number"],
+				args.generator or hdf5_file["fitness/measurement"].attrs["driver_serial_number"],
+				drv_type,
+				freq_gen_file,
+			)
+			
+			measure_setup = create_measure_setup(setup_info, stack, write_map, metadata)
+	
+	return measure_setup
+
+
 def create_adapter_setup() -> AdapterSetup:
 	setup = AdapterSetup()
 	
@@ -538,11 +575,6 @@ def remeasure(args: Namespace) -> None:
 		if not comb_list:
 			comb_list = [hdf5_file["fitness/s_t_index"][measurement_index]]
 		
-		# serial numbers
-		gen_sn = args.generator or hdf5_file["fitness/measurement"].attrs["driver_serial_number"]
-		tar_sn = args.target or hdf5_file["fitness/measurement"].attrs["target_serial_number"]
-		mes_sn = args.meter or hdf5_file["fitness/measurement"].attrs["meter_serial_number"]
-		
 		# chromosome
 		chromo_id = hdf5_file["fitness/chromo_id"][measurement_index]
 		chromo_index = np.where(hdf5_file["individual/chromo_id"][:] == chromo_id)[0][0]
@@ -585,14 +617,7 @@ def remeasure(args: Namespace) -> None:
 		])
 		
 		# prepare setup
-		driver, target, meter, cal_data, sink_writes = create_measure_setup(
-			gen_sn,
-			tar_sn,
-			mes_sn,
-			os.path.join(pkg_path, "freq_gen.asc"), #TODO: from HDF5
-			stack,
-			metadata
-		)
+		measure_setup = setup_from_args_hdf5(args, hdf5_file, write_map, metadata)
 		
 		# prepare sink
 		cur_date = datetime.now(timezone.utc)

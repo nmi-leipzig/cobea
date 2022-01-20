@@ -2,13 +2,19 @@ import os
 
 from argparse import Namespace
 from unittest import TestCase
+from unittest.mock import MagicMock
 
 import h5py
 
+from adapters.dummies import DummyDriver
 from adapters.icecraft import IcecraftPosition, IcecraftRawConfig, IcecraftRepGen
-from applications.discern_frequency.action import extract_carry_enable, FreqSumFF, run
+from adapters.minvia import MinviaDriver
+from applications.discern_frequency.action import extract_carry_enable, FreqSumFF, remeasure, run, setup_from_args_hdf5
 from domain.model import Chromosome, InputData, OutputData
 from domain.request_model import ResponseObject, RequestObject
+
+from .common import TEST_DATA_DIR
+from ..mocks import RandomMeter
 
 
 class FreqSumFFTest(TestCase):
@@ -71,11 +77,15 @@ class ActionTest(TestCase):
 	
 	def test_run_dummy(self):
 		out_filename = "tmp.test_run_dummy.h5"
+		self.run_dummy(out_filename)
+		
+		self.check_hdf5(out_filename)
+		
+		self.delete([out_filename])
+	
+	def run_dummy(self, out_filename):
 		# delete previous results
-		try:
-			os.remove(out_filename)
-		except FileNotFoundError:
-			pass
+		self.delete([out_filename])
 		
 		args = Namespace(
 			output = out_filename,
@@ -95,8 +105,46 @@ class ActionTest(TestCase):
 		)
 		run(args)
 		
-		with h5py.File(out_filename, "r") as res:
-			self.assertIn("fitness", res)
-			self.assertIn("measurement", res["fitness"])
+		return args
+	
+	def delete(self, filename_list):
+		for filename in filename_list:
+			try:
+				os.remove(filename)
+			except FileNotFoundError:
+				pass
+	
+	def check_hdf5(self, hdf5_filename):
+		with h5py.File(hdf5_filename, "r") as hdf5_file:
+			self.assertIn("fitness", hdf5_file)
+			self.assertIn("measurement", hdf5_file["fitness"])
+	
+	def test_setup_from_args_hdf5_dummy(self):
+		# create HDF5 input file
+		hdf5_filename = "tmp.test_setup_from_args_hdf5_dummy.hdf5"
+		org_args = self.run_dummy(hdf5_filename)
 		
-		#os.remove(out_filename)
+		# call
+		args = Namespace(dummy=True)
+		write_map = {}
+		metadata = {}
+		with h5py.File(hdf5_filename, "r") as hdf5_file:
+			res = setup_from_args_hdf5(args, hdf5_file, write_map, metadata)
+		
+		# check
+		self.assertIsInstance(res.driver, MinviaDriver)
+		self.assertIsInstance(res.target, MagicMock)
+		self.assertIsInstance(res.meter, RandomMeter)
+		for name, exp in [("data", None), ("rising_edge", 0), ("falling_edge", 0), ("trig_len", 0), ("offset", 0)]:
+			val = getattr(res.cal_data, name)
+			self.assertEqual(exp, val)
+		self.assertEqual(res.sink_writes, [])
+		
+		self.assertIn("Measure.perform", write_map)
+		self.assertGreaterEqual(len(write_map["Measure.perform"]), 1)
+		self.assertIn("fitness/measurement", metadata)
+		self.assertGreaterEqual(len(metadata["fitness/measurement"]), 1)
+		
+		# clean up
+		self.delete([hdf5_filename])
+		
