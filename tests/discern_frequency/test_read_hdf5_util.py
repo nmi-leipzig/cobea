@@ -1,5 +1,6 @@
 import os
 
+from dataclasses import astuple
 from functools import partial
 from operator import attrgetter, itemgetter, methodcaller
 from unittest import TestCase
@@ -7,10 +8,11 @@ from unittest import TestCase
 import h5py
 
 from adapters.hdf5_sink import compose, HDF5Sink, ParamAim
-from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, IcecraftPosition, IcecraftRawConfig, PartConf
+from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, IcecraftLUTPosition, IcecraftPosition,\
+	IcecraftRawConfig, PartConf
 from applications.discern_frequency.hdf5_desc import add_carry_data, HDF5_DICT, pa_gen
 from applications.discern_frequency.read_hdf5_util import read_chromosome, read_habitat, read_s_t_index,\
-	read_carry_data, read_carry_enable_bits, read_carry_enable_values
+	read_carry_data, read_carry_enable_bits, read_carry_enable_values, read_rep_output
 from domain.model import Chromosome
 
 from .common import del_files, TEST_DATA_DIR
@@ -166,6 +168,24 @@ class WriteReadHDF5Test(TestCase):
 		
 		with h5py.File(hdf5_filename, "r") as hdf5_file:
 			res = read_carry_data(hdf5_file)
+		
+		self.assertEqual(exp, res)
+		
+		del_files([hdf5_filename])
+	
+	def test_write_read_rep_output(self):
+		exp = (IcecraftLUTPosition(1, 2, 3), IcecraftLUTPosition(13, 28, 7))
+		
+		hdf5_filename = "tmp.test_write_read_rep_output.h5"
+		del_files([hdf5_filename])
+		
+		write_map = {"th": [pa_gen("rep.output", ["ro"])]}
+		
+		with HDF5Sink(write_map, filename=hdf5_filename) as sink:
+			sink.write("th", {"ro": exp})
+		
+		with h5py.File(hdf5_filename, "r") as hdf5_file:
+			res = read_rep_output(hdf5_file)
 		
 		self.assertEqual(exp, res)
 		

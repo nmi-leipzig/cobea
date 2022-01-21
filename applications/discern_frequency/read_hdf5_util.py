@@ -1,9 +1,10 @@
-from typing import Any, List, Union
+from typing import Any, List, Tuple, Union
 
 import h5py
 import numpy as np
 
-from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, IcecraftRawConfig, PartConf
+from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, IcecraftLUTPosition, IcecraftRawConfig,\
+	PartConf
 from applications.discern_frequency.hdf5_desc import HDF5Desc, HDF5_DICT
 from domain.model import Chromosome
 
@@ -99,3 +100,8 @@ def read_carry_data(hdf5_file: h5py.File) -> CarryDataMap:
 		cd_index += 1
 	
 	return cd_map
+
+def read_rep_output(hdf5_file: h5py.File) -> Tuple[IcecraftLUTPosition, ]:
+	desc = HDF5_DICT["rep.output"]
+	raw = data_from_desc(hdf5_file, desc)
+	return tuple(IcecraftLUTPosition(*c) for c in raw)

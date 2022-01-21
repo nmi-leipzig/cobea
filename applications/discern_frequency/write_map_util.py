@@ -66,8 +66,7 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 			HDF5Sink.create_gene_aims("const", len(rep.constant), h5_path="mapping/constant")+[
 				pa_gen("carry_enable.bits", ["carry_bits"],
 					alter=partial(compose, funcs=[itemgetter(0), partial(map, methodcaller("to_ints")), list])),
-				ParamAim(["output"], "uint16", "output_lutff", "mapping", alter=partial(compose, funcs=[itemgetter(0),
-					partial(map, astuple), list])),
+				pa_gen("rep.output", ["output"]),
 				ParamAim(["colbufctrl"], "uint16", "colbufctrl_bits", "mapping", alter=partial(compose, funcs=[
 					itemgetter(0), partial(map, partial(compose, funcs=[attrgetter("bits"), astuple])), list])),
 				ParamAim(["colbufctrl"], "uint16", "colbufctrl_index", "mapping", alter=partial(compose, funcs=[

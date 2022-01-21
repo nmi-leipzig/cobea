@@ -4,11 +4,12 @@ Especially data that is required for both reading and writing.
 """
 
 from dataclasses import astuple, dataclass
+from functools import partial
 from operator import itemgetter
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 
-from adapters.hdf5_sink import MetaEntry, MetaEntryMap, ParamAim
+from adapters.hdf5_sink import chain_funcs, MetaEntry, MetaEntryMap, ParamAim
 from adapters.icecraft import CarryData
 
 
@@ -41,6 +42,8 @@ HDF5_DICT= {
 	"carry_data.bits": HDF5Desc("uint16", r"carry_use_{}_bits", r"mapping/carry_data/carry_data_{}"),
 	"carry_data.values": HDF5Desc(bool, r"carry_use_{}_values", r"mapping/carry_data/carry_data_{}"),
 	"carry_data.desc": HDF5Desc(str, "description", "mapping/carry_data"),
+	"rep.output":  HDF5Desc("uint16", "output_lutff", "mapping", 
+		alter=chain_funcs([itemgetter(0), partial(map, astuple), list])),
 }
 
 def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> ParamAim:
