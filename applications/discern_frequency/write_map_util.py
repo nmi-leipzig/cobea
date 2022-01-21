@@ -67,10 +67,8 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 				pa_gen("carry_enable.bits", ["carry_bits"],
 					alter=partial(compose, funcs=[itemgetter(0), partial(map, methodcaller("to_ints")), list])),
 				pa_gen("rep.output", ["output"]),
-				ParamAim(["colbufctrl"], "uint16", "colbufctrl_bits", "mapping", alter=partial(compose, funcs=[
-					itemgetter(0), partial(map, partial(compose, funcs=[attrgetter("bits"), astuple])), list])),
-				ParamAim(["colbufctrl"], "uint16", "colbufctrl_index", "mapping", alter=partial(compose, funcs=[
-					itemgetter(0), partial(map, attrgetter("index")), list])),
+				pa_gen("rep.colbufctrl.bits", ["colbufctrl"]),
+				pa_gen("rep.colbufctrl.indices", ["colbufctrl"]),
 			],
 		"habitat": [pa_gen("habitat", ["text"], alter=partial(compose, funcs=[itemgetter(0), partial(bytearray,
 			encoding="utf-8")]), comp_opt=9),],
