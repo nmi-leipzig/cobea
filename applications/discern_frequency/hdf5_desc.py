@@ -4,7 +4,8 @@ Especially data that is required for both reading and writing.
 """
 
 from dataclasses import astuple, dataclass
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple
+from operator import itemgetter
+from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 
 from adapters.hdf5_sink import MetaEntry, MetaEntryMap, ParamAim
@@ -18,6 +19,7 @@ class HDF5Desc(NamedTuple):
 	h5_path: str = "/"
 	as_attr: bool = True
 	shape: Tuple[Optional[int], ...] = tuple()
+	alter: Callable[[list], Any] = itemgetter(0)
 
 
 HDF5_DICT= {
@@ -62,6 +64,9 @@ def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> Par
 		del kwargs["shape"]
 	except KeyError:
 		shape = desc.shape
+	
+	if "alter" not in kwargs:
+		kwargs["alter"] = desc.alter
 	
 	return ParamAim(req_names, typ, desc.h5_name, desc.h5_path, desc.as_attr, shape, **kwargs)
 
