@@ -97,6 +97,11 @@ class FuncTest(TestCase):
 					with self.assertRaises(AssertionError):
 						self.assertFunc(b, a)
 	
+	def test_noop(self):
+		for exp in [1, 2, None, "str"]:
+			with self.subTest(exp=exp):
+				res = noop(exp)
+				self.assertEqual(exp, res)
 	
 	def test_compose(self):
 		tc_data = [# desc, funcs, x_list, res_list
