@@ -1,6 +1,6 @@
 import os
 
-from inspect import getmembers, ismethod
+from inspect import getmembers, ismethod, isfunction
 from typing import get_type_hints
 
 from domain.request_model import NO_DEFAULT, Parameter, RequestObject
@@ -53,4 +53,36 @@ def check_parameter_user(test_case, parameter_user):
 		test_case.assertEqual(len(name_list), len(set(name_list)), f"Parameter names are not unique: {name_list}")
 	
 	check_param_def_maps(test_case, parameter_user.parameters, parameter_user.default_parameters)
+
+def check_func_eq(test_case, exp, dut):
+	"""assert equality of functions
+	
+	This is impossible in general (halting problem), so only the names and classe are checked.
+	Furthermore, partial with func=compose is checked recursively.
+	"""
+	if isfunction(exp):
+		test_case.assertTrue(isfunction(dut))
+		test_case.assertEqual(exp.__name__, dut.__name__)
+	else:
+		test_case.assertFalse(isfunction(dut))
+		test_case.assertEqual(exp.__class__, dut.__class__)
+		test_case.assertEqual(exp.__doc__, dut.__doc__)
+		if exp.__class__.__name__ == "partial" and isfunction(exp.func) and exp.func.__name__ == "compose":
+			# args
+			test_case.assertEqual(len(exp.args), len(dut.args))
+			for ea, da in zip(exp.args, dut.args):
+				test_case.assertEqual(len(ea), len(da))
+				for ef, af in zip(ea, fa):
+					check_func_eq(test_case, ef, af)
+			
+			# kwargs
+			test_case.assertEqual(set(exp.keywords), set(dut.keywords))
+			for key in exp.keywords:
+				if key == "funcs":
+					test_case.assertEqual(len(exp.keywords[key]), len(dut.keywords[key]))
+					for ef, af in zip(exp.keywords[key], dut.keywords[key]):
+						check_func_eq(test_case, ef, af)
+					
+					continue
+				test_case.assertEqual(exp.keywords[key], dut.keywords[key])
 
