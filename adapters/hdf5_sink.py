@@ -40,6 +40,15 @@ def compose(x: Any, funcs: Iterable[Callable]) -> Any:
 		r = func(r)
 	return r
 
+
+def chain_funcs(funcs: Iterable[Callable]) -> Callable:
+	"""Create equivalent of function to calling each function after another
+	
+	E.g. chain_funcs([a, b, c]) = c(b(a()))
+	"""
+	return partial(compose, funcs=funcs)
+
+
 @dataclass
 class MetaEntry:
 	"""Represent one entry of static metadata.

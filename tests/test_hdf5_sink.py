@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from functools import partial
 from operator import abs, add, attrgetter, itemgetter, neg
 from unittest import TestCase
-from typing import Any, Iterable, List, Mapping, NamedTuple, Tuple
+from typing import Any, Callable, Iterable, List, Mapping, NamedTuple, Tuple
 
-from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, noop, ParamAim
+from adapters.hdf5_sink import chain_funcs, compose, HDF5Sink, IgnoreValue, noop, ParamAim
 from domain.allele_sequence import Allele, AlleleAll, AlleleList, AllelePow
 from domain.base_structures import BitPos
 from domain.model import Gene
@@ -30,6 +30,22 @@ class SimpleBitPos(BitPos):
 		return tuple(cls(*i) for i in ints)
 
 class FuncTest(TestCase):
+	@dataclass
+	class ComposeData:
+		desc: str
+		funcs: List[Callable]
+		x_list: List
+		res_list: List
+	
+	compose_data = [# desc, funcs, x_list, res_list
+		ComposeData("empty", [], [7, -3], [7, -3]),
+		ComposeData("single", [neg], [7, -3], [-7, 3]),
+		ComposeData("order 1", [abs, neg], [7, -3], [-7, -3]),
+		ComposeData("order 2", [neg, abs], [7, -3], [7, 3]),
+		ComposeData("partial", [partial(add, 4)], [7, -3], [11, 1]),
+		#ComposeData("lambda", [lambda a: a*a], [7, -3], [49, 9]), # fails in multiprocessing
+	]
+	
 	def assertFunc(self, exp, dut):
 		"""assert equality of functions
 		
@@ -104,34 +120,44 @@ class FuncTest(TestCase):
 				self.assertEqual(exp, res)
 	
 	def test_compose(self):
-		tc_data = [# desc, funcs, x_list, res_list
-			("empty", [], [7, -3], [7, -3]),
-			("single", [neg], [7, -3], [-7, 3]),
-			("order 1", [abs, neg], [7, -3], [-7, -3]),
-			("order 2", [neg, abs], [7, -3], [7, 3]),
-			("partial", [partial(add, 4)], [7, -3], [11, 1]),
-			#("lambda", [lambda a: a*a], [7, -3], [49, 9]), # fails in multiprocessing
-		]
-		for desc, funcs, x_list, res_list in tc_data:
-			with self.subTest(desc=desc):
-				for x, exp in zip(x_list, res_list):
-					res = compose(x, funcs)
+		for tc in self.compose_data:
+			with self.subTest(desc=tc.desc):
+				for x, exp in zip(tc.x_list, tc.res_list):
+					res = compose(x, tc.funcs)
 					self.assertEqual(exp, res)
 		
 		# test multiprocessing
 		ctx = mp.get_context("spawn")
-		for desc, funcs, x_list, res_list in tc_data:
-			with self.subTest(desc="mp: "+desc):
-				for x, exp in zip(x_list, res_list):
-					p_func = partial(compose, funcs=funcs)
-					pro = ctx.Process(target=self.exec_compose, args=(p_func, x, exp))
+		for tc in self.compose_data:
+			with self.subTest(desc="mp: "+tc.desc):
+				p_func = partial(compose, funcs=tc.funcs)
+				for x, exp in zip(tc.x_list, tc.res_list):
+					pro = ctx.Process(target=self.exec_unary, args=(p_func, x, exp))
 					pro.start()
 					pro.join()
 					self.assertEqual(pro.exitcode, 0)
-
+	
+	def test_chain_funcs(self):
+		for tc in self.compose_data:
+			with self.subTest(desc=tc.desc):
+				dut = chain_funcs(tc.funcs)
+				for x, exp in zip(tc.x_list, tc.res_list):
+					res = dut(x)
+					self.assertEqual(exp, res)
+		
+		# test multiprocessing
+		ctx = mp.get_context("spawn")
+		for tc in self.compose_data:
+			with self.subTest(desc="mp: "+tc.desc):
+				dut = chain_funcs(tc.funcs)
+				for x, exp in zip(tc.x_list, tc.res_list):
+					pro = ctx.Process(target=self.exec_unary, args=(dut, x, exp))
+					pro.start()
+					pro.join()
+					self.assertEqual(pro.exitcode, 0)
 	
 	@staticmethod
-	def exec_compose(p_func, x, exp):
+	def exec_unary(p_func, x, exp):
 		res = p_func(x)
 		if exp != res:
 			raise AssertionError()
