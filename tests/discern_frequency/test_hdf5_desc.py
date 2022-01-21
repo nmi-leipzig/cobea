@@ -1,4 +1,5 @@
-from dataclasses import dataclass, fields
+from dataclasses import astuple, dataclass, fields
+from functools import partial
 from operator import attrgetter, itemgetter
 from typing import Any, Dict, List
 from unittest import TestCase
@@ -46,6 +47,8 @@ class HDF5DescTest(TestCase):
 					alter=chain_funcs([itemgetter(8), attrgetter("abc")])
 				)
 			),
+			PATC("alter in HDF5Desc", "rep.output", ["in"], {}, ParamAim(["in"], "uint16", "output_lutff", "mapping",
+				alter=chain_funcs([itemgetter(0), partial(map, astuple),list]))),
 		]
 		
 		for tc in cases:
