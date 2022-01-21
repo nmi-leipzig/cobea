@@ -97,6 +97,39 @@ class FuncTest(TestCase):
 					with self.assertRaises(AssertionError):
 						self.assertFunc(b, a)
 	
+	
+	def test_compose(self):
+		tc_data = [# desc, funcs, x_list, res_list
+			("empty", [], [7, -3], [7, -3]),
+			("single", [neg], [7, -3], [-7, 3]),
+			("order 1", [abs, neg], [7, -3], [-7, -3]),
+			("order 2", [neg, abs], [7, -3], [7, 3]),
+			("partial", [partial(add, 4)], [7, -3], [11, 1]),
+			#("lambda", [lambda a: a*a], [7, -3], [49, 9]), # fails in multiprocessing
+		]
+		for desc, funcs, x_list, res_list in tc_data:
+			with self.subTest(desc=desc):
+				for x, exp in zip(x_list, res_list):
+					res = compose(x, funcs)
+					self.assertEqual(exp, res)
+		
+		# test multiprocessing
+		ctx = mp.get_context("spawn")
+		for desc, funcs, x_list, res_list in tc_data:
+			with self.subTest(desc="mp: "+desc):
+				for x, exp in zip(x_list, res_list):
+					p_func = partial(compose, funcs=funcs)
+					pro = ctx.Process(target=self.exec_compose, args=(p_func, x, exp))
+					pro.start()
+					pro.join()
+					self.assertEqual(pro.exitcode, 0)
+
+	
+	@staticmethod
+	def exec_compose(p_func, x, exp):
+		res = p_func(x)
+		if exp != res:
+			raise AssertionError()
 
 class HDF5SinkTest(TestCase):
 	def check_hdf5(self, filename, exp_attrs, exp_data):
