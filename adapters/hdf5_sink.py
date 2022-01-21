@@ -72,7 +72,7 @@ class ParamAim:
 	# for datasets: shape of a single entry, not the whole dataset
 	shape: Tuple[Optional[int], ...] = tuple()
 	# by default return first value
-	# good for cases where ther is only one name
+	# good for cases where there is only one name
 	alter: Callable[[list], Any] = itemgetter(0)
 	compress: str = "gzip"
 	comp_opt: int = 7
