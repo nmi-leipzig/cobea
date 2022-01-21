@@ -53,6 +53,9 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 		),
 	]
 	
+	gene_desc = HDF5_DICT["rep.genes"]
+	const_desc = HDF5_DICT["rep.const"]
+	
 	write_map = {
 		"Measure.perform": [
 			pa_gen("fitness.st", ["driver_data"], comp_opt=9, shuffle=True),
@@ -62,8 +65,8 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
-		"Action.rep": HDF5Sink.create_gene_aims("genes", len(rep.genes), h5_path="mapping/genes")+\
-			HDF5Sink.create_gene_aims("const", len(rep.constant), h5_path="mapping/constant")+[
+		"Action.rep": HDF5Sink.create_gene_aims("genes", len(rep.genes), gene_desc.h5_name, gene_desc.h5_path)+\
+			HDF5Sink.create_gene_aims("const", len(rep.constant), const_desc.h5_name, const_desc.h5_path)+[
 				pa_gen("carry_enable.bits", ["carry_bits"],
 					alter=partial(compose, funcs=[itemgetter(0), partial(map, methodcaller("to_ints")), list])),
 				pa_gen("rep.output", ["output"]),
