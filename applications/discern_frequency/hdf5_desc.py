@@ -5,7 +5,7 @@ Especially data that is required for both reading and writing.
 
 from dataclasses import astuple, dataclass
 from functools import partial
-from operator import itemgetter
+from operator import attrgetter, itemgetter
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 
@@ -44,6 +44,11 @@ HDF5_DICT= {
 	"carry_data.desc": HDF5Desc(str, "description", "mapping/carry_data"),
 	"rep.output":  HDF5Desc("uint16", "output_lutff", "mapping", 
 		alter=chain_funcs([itemgetter(0), partial(map, astuple), list])),
+	"rep.colbufctrl.bits": HDF5Desc("uint16", "colbufctrl_bits", "mapping",
+		alter=chain_funcs([itemgetter(0),
+		partial(map, chain_funcs([attrgetter("bits"), partial(map, astuple), list])), list])),
+	"rep.colbufctrl.indices": HDF5Desc("uint16", "colbufctrl_index", "mapping",
+		alter=chain_funcs([itemgetter(0), partial(map, attrgetter("index")), list])),
 }
 
 def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> ParamAim:

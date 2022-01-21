@@ -4,7 +4,7 @@ import h5py
 import numpy as np
 
 from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, IcecraftLUTPosition, IcecraftRawConfig,\
-	PartConf
+	IndexedItem, PartConf
 from applications.discern_frequency.hdf5_desc import HDF5Desc, HDF5_DICT
 from domain.model import Chromosome
 
@@ -105,3 +105,15 @@ def read_rep_output(hdf5_file: h5py.File) -> Tuple[IcecraftLUTPosition, ]:
 	desc = HDF5_DICT["rep.output"]
 	raw = data_from_desc(hdf5_file, desc)
 	return tuple(IcecraftLUTPosition(*c) for c in raw)
+
+def read_rep_colbufctrl(hdf5_file: h5py.File) -> Tuple[IndexedItem, ]:
+	bit_desc = HDF5_DICT["rep.colbufctrl.bits"]
+	idx_desc = HDF5_DICT["rep.colbufctrl.indices"]
+	
+	bit_raw = data_from_desc(hdf5_file, bit_desc)
+	idx_raw = data_from_desc(hdf5_file, idx_desc)
+	if len(bit_raw) != len(idx_raw):
+		raise ValueError(f"number of bits and indices don't match: {len(bit_raw)} != {len(idx_raw)}")
+	
+	return tuple(IndexedItem(tuple(IcecraftBitPosition(*p) for p in b), "ColBufCtrl", i)
+		for b, i in zip(bit_raw.tolist(), idx_raw.tolist()))
