@@ -26,7 +26,7 @@ class WriteReadHDF5Test(TestCase):
 		asc_filename = os.path.join(self.asc_dir, "freq_hab.asc")
 		exp = IcecraftRawConfig.create_from_filename(asc_filename)
 		
-		hdf5_filename = "tmp.test_read_write_habitat.h5"
+		hdf5_filename = "tmp.test_write_read_habitat.h5"
 		del_files([hdf5_filename])
 		
 		write_map = {"th": [pa_gen("habitat", ["text"])]}
@@ -47,7 +47,7 @@ class WriteReadHDF5Test(TestCase):
 		
 		for width in [8, 16, 32]:
 			with self.subTest(width=width):
-				hdf5_filename = "tmp.test_read_write_chromosome.h5"
+				hdf5_filename = "tmp.test_write_read_chromosome.h5"
 				del_files([hdf5_filename])
 				
 				chromo_desc = HDF5_DICT["chromo.indices"]
@@ -73,7 +73,7 @@ class WriteReadHDF5Test(TestCase):
 	def test_write_read_s_t_index(self):
 		exp = 173
 		
-		hdf5_filename = "tmp.test_read_write_s_t_index.h5"
+		hdf5_filename = "tmp.test_write_read_s_t_index.h5"
 		del_files([hdf5_filename])
 		
 		write_map = {"th": [pa_gen("fitness.st", ["st"])]}
@@ -97,7 +97,7 @@ class WriteReadHDF5Test(TestCase):
 		]
 		idx = 2
 		
-		hdf5_filename = "tmp.test_read_write_carry_enable_values.h5"
+		hdf5_filename = "tmp.test_write_read_carry_enable_values.h5"
 		del_files([hdf5_filename])
 		
 		write_map = {"th": [pa_gen("carry_enable.values", ["cev"], shape=(len(carry_values[0]), ))]}
@@ -116,7 +116,7 @@ class WriteReadHDF5Test(TestCase):
 	def test_write_read_carry_enable_bits(self):
 		bits = [IcecraftBitPosition(4, 3, 0, 51), IcecraftBitPosition(4, 3, 0, 50), IcecraftBitPosition(12, 3, 4, 13)]
 		
-		hdf5_filename = "tmp.test_read_write_carry_enable_bits.h5"
+		hdf5_filename = "tmp.test_write_read_carry_enable_bits.h5"
 		del_files([hdf5_filename])
 		
 		write_map = {"th": [pa_gen("carry_enable.bits", ["ceb"], alter=partial(compose, funcs=[
@@ -152,7 +152,7 @@ class WriteReadHDF5Test(TestCase):
 			},
 		}
 		
-		hdf5_filename = "tmp.test_read_write_carry_data.h5"
+		hdf5_filename = "tmp.test_write_read_carry_data.h5"
 		del_files([hdf5_filename])
 		
 		metadata = {}
