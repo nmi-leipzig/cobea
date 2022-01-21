@@ -1,13 +1,17 @@
 import h5py
+import inspect
+import multiprocessing as mp
 import numpy as np
 import os
-import unittest
 
 from collections import OrderedDict
 from dataclasses import dataclass
+from functools import partial
+from operator import abs, add, attrgetter, itemgetter, neg
+from unittest import TestCase
 from typing import Any, Iterable, List, Mapping, NamedTuple, Tuple
 
-from adapters.hdf5_sink import HDF5Sink, IgnoreValue, ParamAim
+from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, noop, ParamAim
 from domain.allele_sequence import Allele, AlleleAll, AlleleList, AllelePow
 from domain.base_structures import BitPos
 from domain.model import Gene
@@ -25,7 +29,76 @@ class SimpleBitPos(BitPos):
 	def from_ints(cls, ints: Iterable[Tuple[int, int, int]]):
 		return tuple(cls(*i) for i in ints)
 
-class HDF5SinkTest(unittest.TestCase):
+class FuncTest(TestCase):
+	def assertFunc(self, exp, dut):
+		"""assert equality of functions
+		
+		This is impossible in general (halting problem), so only the names and classe are checked.
+		Furthermore, partial with func=compose is checked recursively.
+		"""
+		if inspect.isfunction(exp):
+			self.assertTrue(inspect.isfunction(dut))
+			self.assertEqual(exp.__name__, dut.__name__)
+		else:
+			self.assertFalse(inspect.isfunction(dut))
+			self.assertEqual(exp.__class__, dut.__class__)
+			self.assertEqual(exp.__doc__, dut.__doc__)
+			if exp.__class__.__name__ == "partial" and inspect.isfunction(exp.func) and exp.func.__name__ == "compose":
+				# args
+				self.assertEqual(len(exp.args), len(dut.args))
+				for ea, da in zip(exp.args, dut.args):
+					self.assertEqual(len(ea), len(da))
+					for ef, af in zip(ea, fa):
+						self.assertFunc(ef, af)
+				
+				# kwargs
+				self.assertEqual(set(exp.keywords), set(dut.keywords))
+				for key in exp.keywords:
+					if key == "funcs":
+						self.assertEqual(len(exp.keywords[key]), len(dut.keywords[key]))
+						for ef, af in zip(exp.keywords[key], dut.keywords[key]):
+							self.assertFunc(ef, af)
+						
+						continue
+					self.assertEqual(exp.keywords[key], dut.keywords[key])
+	
+	def test_meta_assertFunc(self):
+		# desc, a, b, res
+		func1 = compose
+		ig1 = itemgetter(0)
+		tc_data = [
+			("same itemgetter", ig1, ig1, True),
+			("same func", func1, func1, True),
+			("eq itemgetter", itemgetter(3), itemgetter(3), True),
+			(
+				"eq partial",
+				partial(compose, funcs=[itemgetter(0), partial(map, attrgetter("index")), list]),
+				partial(compose, funcs=[itemgetter(0), partial(map, attrgetter("index")), list]),
+				True
+			),
+			("different func", compose, noop, False),
+			("different non func", itemgetter(4), partial, False),
+			("func vs non func", compose, itemgetter(5), False),
+			(
+				"different partial",
+				partial(compose, funcs=[itemgetter(0), partial(map, attrgetter("index")), list]),
+				partial(compose, funcs=[itemgetter(0), partial(map, attrgetter("index")), tuple]),
+				False
+			),
+		]
+		for desc, a, b, res in tc_data:
+			with self.subTest(desc=desc):
+				if res:
+					self.assertFunc(a, b)
+					self.assertFunc(b, a)
+				else:
+					with self.assertRaises(AssertionError):
+						self.assertFunc(a, b)
+					with self.assertRaises(AssertionError):
+						self.assertFunc(b, a)
+	
+
+class HDF5SinkTest(TestCase):
 	def check_hdf5(self, filename, exp_attrs, exp_data):
 		with h5py.File(filename, "r") as h5_file:
 			# check attributes
