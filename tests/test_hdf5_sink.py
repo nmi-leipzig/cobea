@@ -10,10 +10,13 @@ from operator import abs, add, attrgetter, itemgetter, neg
 from unittest import TestCase
 from typing import Any, Callable, Iterable, List, Mapping, NamedTuple, Tuple
 
+from adapters.icecraft import IcecraftBitPosition
 from adapters.hdf5_sink import chain_funcs, compose, HDF5Sink, IgnoreValue, noop, ParamAim
 from domain.allele_sequence import Allele, AlleleAll, AlleleList, AllelePow
 from domain.base_structures import BitPos
 from domain.model import Gene
+
+from tests.icecraft.data.rep_data import EXP_REP
 
 @dataclass
 class SimpleBitPos(BitPos):
@@ -129,6 +132,9 @@ class HDF5SinkTest(TestCase):
 		self.filename = "tmp.test.h5"
 	
 	def tearDown(self):
+		self.delete_hdf5_file()
+	
+	def delete_hdf5_file(self):
 		try:
 			os.remove(self.filename)
 		except FileNotFoundError:
@@ -250,3 +256,36 @@ class HDF5SinkTest(TestCase):
 						dut.write(src, data_dict)
 				
 				self.check_hdf5(self.filename, td.exp_attrs, td.exp_data)
+	
+	def test_write_read_genes(self):
+		@dataclass
+		class WRGeneCase:
+			desc: str
+			name: str # name in data dict of write call
+			hdf5_name: str
+			hdf5_path: str
+		
+		case_list = [
+			WRGeneCase("default", "genes", "gene", "mapping/genes"),
+			WRGeneCase("different names", "gns", "g3n3", "exp_one/my_genes"),
+		]
+		
+		exp = EXP_REP.genes
+		src_name = "Test"
+		for tc in case_list:
+			with self.subTest(desc=tc.desc):
+				self.delete_hdf5_file()
+				
+				# write
+				write_map = {src_name: HDF5Sink.create_gene_aims(tc.name, len(exp), tc.hdf5_name, tc.hdf5_path)}
+				with HDF5Sink(write_map, filename=self.filename, mode="w") as dut:
+					dut.write(src_name, {tc.name: exp})
+				
+				# read
+				with h5py.File(self.filename, "r") as h5_file:
+					grp = h5_file[tc.hdf5_path]
+					res = HDF5Sink.extract_genes(grp, IcecraftBitPosition)
+				
+				# check
+				self.assertEqual(exp, res)
+		
