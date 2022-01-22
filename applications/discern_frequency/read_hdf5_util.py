@@ -77,7 +77,7 @@ def read_carry_use(hdf5_file: h5py.File, cd_index) -> List[PartConf]:
 	
 	return res
 
-def read_carry_data(hdf5_file: h5py.File) -> CarryDataMap:
+def read_rep_carry_data(hdf5_file: h5py.File) -> CarryDataMap:
 	cd_map = {}
 	lut_desc = HDF5_DICT["carry_data.lut"]
 	ena_desc = HDF5_DICT["carry_data.enable"]

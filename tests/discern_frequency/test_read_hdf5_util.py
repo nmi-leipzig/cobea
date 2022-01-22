@@ -12,7 +12,7 @@ from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, Icec
 	IcecraftRawConfig, IndexedItem, PartConf
 from applications.discern_frequency.hdf5_desc import add_carry_data, HDF5_DICT, pa_gen
 from applications.discern_frequency.read_hdf5_util import read_chromosome, read_habitat, read_s_t_index,\
-	read_carry_data, read_carry_enable_bits, read_carry_enable_values, read_rep_colbufctrl, read_rep_output
+	read_rep_carry_data, read_carry_enable_bits, read_carry_enable_values, read_rep_colbufctrl, read_rep_output
 from domain.model import Chromosome
 
 from .common import del_files, TEST_DATA_DIR
@@ -134,7 +134,7 @@ class WriteReadHDF5Test(TestCase):
 		
 		del_files([hdf5_filename])
 	
-	def test_write_read_carry_data(self):
+	def test_write_read_rep_carry_data(self):
 		exp = {
 			IcecraftPosition(3, 4): {
 				0: CarryData(0, (IcecraftBitPosition(3, 4, 13, 4), ), [
@@ -154,7 +154,7 @@ class WriteReadHDF5Test(TestCase):
 			},
 		}
 		
-		hdf5_filename = "tmp.test_write_read_carry_data.h5"
+		hdf5_filename = "tmp.test_write_read_rep_carry_data.h5"
 		del_files([hdf5_filename])
 		
 		metadata = {}
@@ -167,7 +167,7 @@ class WriteReadHDF5Test(TestCase):
 			pass
 		
 		with h5py.File(hdf5_filename, "r") as hdf5_file:
-			res = read_carry_data(hdf5_file)
+			res = read_rep_carry_data(hdf5_file)
 		
 		self.assertEqual(exp, res)
 		
