@@ -10,7 +10,7 @@ import h5py
 from adapters.hdf5_sink import compose, HDF5Sink, ParamAim
 from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, IcecraftLUTPosition, IcecraftPosition,\
 	IcecraftRawConfig, IndexedItem, PartConf
-from applications.discern_frequency.hdf5_desc import add_carry_data, HDF5_DICT, pa_gen
+from applications.discern_frequency.hdf5_desc import add_carry_data, add_meta, add_rep, HDF5_DICT, pa_gen
 from applications.discern_frequency.read_hdf5_util import read_chromosome, read_habitat, read_s_t_index,\
 	read_rep_carry_data, read_carry_enable_bits, read_carry_enable_values, read_rep_colbufctrl, read_rep_output
 from domain.model import Chromosome
@@ -179,10 +179,11 @@ class WriteReadHDF5Test(TestCase):
 		hdf5_filename = "tmp.test_write_read_rep_output.h5"
 		del_files([hdf5_filename])
 		
-		write_map = {"th": [pa_gen("rep.output", ["ro"])]}
+		metadata = {}
+		add_meta(metadata, "rep.output", exp)
 		
-		with HDF5Sink(write_map, filename=hdf5_filename) as sink:
-			sink.write("th", {"ro": exp})
+		with HDF5Sink({}, metadata=metadata, filename=hdf5_filename) as sink:
+			pass
 		
 		with h5py.File(hdf5_filename, "r") as hdf5_file:
 			res = read_rep_output(hdf5_file)
@@ -200,10 +201,12 @@ class WriteReadHDF5Test(TestCase):
 		hdf5_filename = "tmp.test_write_read_rep_colbufctrl.h5"
 		del_files([hdf5_filename])
 		
-		write_map = {"th": [pa_gen("rep.colbufctrl.bits", ["rc"]), pa_gen("rep.colbufctrl.indices", ["rc"])]}
+		metadata = {}
+		add_meta(metadata, "rep.colbufctrl.bits", exp)
+		add_meta(metadata, "rep.colbufctrl.indices", exp)
 		
-		with HDF5Sink(write_map, filename=hdf5_filename) as sink:
-			sink.write("th", {"rc": exp})
+		with HDF5Sink({}, metadata=metadata, filename=hdf5_filename) as sink:
+			pass
 		
 		with h5py.File(hdf5_filename, "r") as hdf5_file:
 			res = read_rep_colbufctrl(hdf5_file)

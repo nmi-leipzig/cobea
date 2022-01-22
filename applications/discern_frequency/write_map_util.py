@@ -6,9 +6,9 @@ from operator import attrgetter, itemgetter, methodcaller
 from typing import Any, Iterable, List, Tuple
 
 from adapters.gear.rigol import FloatCheck, IntCheck, SetupCmd
-from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
+from adapters.hdf5_sink import compose, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftRep
-from applications.discern_frequency.hdf5_desc import add_carry_data, add_meta, HDF5_DICT, pa_gen
+from applications.discern_frequency.hdf5_desc import add_rep, add_meta, HDF5_DICT, pa_gen
 
 def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
 	return [
@@ -65,14 +65,6 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
-		"Action.rep": HDF5Sink.create_gene_aims("genes", len(rep.genes), gene_desc.h5_name, gene_desc.h5_path)+\
-			HDF5Sink.create_gene_aims("const", len(rep.constant), const_desc.h5_name, const_desc.h5_path)+[
-				pa_gen("carry_enable.bits", ["carry_bits"],
-					alter=partial(compose, funcs=[itemgetter(0), partial(map, methodcaller("to_ints")), list])),
-				pa_gen("rep.output", ["output"]),
-				pa_gen("rep.colbufctrl.bits", ["colbufctrl"]),
-				pa_gen("rep.colbufctrl.indices", ["colbufctrl"]),
-			],
 		"habitat": [pa_gen("habitat", ["text"], alter=partial(compose, funcs=[itemgetter(0), partial(bytearray,
 			encoding="utf-8")]), comp_opt=9),],
 	}
@@ -99,7 +91,7 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	add_meta(metadata, "rep.carry_data.desc", "data describing how to derive the carry bits from the configuration bits "
 		"defined by the genotype")
 	
-	add_carry_data(metadata, rep.iter_carry_data())
+	add_rep(metadata, rep)
 	
 	return write_map, metadata
 

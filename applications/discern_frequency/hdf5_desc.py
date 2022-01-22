@@ -9,8 +9,8 @@ from operator import attrgetter, itemgetter
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 
-from adapters.hdf5_sink import chain_funcs, MetaEntry, MetaEntryMap, ParamAim
-from adapters.icecraft import CarryData
+from adapters.hdf5_sink import chain_funcs, HDF5Sink, MetaEntry, MetaEntryMap, ParamAim
+from adapters.icecraft import CarryData, IcecraftRep
 
 
 class HDF5Desc(NamedTuple):
@@ -44,13 +44,11 @@ HDF5_DICT= {
 	# just store path, HDF5Sink takes care of the rest
 	"rep.genes": HDF5Desc(None, "gene", "mapping/genes"),
 	"rep.const": HDF5Desc(None, "gene", "mapping/constant"),
-	"rep.output":  HDF5Desc("uint16", "output_lutff", "mapping", 
-		alter=chain_funcs([itemgetter(0), partial(map, astuple), list])),
+	"rep.output":  HDF5Desc("uint16", "output_lutff", "mapping", alter=chain_funcs([partial(map, astuple), list])),
 	"rep.colbufctrl.bits": HDF5Desc("uint16", "colbufctrl_bits", "mapping",
-		alter=chain_funcs([itemgetter(0),
-		partial(map, chain_funcs([attrgetter("bits"), partial(map, astuple), list])), list])),
+		alter=chain_funcs([partial(map, chain_funcs([attrgetter("bits"), partial(map, astuple), list])), list])),
 	"rep.colbufctrl.indices": HDF5Desc("uint16", "colbufctrl_index", "mapping",
-		alter=chain_funcs([itemgetter(0), partial(map, attrgetter("index")), list])),
+		alter=chain_funcs([partial(map, attrgetter("index")), list])),
 }
 
 def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> ParamAim:
@@ -112,3 +110,20 @@ def add_carry_data(metadata: MetaEntryMap, cd_iter: Iterable[CarryData]) -> None
 		metadata.setdefault(val_desc.h5_path.format(i), []).extend([
 			MetaEntry(val_desc.h5_name.format(k), p.values, val_desc.data_type) for k, p in enumerate(cd.carry_use)
 		])
+
+def add_rep(metadata: MetaEntryMap, rep: IcecraftRep) -> None:
+	def append_dict_list(org, new):
+		for key, lst in new.items():
+			org.setdefault(key, []).extend(lst)
+	
+	desc = HDF5_DICT["rep.genes"]
+	append_dict_list(metadata, HDF5Sink.create_gene_meta(rep.genes, desc.h5_name, desc.h5_path))
+	desc = HDF5_DICT["rep.const"]
+	append_dict_list(metadata, HDF5Sink.create_gene_meta(rep.constant, desc.h5_name, desc.h5_path))
+	
+	add_meta(metadata, "rep.colbufctrl.bits", rep.colbufctrl)
+	add_meta(metadata, "rep.colbufctrl.indices", rep.colbufctrl)
+	
+	add_meta(metadata, "rep.output", rep.output)
+	
+	add_carry_data(metadata, rep.iter_carry_data())
