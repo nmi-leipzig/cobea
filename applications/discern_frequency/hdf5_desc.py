@@ -20,8 +20,7 @@ class HDF5Desc(NamedTuple):
 	h5_path: str = "/"
 	as_attr: bool = True
 	shape: Tuple[Optional[int], ...] = tuple()
-	alter: Callable[[list], Any] = itemgetter(0)
-
+	alter: Callable = None
 
 HDF5_DICT= {
 	"habitat": HDF5Desc("uint8", "habitat", "/", False, tuple()),
@@ -76,7 +75,7 @@ def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> Par
 	except KeyError:
 		shape = desc.shape
 	
-	if "alter" not in kwargs:
+	if "alter" not in kwargs and desc.alter:
 		kwargs["alter"] = desc.alter
 	
 	return ParamAim(req_names, typ, desc.h5_name, desc.h5_path, desc.as_attr, shape, **kwargs)
@@ -89,6 +88,8 @@ def add_meta(metadata: MetaEntryMap, meta_name: str, value: Any) -> None:
 	desc = HDF5_DICT[meta_name]
 	if not desc.as_attr:
 		raise ValueError(f"{meta_name} can't be stored as metadata: as_attr is False")
+	if desc.alter:
+		value = desc.alter(value)
 	entry = MetaEntry(desc.h5_name, value, desc.data_type)
 	metadata.setdefault(desc.h5_path, []).append(entry)
 
