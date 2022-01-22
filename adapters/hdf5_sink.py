@@ -273,7 +273,7 @@ class HDF5Sink(DataSink):
 		"""
 		aims = []
 		for index in range(gene_count):
-			grp_name = h5_path + "/" + f"gene_{index:05d}"
+			grp_name = h5_path + "/" + f"{h5_base_name}_{index:05d}"
 			aims.append(ParamAim([name], None, "description", grp_name, alter=partial(
 				compose,
 				funcs = [itemgetter(0), itemgetter(index), attrgetter("description")]
@@ -307,12 +307,15 @@ class HDF5Sink(DataSink):
 		return aims
 	
 	@staticmethod
-	def extract_genes(grp: h5py.Group, bit_cls: Type[BitPos]) -> List[Gene]:
+	def extract_genes(grp: h5py.Group, bit_cls: Type[BitPos], h5_base_name: str="gene") -> List[Gene]:
 		"""Create genes based on data in HDF5 group that was stored according to create_gene_aims"""
 		gene_list = []
 		
 		for gene_name in sorted(grp):
-			res = re.match(r"gene_(?P<index>\d+)", gene_name)
+			res = re.match(fr"{h5_base_name}_(?P<index>\d+)", gene_name)
+			if not res:
+				continue
+			
 			index = int(res.group("index"))
 			if index != len(gene_list):
 				raise InvalidGeneData(f"gene index {index}, should be {len(gene_list)}")

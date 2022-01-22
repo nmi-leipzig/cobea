@@ -284,7 +284,11 @@ class HDF5SinkTest(TestCase):
 				# read
 				with h5py.File(self.filename, "r") as h5_file:
 					grp = h5_file[tc.hdf5_path]
-					res = HDF5Sink.extract_genes(grp, IcecraftBitPosition)
+					res = HDF5Sink.extract_genes(grp, IcecraftBitPosition, tc.hdf5_name)
+					
+					# check use of base name
+					relevant = [n for n in grp if n.startswith(tc.hdf5_name)]
+					self.assertEqual(len(exp), len(relevant))
 				
 				# check
 				self.assertEqual(exp, res)
