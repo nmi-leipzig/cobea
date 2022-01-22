@@ -257,22 +257,22 @@ class HDF5SinkTest(TestCase):
 				
 				self.check_hdf5(self.filename, td.exp_attrs, td.exp_data)
 	
-	def test_write_read_genes(self):
-		@dataclass
-		class WRGeneCase:
-			desc: str
-			name: str # name in data dict of write call
-			hdf5_name: str
-			hdf5_path: str
-		
-		case_list = [
-			WRGeneCase("default", "genes", "gene", "mapping/genes"),
-			WRGeneCase("different names", "gns", "g3n3", "exp_one/my_genes"),
-		]
-		
+	@dataclass
+	class WRGeneCase:
+		desc: str
+		name: str # name in data dict of write call
+		hdf5_name: str
+		hdf5_path: str
+	
+	case_list = [
+		WRGeneCase("default", "genes", "gene", "mapping/genes"),
+		WRGeneCase("different names", "gns", "g3n3", "exp_one/my_genes"),
+	]
+	
+	def test_write_read_genes_aims(self):
 		exp = EXP_REP.genes
 		src_name = "Test"
-		for tc in case_list:
+		for tc in self.case_list:
 			with self.subTest(desc=tc.desc):
 				self.delete_hdf5_file()
 				
@@ -292,4 +292,28 @@ class HDF5SinkTest(TestCase):
 				
 				# check
 				self.assertEqual(exp, res)
-		
+	
+	def test_write_read_genes_meta(self):
+		exp = EXP_REP.genes
+		for tc in self.case_list:
+			with self.subTest(desc=tc.desc):
+				self.delete_hdf5_file()
+				
+				# write
+				write_map = {}
+				metadata = HDF5Sink.create_gene_meta(exp, tc.hdf5_name, tc.hdf5_path)
+				with HDF5Sink(write_map, metadata=metadata, filename=self.filename, mode="w") as dut:
+					pass
+				
+				# read
+				with h5py.File(self.filename, "r") as h5_file:
+					grp = h5_file[tc.hdf5_path]
+					res = HDF5Sink.extract_genes(grp, IcecraftBitPosition, tc.hdf5_name)
+					
+					# check use of base name
+					relevant = [n for n in grp if n.startswith(tc.hdf5_name)]
+					self.assertEqual(len(exp), len(relevant))
+				
+				# check
+				self.assertEqual(exp, res)
+	

@@ -307,6 +307,30 @@ class HDF5Sink(DataSink):
 		return aims
 	
 	@staticmethod
+	def create_gene_meta(genes: List[Gene], h5_base_name: str="gene", h5_path: str="/") -> MetaEntryMap:
+		"""Create metadata to store Gene sequence"""
+		
+		meta_map = {}
+		
+		for index, cur_gene in enumerate(genes):
+			metas = []
+			metas.append(MetaEntry("description", cur_gene.description, str))
+			metas.append(MetaEntry("bits", [b.to_ints() for b in cur_gene.bit_positions], "uint16"))
+			metas.append(MetaEntry("allele_type", type(cur_gene.alleles).__name__, str))
+			
+			if isinstance(cur_gene.alleles, AlleleList):
+				metas.append(MetaEntry("alleles", [a.values for a in cur_gene.alleles], None))
+			elif isinstance(cur_gene.alleles, AllelePow):
+				metas.append(MetaEntry("input_count", cur_gene.alleles.input_count, None))
+				metas.append(MetaEntry("unused_inputs", cur_genes.alleles.unused_inputs, None))
+			# for AlleleAll only the number of bits is relevant
+			
+			grp_name = h5_path + "/" + f"{h5_base_name}_{index:05d}"
+			meta_map[grp_name] = metas
+		
+		return meta_map
+	
+	@staticmethod
 	def extract_genes(grp: h5py.Group, bit_cls: Type[BitPos], h5_base_name: str="gene") -> List[Gene]:
 		"""Create genes based on data in HDF5 group that was stored according to create_gene_aims"""
 		gene_list = []
