@@ -4,7 +4,8 @@ import h5py
 import numpy as np
 
 from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, IcecraftLUTPosition, IcecraftRawConfig,\
-	IndexedItem, PartConf
+	IcecraftRep, IndexedItem, PartConf
+from adapters.hdf5_sink import HDF5Sink
 from applications.discern_frequency.hdf5_desc import HDF5Desc, HDF5_DICT
 from domain.model import Chromosome
 
@@ -115,5 +116,26 @@ def read_rep_colbufctrl(hdf5_file: h5py.File) -> Tuple[IndexedItem, ]:
 	if len(bit_raw) != len(idx_raw):
 		raise ValueError(f"number of bits and indices don't match: {len(bit_raw)} != {len(idx_raw)}")
 	
-	return tuple(IndexedItem(tuple(IcecraftBitPosition(*p) for p in b), "ColBufCtrl", i)
-		for b, i in zip(bit_raw.tolist(), idx_raw.tolist()))
+	return [IndexedItem(tuple(IcecraftBitPosition(*p) for p in b), "ColBufCtrl", i)
+		for b, i in zip(bit_raw.tolist(), idx_raw.tolist())]
+
+def read_rep(hdf5_file: h5py.File, no_carry: bool=False) -> IcecraftRep:
+	"""Read representation from HDF5 file.
+	
+	no_carry: flag to not read carry data; necessary if static carry_enable values should be used
+	"""
+	gene_desc = HDF5_DICT["rep.genes"]
+	const_desc = HDF5_DICT["rep.const"]
+	
+	genes = HDF5Sink.extract_genes(hdf5_file[gene_desc.h5_path], IcecraftBitPosition, gene_desc.h5_name)
+	const = HDF5Sink.extract_genes(hdf5_file[const_desc.h5_path], IcecraftBitPosition, const_desc.h5_name)
+	
+	colbufctrl = read_rep_colbufctrl(hdf5_file)
+	
+	out_lutff = read_rep_output(hdf5_file)
+	
+	carry_data = {}
+	if not no_carry:
+		carry_data = read_rep_carry_data(hdf5_file)
+	
+	return IcecraftRep(genes, const, colbufctrl, out_lutff, carry_data)
