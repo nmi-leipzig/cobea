@@ -129,7 +129,7 @@ class HDF5SinkTest(TestCase):
 			self.assertEqual(a, b)
 	
 	def setUp(self):
-		self.filename = "tmp.test.h5"
+		self.filename = "tmp.HDF5SinkTest.h5"
 	
 	def tearDown(self):
 		self.delete_hdf5_file()
