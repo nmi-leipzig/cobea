@@ -57,8 +57,8 @@ def get_with_index(hdf5_file: h5py.File, desc: HDF5Desc, index: int) -> Union[h5
 
 def read_carry_use(hdf5_file: h5py.File, cd_index) -> List[PartConf]:
 	res = []
-	bit_desc = HDF5_DICT["carry_data.bits"]
-	val_desc = HDF5_DICT["carry_data.values"]
+	bit_desc = HDF5_DICT["rep.carry_data.bits"]
+	val_desc = HDF5_DICT["rep.carry_data.values"]
 	
 	bit_grp = get_with_index(hdf5_file, bit_desc, cd_index)
 	val_grp = get_with_index(hdf5_file, val_desc, cd_index)
@@ -79,8 +79,8 @@ def read_carry_use(hdf5_file: h5py.File, cd_index) -> List[PartConf]:
 
 def read_rep_carry_data(hdf5_file: h5py.File) -> CarryDataMap:
 	cd_map = {}
-	lut_desc = HDF5_DICT["carry_data.lut"]
-	ena_desc = HDF5_DICT["carry_data.enable"]
+	lut_desc = HDF5_DICT["rep.carry_data.lut"]
+	ena_desc = HDF5_DICT["rep.carry_data.enable"]
 	
 	cd_index = 0
 	while True:

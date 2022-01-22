@@ -96,7 +96,7 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 		"5 10 kHz bursts")
 	add_meta(metadata, "carry_enable.desc", "values of carry enable bits; derived from the configuration bits defined "
 		"by the genotype")
-	add_meta(metadata, "carry_data.desc", "data describing how to derive the carry bits from the configuration bits "
+	add_meta(metadata, "rep.carry_data.desc", "data describing how to derive the carry bits from the configuration bits "
 		"defined by the genotype")
 	
 	add_carry_data(metadata, rep.iter_carry_data())
