@@ -144,3 +144,9 @@ def read_fitness_chromo_id(hdf5_file: h5py.File, fit_index: int) -> int:
 	desc = HDF5_DICT["fitness.chromo_id"]
 	data = data_from_desc(hdf5_file, desc)[fit_index]
 	return data
+
+def get_chromo_bits(hdf5_file: h5py.File) -> int:
+	"""Get number of bits used for allele indices in chromosomes"""
+	desc = HDF5_DICT["chromo.indices"]
+	size = data_from_desc(hdf5_file, desc).dtype.itemsize
+	return size * 8
