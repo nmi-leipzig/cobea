@@ -13,7 +13,7 @@ from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, Icec
 from applications.discern_frequency.hdf5_desc import add_carry_data, add_meta, add_rep, HDF5_DICT, pa_gen
 from applications.discern_frequency.read_hdf5_util import read_chromosome, read_habitat, read_s_t_index,\
 	read_rep_carry_data, read_carry_enable_bits, read_carry_enable_values, read_rep_colbufctrl, read_rep_output,\
-	read_rep
+	read_rep, read_fitness_chromo_id
 from domain.model import Chromosome
 
 from tests.icecraft.data.rep_data import EXP_REP
@@ -232,6 +232,25 @@ class WriteReadHDF5Test(TestCase):
 		
 		with h5py.File(hdf5_filename, "r") as hdf5_file:
 			res = read_rep(hdf5_file)
+		
+		self.assertEqual(exp, res)
+		
+		del_files([hdf5_filename])
+	
+	def test_write_read_fitness_chromo_id(self):
+		exp = 25
+		
+		hdf5_filename = "tmp.test_write_read_fitness_chromo_id.h5"
+		del_files([hdf5_filename])
+		
+		write_map = {"th": [pa_gen("fitness.chromo_id", ["fc"])]}
+		
+		with HDF5Sink(write_map, filename=hdf5_filename) as sink:
+			chromo = Chromosome(exp, (2, 5, 1, 9))
+			sink.write("th", {"fc": chromo})
+		
+		with h5py.File(hdf5_filename, "r") as hdf5_file:
+			res = read_fitness_chromo_id(hdf5_file, 0)
 		
 		self.assertEqual(exp, res)
 		

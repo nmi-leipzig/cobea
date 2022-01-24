@@ -139,3 +139,8 @@ def read_rep(hdf5_file: h5py.File, no_carry: bool=False) -> IcecraftRep:
 		carry_data = read_rep_carry_data(hdf5_file)
 	
 	return IcecraftRep(genes, const, colbufctrl, out_lutff, carry_data)
+
+def read_fitness_chromo_id(hdf5_file: h5py.File, fit_index: int) -> int:
+	desc = HDF5_DICT["fitness.chromo_id"]
+	data = data_from_desc(hdf5_file, desc)[fit_index]
+	return data

@@ -31,6 +31,8 @@ HDF5_DICT= {
 	# type and shape have to be derived from representation
 	"chromo.indices": HDF5Desc("dyn", "chromosome", "individual", False),
 	"chromo.indices.desc": HDF5Desc(str, "description", "individual/chromosome"),
+	"fitness.chromo_id": HDF5Desc("uint64", "chromo_id", "fitness", False,
+		alter=chain_funcs([itemgetter(0), attrgetter("identifier")])),
 	"fitness.st": HDF5Desc("uint8", "s_t_index", "fitness", False),
 	"fitness.st.desc": HDF5Desc(str, "description", "fitness/s_t_index"),
 	"carry_enable.values": HDF5Desc(bool, "carry_enable", "fitness", False, None),
