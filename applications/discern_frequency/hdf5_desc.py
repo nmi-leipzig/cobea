@@ -5,7 +5,7 @@ Especially data that is required for both reading and writing.
 
 from dataclasses import astuple, dataclass
 from functools import partial
-from operator import attrgetter, itemgetter
+from operator import attrgetter, itemgetter, methodcaller
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 
@@ -38,7 +38,8 @@ HDF5_DICT= {
 	"fitness.st": HDF5Desc("uint8", "s_t_index", "fitness", False),
 	"fitness.st.desc": HDF5Desc(str, "description", "fitness/s_t_index"),
 	"carry_enable.values": HDF5Desc(bool, "carry_enable", "fitness", False, None),
-	"carry_enable.bits": HDF5Desc("uint16", "bits", "fitness/carry_enable"),
+	"carry_enable.bits": HDF5Desc("uint16", "bits", "fitness/carry_enable",
+		alter=chain_funcs([partial(map, methodcaller("to_ints")), list])),
 	"carry_enable.desc": HDF5Desc(str, "description", "fitness/carry_enable"),
 	"rep.carry_data.lut": HDF5Desc("uint8", "lut_index", r"mapping/carry_data/carry_data_{}"),
 	"rep.carry_data.enable": HDF5Desc("uint16", "carry_enable", r"mapping/carry_data/carry_data_{}"),
@@ -131,3 +132,5 @@ def add_rep(metadata: MetaEntryMap, rep: IcecraftRep) -> None:
 	add_meta(metadata, "rep.output", rep.output)
 	
 	add_carry_data(metadata, rep.iter_carry_data())
+	
+	add_meta(metadata, "carry_enable.bits", list(rep.iter_carry_bits()))
