@@ -7,7 +7,7 @@ from unittest import TestCase
 
 import h5py
 
-from adapters.hdf5_sink import compose, HDF5Sink, ParamAim
+from adapters.hdf5_sink import chain_funcs, compose, HDF5Sink, ParamAim
 from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, IcecraftLUTPosition, IcecraftPosition,\
 	IcecraftRawConfig, IndexedItem, PartConf
 from applications.discern_frequency.hdf5_desc import add_carry_data, add_meta, add_rep, HDF5_DICT, pa_gen
@@ -57,12 +57,9 @@ class WriteReadHDF5Test(TestCase):
 				
 				chromo_desc = HDF5_DICT["chromo.indices"]
 				write_map = {"th": [
-					ParamAim(["chromo"], f"uint{width}", chromo_desc.h5_name, chromo_desc.h5_path, chromo_desc.as_attr,
-						shape=(4, ), alter=partial(compose, funcs=[itemgetter(0), attrgetter("allele_indices")])
-					),
-					pa_gen(
-						"chromo.id", ["chromo"],  alter=partial(compose, funcs=[itemgetter(0), attrgetter("identifier")])
-					),
+					pa_gen("chromo.indices", ["chromo"], data_type=f"uint{width}", shape=(4, ),
+						alter=chain_funcs([itemgetter(0), attrgetter("allele_indices")])),
+					pa_gen("chromo.id", ["chromo"],  alter=chain_funcs([itemgetter(0), attrgetter("identifier")])),
 				]}
 				
 				with HDF5Sink(write_map, filename=hdf5_filename) as sink:

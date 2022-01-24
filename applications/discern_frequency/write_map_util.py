@@ -44,13 +44,9 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	chromo_aim = [
 		pa_gen(
 			"chromo.indices", ["return"], data_type=f"uint{chromo_bits}", shape=(len(rep.genes), ),
-			alter=partial(compose, funcs=[itemgetter(0), attrgetter("chromosome"), attrgetter("allele_indices")]),
 			comp_opt=9, shuffle=True
 		),
-		pa_gen(
-			"chromo.id", ["return"], alter=partial(compose, funcs=[itemgetter(0), attrgetter("chromosome"),
-			attrgetter("identifier")]), comp_opt=9, shuffle=True
-		),
+		pa_gen("chromo.id", ["return"], comp_opt=9, shuffle=True),
 	]
 	
 	write_map = {
