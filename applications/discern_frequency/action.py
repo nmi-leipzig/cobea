@@ -33,7 +33,7 @@ from adapters.prng import BuiltInPRNG
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
-from applications.discern_frequency.read_hdf5_util import read_habitat
+from applications.discern_frequency.read_hdf5_util import get_chromo_bits, read_carry_enable_bits, read_carry_enable_values, read_chromosome, read_fitness_chromo_id, read_habitat, read_rep, read_s_t_index
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink
 from domain.interfaces import Driver, FitnessFunction, InputData, InputGen, Meter, OutputData, PRNG, TargetDevice, \
@@ -557,31 +557,21 @@ def remeasure(args: Namespace) -> None:
 		hab_config = read_habitat(hdf5_file)
 		
 		# rep
-		genes = HDF5Sink.extract_genes(hdf5_file["mapping/genes"], IcecraftBitPosition)
-		const = HDF5Sink.extract_genes(hdf5_file["mapping/constant"], IcecraftBitPosition)
-		# assume colbufctrl and output as empty
-		colbufctrl = []
-		output = []
-		# carry data empty as the bits are set according to stored values
-		carry_data = {}
-		rep = IcecraftRep(genes, const, colbufctrl, output, carry_data)
+		rep = read_rep(hdf5_file, no_carry=True)
 		
 		# carry enable
-		carry_ints = hdf5_file["fitness/carry_enable"].attrs["bits"]
-		carry_bits = [IcecraftBitPosition(*c) for c in carry_ints]
-		carry_values = hdf5_file["fitness/carry_enable"][measurement_index]
+		carry_bits = read_carry_enable_bits(hdf5_file)
+		carry_values = read_carry_enable_values(hdf5_file, measurement_index)
 		
 		# s-t index
 		if not comb_list:
-			comb_list = [hdf5_file["fitness/s_t_index"][measurement_index]]
+			comb_list = [read_s_t_index(hdf5_file, measurement_index)]
 		
 		# chromosome
-		chromo_id = hdf5_file["fitness/chromo_id"][measurement_index]
-		chromo_index = np.where(hdf5_file["individual/chromo_id"][:] == chromo_id)[0][0]
-		allele_indices = tuple(hdf5_file["individual/chromosome"][chromo_index])
-		chromo = Chromosome(chromo_id, allele_indices)
+		chromo_id = read_fitness_chromo_id(hdf5_file, measurement_index)
+		chromo = read_chromosome(hdf5_file, chromo_id)
 		
-		chromo_bits = hdf5_file["individual/chromosome"].dtype.itemsize * 8
+		chromo_bits = get_chromo_bits(hdf5_file)
 		
 		# write to sink
 		write_map, metadata = write_map_util.create_base(rep, chromo_bits)
@@ -626,7 +616,7 @@ def remeasure(args: Namespace) -> None:
 		stack.enter_context(sink)
 		
 		# chromosome
-		sink.write("GenChromo.perform", {"return": chromo})
+		#sink.write("GenChromo.perform", {"return": chromo})
 		# org filename
 		sink.write("remeasure.meta", {"org_filename": args.data_file})
 		# habitat
@@ -641,6 +631,10 @@ def remeasure(args: Namespace) -> None:
 		})
 		rep.prepare_config(hab_config)
 		
+		# set carry enable correctly
+		for bit, val in zip(carry_bits, carry_values):
+			hab_config.set_bit(bit, val)
+		
 		sink.write("misc", {
 			"git_commit": get_git_commit(),
 			"python_version": sys.version,
@@ -650,23 +644,17 @@ def remeasure(args: Namespace) -> None:
 		if rec_temp:
 			start_temp(args.temperature, stack, sink)
 		
-		measure_uc = Measure(driver, meter, sink)
-		dec_uc = DecTarget(rep, hab_config, target, extract_info=extract_carry_enable)
+		measure_uc = Measure(measure_setup.driver, measure_setup.meter, sink)
+		dec_uc = DecTarget(rep, hab_config, measure_setup.target, extract_info=extract_carry_enable)
 		
-		# set carry enable correctly
-		for bit, val in zip(carry_bits, carry_values):
-			hab_config.set_bit(bit, val)
+		adapter_setup = create_adapter_setup()
 		
-		adapter_setup =create_adapter_setup()
-		
-		#TODO: prep
-		#mf_uc = MeasureFitness(dec_uc, measure_uc, fit_func, , data_sink=sink)
+		mf_uc = MeasureFitness(dec_uc, measure_uc, adapter_setup.fit_func, adapter_setup.input_gen,
+			prep=measure_setup.preprocessing, data_sink=sink)
 		
 		# run measurement
-		ea = SimpleEA(rep, measure_uc, dec_uc, adapter_setup.fit_func, SimpleUID(), adapter_setup.prng, cal_data.trig_len, sink)
-		indi = Individual(chromo)
 		for r in range(args.rounds):
 			for comb_index in comb_list:
-				fit = ea._evaluate(indi, comb_index)
-				sink.write("remeasure.enable", {"carry_enable": carry_values})
-				print(f"fit for {comb_index}: {fit}")
+				req = RequestObject(chromosome=chromo)
+				fit_res = mf_uc(req)
+				print(f"fit for {comb_index}: {fit_res.fitness}")
