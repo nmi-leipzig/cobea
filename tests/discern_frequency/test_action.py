@@ -164,8 +164,8 @@ class ActionTest(TestCase):
 			temperature = None,
 			freq_gen_type = None,
 			data_file = run_filename,
-			index = 7,
-			rounds = 1,
+			index = 3,
+			rounds = 4,
 			comb_index = None,
 		)
 		remeasure(args)
