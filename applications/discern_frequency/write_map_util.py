@@ -1,14 +1,46 @@
 """Functions for handling the write map for HDF5 sinks"""
 
-from dataclasses import astuple
+import re
+
+from dataclasses import astuple, dataclass, field
 from functools import partial
 from operator import attrgetter, itemgetter, methodcaller
-from typing import Any, Iterable, List, Tuple
+from typing import Any, Iterable, List, Optional, Tuple
 
 from adapters.gear.rigol import FloatCheck, IntCheck, SetupCmd
 from adapters.hdf5_sink import compose, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftRep
 from applications.discern_frequency.hdf5_desc import add_rep, add_meta, HDF5_DICT, pa_gen
+
+
+@dataclass
+class FormData:
+	"""Data for inserting HDF5 groups and names"""
+	name: Iterable = field(default_factory=tuple)
+	path: Iterable = field(default_factory=tuple)
+
+
+@dataclass
+class FormEntry:
+	key: str
+	data: Optional[List[FormData]]
+
+
+@dataclass
+class ExpEntries:
+	simple: List[str]
+	form: List[FormEntry] = field(default_factory=list)
+	
+	def __add__(self, other: "ExpEntries") -> "ExpEntries":
+		return ExpEntries(self.simple+other.simple, self.form+other.form)
+
+
+ENTRIES_MEASURE = ExpEntries([])
+
+ENTRIES_REP = ExpEntries([])
+
+ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE
+
 
 def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
 	return [
@@ -290,3 +322,14 @@ def meter_setup_to_meta(setup: SetupCmd) -> List[MetaEntry]:
 		res.extend(meter_setup_to_meta(subcmd))
 	
 	return res
+
+def fixed_prefix(path: str) -> str:
+	"""Find longest prefix without palceholder"""
+	parts = path.split("/")
+	i = 0
+	for p in parts:
+		if re.search("{}", p):
+			break
+		i += 1
+	
+	return "/".join(parts[:i])
