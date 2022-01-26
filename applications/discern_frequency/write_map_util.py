@@ -56,7 +56,7 @@ ENTRIES_OSCI = ExpEntries(["osci.calibration", "osci.calibration.desc", "osci.ca
 	"osci.calibration.rising", "osci.calibration.falling", "osci.calibration.trig_len", "osci.calibration.offset",
 	"freq_gen", "freq_gen.desc"])
 
-ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.pop", "ea.pop.desc"])
+ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.pop", "ea.pop.desc", "ea.crossover.desc", "ea.crossover.in", "ea.crossover.out", "ea.crossover.generation", "ea.crossover.generation.desc", ])
 
 ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA
 
@@ -242,9 +242,9 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 			pa_gen("ea.pop", ["pop"], shape=(pop_size, ), shuffle=True),
 		],
 		"Individual.wrap.cxOnePoint": [
-			ParamAim(["in"], "uint64", "parents", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
-			ParamAim(["out"], "uint64", "children", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
-			ParamAim(["generation"], "uint64", "generation", "crossover", as_attr=False, comp_opt=9, shuffle=True),
+			pa_gen("ea.crossover.in", ["in"], comp_opt=9, shuffle=True),
+			pa_gen("ea.crossover.out", ["out"], comp_opt=9, shuffle=True),
+			pa_gen("ea.crossover.generation", ["generation"], comp_opt=9, shuffle=True),
 		],
 		"Individual.wrap.mutUniformInt": [
 			ParamAim(
@@ -264,14 +264,14 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 	}
 	
 	ea_meta = {
-		"crossover": [MetaEntry("description", "IDs of the chromosomes participating in and resulting from crossover")],
-		"crossover/generation": [MetaEntry("description", "value i means crossover occured while generating generation "
-			"i from generation i-1")],
 		"mutation": [MetaEntry("description", "IDs of chromosomes resulting from mutation; as all chromosomes of a "
 			"generation participate in mutation, only alterations are recorded")],
 		"mutation/generation": [MetaEntry("description", "value i means mutation occured while generating generation "
 			"i from generation i-1")],
 	}
+	add_meta(metadata, "ea.crossover.desc", "IDs of the chromosomes participating in and resulting from crossover")
+	add_meta(metadata, "ea.crossover.generation.desc", "value i means crossover occured while generating generation "
+		"i from generation i-1")
 	add_meta(metadata, "ea.pop.desc", "IDs of the chromosomes included in each generation")
 	add_meta(metadata, "fitness.generation.desc", "generation in which the fitness was evaluated")
 	
