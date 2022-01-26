@@ -95,10 +95,6 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	]
 	
 	write_map = {
-		"Measure.perform": [
-			pa_gen("fitness.st", ["driver_data"], comp_opt=9, shuffle=True),
-			pa_gen("fitness.time", ["return"], comp_opt=9, shuffle=True),
-		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
 		"habitat": [pa_gen("habitat", ["text"], alter=partial(compose, funcs=[itemgetter(0), partial(bytearray,
@@ -202,6 +198,10 @@ def add_temp(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 
 def add_measure(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep) -> None:
 	"""Add the entries for MeasureFitness use case"""
+	write_map.setdefault("Measure.perform", []).extend([
+		pa_gen("fitness.st", ["driver_data"], comp_opt=9, shuffle=True),
+		pa_gen("fitness.time", ["return"], comp_opt=9, shuffle=True),
+	])
 	ea_map = {
 		"MeasureFitness.perform": [
 			ParamAim(["return"], "float64", "value", "fitness", as_attr=False, alter=partial(compose, funcs=[
