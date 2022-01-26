@@ -37,10 +37,16 @@ class ExpEntries:
 	def __add__(self, other: "ExpEntries") -> "ExpEntries":
 		return ExpEntries(self.simple+other.simple, self.form+other.form)
 
+ENTRIES_REP = ExpEntries(["rep.carry_data.desc", "rep.output", "rep.colbufctrl.bits",
+	"rep.colbufctrl.indices"], [FormEntry("rep.carry_data.lut", None), FormEntry("rep.carry_data.enable", None),
+	FormEntry("rep.carry_data.bits", None), FormEntry("rep.carry_data.values", None),
+	FormEntry("rep.genes", None, True), FormEntry("rep.const", None, True)])
 
-ENTRIES_MEASURE = ExpEntries([])
+ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "chromo.desc", "chromo.id", "chromo.id.desc",
+	"chromo.indices", "chromo.indices.desc", "fitness.chromo_id", "fitness.st", "fitness.st.desc",
+	"carry_enable.values", "carry_enable.bits", "carry_enable.desc"])
 
-ENTRIES_REP = ExpEntries([])
+ENTRIES_EA = ExpEntries([])
 
 ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE
 
