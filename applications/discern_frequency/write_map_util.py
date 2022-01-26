@@ -13,7 +13,6 @@ from adapters.gear.rigol import FloatCheck, IntCheck, SetupCmd
 from adapters.hdf5_sink import chain_funcs, compose, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftRep
 from applications.discern_frequency.hdf5_desc import add_rep, add_meta, HDF5_DICT, pa_gen
-from applications.discern_frequency.misc import ignore_same
 
 
 @dataclass
@@ -57,7 +56,10 @@ ENTRIES_OSCI = ExpEntries(["osci.calibration", "osci.calibration.desc", "osci.ca
 	"osci.calibration.rising", "osci.calibration.falling", "osci.calibration.trig_len", "osci.calibration.offset",
 	"freq_gen", "freq_gen.desc"])
 
-ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.pop", "ea.pop.desc", "ea.crossover.desc", "ea.crossover.in", "ea.crossover.out", "ea.crossover.generation", "ea.crossover.generation.desc", ])
+ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.pop", "ea.pop.desc", "ea.crossover.desc",
+	"ea.crossover.in", "ea.crossover.out", "ea.crossover.generation", "ea.crossover.generation.desc",
+	"ea.mutation.desc", "ea.mutation.parent", "ea.mutation.child", "ea.mutation.generation",
+	"ea.mutation.generation.desc", ])
 
 ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA
 
@@ -239,28 +241,17 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 			pa_gen("ea.crossover.generation", ["generation"], comp_opt=9, shuffle=True),
 		],
 		"Individual.wrap.mutUniformInt": [
-			ParamAim(
-				["out", "in"], "uint64", "parent", "mutation", as_attr=False,
-				alter=partial(compose, funcs=[ignore_same, itemgetter(0)]), comp_opt=9, shuffle=True
-			),
-			ParamAim(
-				["in", "out"], "uint64", "child", "mutation", as_attr=False,
-				alter=partial(compose, funcs=[ignore_same, itemgetter(0)]), comp_opt=9, shuffle=True
-			),
-			ParamAim(
-				["in", "out", "generation"], "uint64", "generation", "mutation", as_attr=False,
-				alter=ignore_same, comp_opt=9, shuffle=True
-			),
+			pa_gen("ea.mutation.parent", ["out", "in"], comp_opt=9, shuffle=True),
+			pa_gen("ea.mutation.child", ["in", "out"], comp_opt=9, shuffle=True),
+			pa_gen("ea.mutation.generation", ["in", "out", "generation"], comp_opt=9, shuffle=True),
 		],
 		"prng": [ParamAim(["seed"], "int64", "prng_seed")] + create_rng_aim("final_state", "prng_final_"),
 	}
 	
-	ea_meta = {
-		"mutation": [MetaEntry("description", "IDs of chromosomes resulting from mutation; as all chromosomes of a "
-			"generation participate in mutation, only alterations are recorded")],
-		"mutation/generation": [MetaEntry("description", "value i means mutation occured while generating generation "
-			"i from generation i-1")],
-	}
+	add_meta(metadata, "ea.mutation.desc", "IDs of chromosomes resulting from mutation; as all chromosomes of a "
+		"generation participate in mutation, only alterations are recorded")
+	add_meta(metadata, "ea.mutation.generation.desc", "value i means mutation occured while generating generation "
+		"i from generation i-1")
 	add_meta(metadata, "ea.crossover.desc", "IDs of the chromosomes participating in and resulting from crossover")
 	add_meta(metadata, "ea.crossover.generation.desc", "value i means crossover occured while generating generation "
 		"i from generation i-1")
@@ -268,7 +259,6 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 	add_meta(metadata, "fitness.generation.desc", "generation in which the fitness was evaluated")
 	
 	write_map.update(ea_map)
-	metadata.update(ea_meta)
 
 def create_for_run(rep: IcecraftRep, pop_size: int, chromo_bits: 16, temp: bool=True)-> Tuple[ParamAimMap,
 	MetaEntryMap]:

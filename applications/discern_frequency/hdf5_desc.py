@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tu
 
 from adapters.hdf5_sink import chain_funcs, HDF5Sink, MetaEntry, MetaEntryMap, ParamAim
 from adapters.icecraft import CarryData, IcecraftRep
+from applications.discern_frequency.misc import ignore_same
 
 
 class HDF5Desc(NamedTuple):
@@ -40,6 +41,13 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"ea.crossover.out": HDF5Desc("uint64", "children", "crossover", False, (2, )),
 	"ea.crossover.generation": HDF5Desc("uint64", "generation", "crossover", False),
 	"ea.crossover.generation.desc": HDF5Desc(str, "description", "crossover/generation"),
+	"ea.mutation.desc": HDF5Desc(str, "description", "mutation"),
+	"ea.mutation.parent": HDF5Desc("uint64", "parent", "mutation", False, alter=chain_funcs([ignore_same,
+		itemgetter(0)])),
+	"ea.mutation.child": HDF5Desc("uint64", "child", "mutation", False, alter=chain_funcs([ignore_same,
+		itemgetter(0)])),
+	"ea.mutation.generation": HDF5Desc("uint64", "generation", "mutation", False, alter=ignore_same),
+	"ea.mutation.generation.desc": HDF5Desc(str, "description", "mutation/generation"),
 	"fitness.chromo_id": HDF5Desc("uint64", "chromo_id", "fitness", False,
 		alter=chain_funcs([itemgetter(0), attrgetter("identifier")])),
 	"fitness.chromo_id.desc": HDF5Desc(str, "description", "fitness/chromo_id"),
