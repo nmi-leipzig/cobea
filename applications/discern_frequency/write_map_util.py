@@ -45,7 +45,8 @@ ENTRIES_REP = ExpEntries(["rep.carry_data.desc", "rep.output", "rep.colbufctrl.b
 ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "chromo.desc", "chromo.id", "chromo.id.desc",
 	"chromo.indices", "chromo.indices.desc", "fitness.chromo_id", "fitness.chromo_id.desc", "fitness.st",
 	"fitness.st.desc", "carry_enable.values", "carry_enable.bits", "carry_enable.desc", "fitness.desc", "fitness.time",
-	"fitness.time.desc", "fitness.time.unit"])
+	"fitness.time.desc", "fitness.time.unit", "fitness.value", "fitness.fast_sum", "fitness.slow_sum",
+	"fitness.value.desc", "fitness.fast_sum.desc", "fitness.slow_sum.desc"])
 
 ENTRIES_TEMP = ExpEntries(["temp.desc", "temp.value", "temp.value.desc", "temp.value.unit", "temp.time",
 	"temp.time.desc", "temp.time.unit", "temp.reader.sn", "temp.reader.hw", "temp.sensor.sn", "temp.sensor.hw"])
@@ -204,12 +205,9 @@ def add_measure(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep
 	])
 	ea_map = {
 		"MeasureFitness.perform": [
-			ParamAim(["return"], "float64", "value", "fitness", as_attr=False, alter=partial(compose, funcs=[
-				itemgetter(0), attrgetter("fitness")]), comp_opt=9, shuffle=True),
-			ParamAim(["return"], "float64", "fast_sum", "fitness", as_attr=False, alter=partial(compose, funcs=[
-				itemgetter(0), attrgetter("fast_sum")]), comp_opt=9, shuffle=True),
-			ParamAim(["return"], "float64", "slow_sum", "fitness", as_attr=False, alter=partial(compose, funcs=[
-				itemgetter(0), attrgetter("slow_sum")]), comp_opt=9, shuffle=True),
+			pa_gen("fitness.value", ["return"], comp_opt=9, shuffle=True),
+			pa_gen("fitness.fast_sum", ["return"], comp_opt=9, shuffle=True),
+			pa_gen("fitness.slow_sum", ["return"], comp_opt=9, shuffle=True),
 			pa_gen("fitness.chromo_id", ["chromosome"], comp_opt=9, shuffle=True),
 			pa_gen("carry_enable.values", ["return"], alter=partial(compose, funcs=[itemgetter(0),
 				attrgetter("carry_enable")]), shape=(len(list(rep.iter_carry_bits())), ), comp_opt=4),
@@ -218,11 +216,11 @@ def add_measure(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep
 	}
 	
 	ea_meta = {
-		"fitness/value": [MetaEntry("description", "actual fitness value")],
-		"fitness/fast_sum": [MetaEntry("description", "aggregated area under the curve for all 10 kHz bursts")],
-		"fitness/slow_sum": [MetaEntry("description", "aggregated area under the curve for all 1 kHz bursts")],
 		"fitness/generation": [MetaEntry("description", "generation in which the fitness was evaluated")],
 	}
+	add_meta(metadata, "fitness.value.desc", "actual fitness value")
+	add_meta(metadata, "fitness.fast_sum.desc", "aggregated area under the curve for all 10 kHz bursts")
+	add_meta(metadata, "fitness.slow_sum.desc", "aggregated area under the curve for all 1 kHz bursts")
 	add_meta(metadata, "fitness.chromo_id.desc", "ID of the corresponding chromosome")
 	add_meta(metadata, "fitness.st.desc", "index of the s-t-combination used for determining the order of 5 1 kHz and "
 		"5 10 kHz bursts")
