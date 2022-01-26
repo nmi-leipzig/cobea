@@ -424,35 +424,6 @@ def unknown_hdf5_entries(hdf5_file: h5py.File, exp_entries: ExpEntries) -> List[
 	hdf5_root = Node()
 	collect_sub(hdf5_file, hdf5_root)
 	
-	def visit_explicit(grp, path_parts, attr):
-		if len(path_parts) == 0:
-			grp.visited = True
-			if attr is None:
-				return
-			try:
-				grp.attrs[attr] = True
-			except KeyError:
-				pass
-			return
-		
-		if grp.sub is None:
-			# dataset
-			# don't set visited as the path continues, but the HDF5 hierarchy ends
-			return
-		
-		if not path_parts[0]:
-			visit_explicit(grp, path_parts[1:], attr)
-			return
-		
-		grp.visited = True
-		
-		try:
-			sub = grp.sub[path_parts[0]]
-		except KeyError:
-			return
-		
-		visit_explicit(sub, path_parts[1:], attr)
-	
 	def visit_pat(grp, path_parts, attr):
 		if len(path_parts) == 0:
 			grp.visited = True
@@ -495,27 +466,27 @@ def unknown_hdf5_entries(hdf5_file: h5py.File, exp_entries: ExpEntries) -> List[
 			
 			visit_pat(sub, path_parts[1:], attr)
 	
-	def start_visit(func, path, name, as_attr):
+	def start_visit(path, name, as_attr):
 		if as_attr:
-			func(hdf5_root, path.split("/"), name)
+			visit_pat(hdf5_root, path.split("/"), name)
 		else:
-			func(hdf5_root, path.split("/")+[name], None)
+			visit_pat(hdf5_root, path.split("/")+[name], None)
 	
 	for desc_key in exp_entries.simple:
 		desc = HDF5_DICT[desc_key]
-		start_visit(visit_pat, desc.h5_path, desc.h5_name, desc.as_attr)
+		start_visit(desc.h5_path, desc.h5_name, desc.as_attr)
 	
 	for entry in exp_entries.form:
 		desc = HDF5_DICT[entry.key]
 		if entry.data is None:
-			start_visit(visit_pat, desc.h5_path, desc.h5_name, desc.as_attr)
+			start_visit(desc.h5_path, desc.h5_name, desc.as_attr)
 			continue
 		
 		for dat in entry.data:
 			full_name = desc.h5_name.format(*dat.name)
 			full_path = desc.h5_path.format(*dat.path)
 			
-			start_visit(visit_pat, full_path, full_name, desc.as_attr)
+			start_visit(full_path, full_name, desc.as_attr)
 	
 	def collect_unvisited(node, path, unvisited):
 		if not node.visited:
