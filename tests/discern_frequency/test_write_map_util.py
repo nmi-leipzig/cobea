@@ -6,28 +6,13 @@ import h5py
 
 from adapters.hdf5_sink import HDF5Sink, MetaEntry
 from applications.discern_frequency.hdf5_desc import add_meta, HDF5_DICT, pa_gen
-from applications.discern_frequency.write_map_util import ExpEntries, FormEntry, FormData, fixed_prefix, missing_hdf5_entries, unknown_hdf5_entries
+from applications.discern_frequency.write_map_util import ExpEntries, FormEntry, FormData, missing_hdf5_entries, unknown_hdf5_entries
 from domain.model import Chromosome
 
 from .common import del_files
 
 
 class WriteMapUtilTest(TestCase):
-	def test_fixed_prefix(self):
-		test_data = [# test input, exp
-			("", ""),
-			("/", "/"),
-			("mapping/carry_data/carry_data_{}", "mapping/carry_data"),
-			("/mapping/carry_data/carry_data_{}", "/mapping/carry_data"),
-			("/mapping_{}/carry_data/carry_data_{}", ""),
-			("mapping_{}/carry_data/carry_data_{}", ""),
-		]
-		
-		for data, exp in test_data:
-			with self.subTest(data=data):
-				res = fixed_prefix(data)
-				self.assertEqual(exp, res)
-	
 	def create_hdf5(self, hdf5_filename):
 		metadata = {}
 		add_meta(metadata, "fitness.st.desc", "simple attr entry")

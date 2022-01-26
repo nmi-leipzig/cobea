@@ -311,17 +311,6 @@ def meter_setup_to_meta(setup: SetupCmd) -> List[MetaEntry]:
 	
 	return res
 
-def fixed_prefix(path: str) -> str:
-	"""Find longest prefix without palceholder"""
-	parts = path.split("/")
-	i = 0
-	for p in parts:
-		if re.search("{}", p):
-			break
-		i += 1
-	
-	return "/".join(parts[:i])
-
 def missing_hdf5_entries(hdf5_file:h5py.File, exp_entries: ExpEntries) -> List[str]:
 	missing = []
 	
