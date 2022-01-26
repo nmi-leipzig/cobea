@@ -106,9 +106,6 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	}
 	
 	metadata = {}
-	add_meta(metadata, "fitness.desc", "data regarding the fitness values")
-	add_meta(metadata, "fitness.time.desc", "time the measurement started; timezone UTC")
-	add_meta(metadata, "fitness.time.unit", "seconds since 01.01.1970 00:00:00")
 	add_meta(metadata, "rep.desc", "mapping of the genotype (allele indices) to configuration bits")
 	add_meta(metadata, "rep.genes.desc", "part of the configuration bits that is configurable")
 	add_meta(metadata, "rep.const.desc", "part of the configuration bits that is fixed")
@@ -117,10 +114,6 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	add_meta(metadata, "chromo.desc", "data for the genotype")
 	add_meta(metadata, "chromo.id.desc", "unique ID of every chromosome")
 	add_meta(metadata, "chromo.indices.desc", "allele choices for every chromosome")
-	add_meta(metadata, "fitness.st.desc", "index of the s-t-combination used for determining the order of 5 1 kHz and "
-		"5 10 kHz bursts")
-	add_meta(metadata, "carry_enable.desc", "values of carry enable bits; derived from the configuration bits defined "
-		"by the genotype")
 	add_meta(metadata, "rep.carry_data.desc", "data describing how to derive the carry bits from the configuration bits "
 		"defined by the genotype")
 	
@@ -231,6 +224,13 @@ def add_measure(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep
 		"fitness/generation": [MetaEntry("description", "generation in which the fitness was evaluated")],
 	}
 	add_meta(metadata, "fitness.chromo_id.desc", "ID of the corresponding chromosome")
+	add_meta(metadata, "fitness.st.desc", "index of the s-t-combination used for determining the order of 5 1 kHz and "
+		"5 10 kHz bursts")
+	add_meta(metadata, "fitness.desc", "data regarding the fitness values")
+	add_meta(metadata, "fitness.time.desc", "time the measurement started; timezone UTC")
+	add_meta(metadata, "fitness.time.unit", "seconds since 01.01.1970 00:00:00")
+	add_meta(metadata, "carry_enable.desc", "values of carry enable bits; derived from the configuration bits defined "
+		"by the genotype")
 	
 	write_map.update(ea_map)
 	metadata.update(ea_meta)
