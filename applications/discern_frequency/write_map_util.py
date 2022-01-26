@@ -365,11 +365,11 @@ def missing_hdf5_entries(hdf5_file:h5py.File, exp_entries: ExpEntries) -> List[s
 	
 	def check_missing(path, name, as_attr):
 		if as_attr:
-			res = count_matches(hdf5_file, path.split("/"), name)
+			if count_matches(hdf5_file, path.split("/"), name) == 0:
+				missing.append(f"{'' if path.startswith('/') else '/'}{path}.{name}")
 		else:
-			res = count_matches(hdf5_file, path.split("/")+[name], None)
-		if res == 0:
-			missing.append(f"{path}{'.' if as_attr else '/'}{name}")
+			if count_matches(hdf5_file, path.split("/")+[name], None) == 0:
+				missing.append(f"{'' if path.startswith('/') else '/'}{path}{'' if path.endswith('/') else '/'}{name}")
 	
 	for desc_key in exp_entries.simple:
 		desc = HDF5_DICT[desc_key]
