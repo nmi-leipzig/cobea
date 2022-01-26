@@ -339,14 +339,8 @@ def fixed_prefix(path: str) -> str:
 def missing_hdf5_entries(hdf5_file:h5py.File, exp_entries: ExpEntries) -> List[str]:
 	missing = []
 	
-	def check_pna(path, name, as_attr):
-		grp = hdf5_file[path]
-		if as_attr:
-			return grp.attrs[name]
-		else:
-			return grp[name]
-	
-	def check_any_rec(grp, path_parts, attr):
+	def count_matches(grp, path_parts, attr):
+		"""count how many times a path or path.attr occures; supports placeholders"""
 		if len(path_parts) == 0:
 			if attr is None:
 				return 1
@@ -357,44 +351,41 @@ def missing_hdf5_entries(hdf5_file:h5py.File, exp_entries: ExpEntries) -> List[s
 		
 		part = path_parts[0]
 		if not part:
-			return check_any_rec(grp, path_parts[1:], attr)
+			return count_matches(grp, path_parts[1:], attr)
 		if not isinstance(grp, h5py.Group):
 			return 0
 		if "{}" not in part:
-			return check_any_rec(grp[part], path_parts[1:], attr)
+			try:
+				return count_matches(grp[part], path_parts[1:], attr)
+			except KeyError:
+				return 0
 		
 		pat = part.replace("{}", ".*")
-		return sum([check_any_rec(grp[s], path_parts[1:], attr) for s in grp if re.match(pat, s)])
+		return sum([count_matches(grp[s], path_parts[1:], attr) for s in grp if re.match(pat, s)])
+	
+	def check_missing(path, name, as_attr):
+		if as_attr:
+			res = count_matches(hdf5_file, path.split("/"), name)
+		else:
+			res = count_matches(hdf5_file, path.split("/")+[name], None)
+		if res == 0:
+			missing.append(f"{path}{'.' if as_attr else '/'}{name}")
 	
 	for desc_key in exp_entries.simple:
 		desc = HDF5_DICT[desc_key]
-		try:
-			check_pna(desc.h5_path, desc.h5_name, desc.as_attr)
-		except KeyError:
-			
-			missing.append(f"{desc.h5_path}{'.' if desc.as_attr else '/'}{desc.h5_name}")
+		check_missing(desc.h5_path, desc.h5_name, desc.as_attr)
 	
 	for entry in exp_entries.form:
 		desc = HDF5_DICT[entry.key]
 		if entry.data is None:
-			if desc.as_attr:
-				res = check_any_rec(hdf5_file, desc.h5_path.split("/"), desc.h5_name)
-			else:
-				res = check_any_rec(hdf5_file, desc.h5_path.split("/")+[desc.h5_name], None)
-			if res == 0:
-				missing.append(f"{desc.h5_path}{'.' if desc.as_attr else '/'}{desc.h5_name}")
-			
+			check_missing(desc.h5_path, desc.h5_name, desc.as_attr)
 			continue
 		
 		for dat in entry.data:
 			full_name = desc.h5_name.format(*dat.name)
 			full_path = desc.h5_path.format(*dat.path)
 			
-			try:
-				check_pna(full_path, full_name, desc.as_attr)
-			except KeyError:
-				missing.append(f"{full_path}{'.' if desc.as_attr else '/'}{full_name}")
-				break
+			check_missing(full_path, full_name, desc.as_attr)
 	
 	return missing
 
