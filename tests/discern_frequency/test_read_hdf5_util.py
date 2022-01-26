@@ -1,9 +1,10 @@
 import os
+import re
 
 from dataclasses import astuple, dataclass, field
 from functools import partial
 from operator import attrgetter, itemgetter, methodcaller
-from typing import Iterable, List
+from typing import Dict, Iterable, List, Optional
 from unittest import TestCase
 
 import h5py
@@ -15,67 +16,12 @@ from applications.discern_frequency.hdf5_desc import add_carry_data, add_meta, a
 from applications.discern_frequency.read_hdf5_util import read_chromosome, read_habitat, read_s_t_index,\
 	read_rep_carry_data, read_carry_enable_bits, read_carry_enable_values, read_rep_colbufctrl, read_rep_output,\
 	read_rep, read_fitness_chromo_id, get_chromo_bits
+from applications.discern_frequency.write_map_util import ExpEntries, FormData, FormEntry, missing_hdf5_entries
 from domain.model import Chromosome
 
 from tests.icecraft.data.rep_data import EXP_REP
 
 from .common import del_files, TEST_DATA_DIR
-
-@dataclass
-class FormData:
-	"""Data for inserting HDF5 groups and names"""
-	name: Iterable = field(default_factory=tuple)
-	path: Iterable = field(default_factory=tuple)
-
-@dataclass
-class FormEntry:
-	key: str
-	data: List[FormData]
-
-@dataclass
-class ExpEntries:
-	simple: List[str]
-	form: List[FormEntry] = field(default_factory=list)
-	
-	def __add__(self, other: "ExpEntries") -> "ExpEntries":
-		return ExpEntries(self.simple+other.simple, self.form+other.form)
-
-ENTRIES_MEASURE = ExpEntries([])
-
-ENTRIES_REP = ExpEntries([])
-
-ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE
-
-def missing_hdf5_entries(hdf5_file, exp_entries):
-	missing = []
-	
-	def check_pna(path, name, as_attr):
-		grp = hdf5_file[path]
-		if as_attr:
-			return grp.attrs[name]
-		else:
-			return grp[name]
-	
-	for desc_key in exp_entries.simple:
-		desc = HDF5_DICT[desc_key]
-		try:
-			check_pna(desc.h5_path, desc.h5_name, desc.as_attr)
-		except KeyError:
-			missing.append(f"{desc.h5_path}/{desc.h5_name}")
-	
-	for entry in exp_entries.form:
-		desc = HDF5_DICT[entry.key]
-		for dat in entry.data:
-			full_name = desc.h5_name.format(*dat.name)
-			full_path = desc.h5_path.format(*dat.path)
-			
-			try:
-				check_pna(full_path, full_name, desc.as_attr)
-			except KeyError:
-				missing.append(f"{full_path}/{full_name}")
-				break
-	
-	return missing
 
 
 class WriteReadHDF5Test(TestCase):
@@ -87,57 +33,6 @@ class WriteReadHDF5Test(TestCase):
 	def check_hdf5_entires(self, hdf5_file, exp_entries):
 		missing = missing_hdf5_entries(hdf5_file, exp_entries)
 		self.assertEqual(0, len(missing), f"{missing}")
-	
-	def test_meta_check_hdf5_entries(self):
-		entries = ExpEntries(["fitness.st.desc"], [
-			FormEntry("rep.carry_data.lut", [FormData(path=[5])]),
-			FormEntry("rep.carry_data.values", [FormData(name=[6], path=["abc"])]),
-		])
-		
-		hdf5_filename = "tmp.test_meta_check_hdf5_entries.h5"
-		del_files([hdf5_filename])
-		
-		metadata = {}
-		add_meta(metadata, "fitness.st.desc", "simple attr entry")
-		
-		lut_desc = HDF5_DICT["rep.carry_data.lut"]
-		metadata[lut_desc.h5_path.format(5)] = [MetaEntry(lut_desc.h5_name, 3, lut_desc.data_type)]
-		
-		val_desc = HDF5_DICT["rep.carry_data.values"]
-		metadata[val_desc.h5_path.format("abc")] = [MetaEntry(val_desc.h5_name.format(6), [True], val_desc.data_type)]
-		
-		write_map = {"th": [pa_gen("fitness.chromo_id", ["fc"])]}
-		
-		with HDF5Sink(write_map, metadata, filename=hdf5_filename) as sink:
-			chromo = Chromosome(23, (2, 5, 1, 9))
-			sink.write("th", {"fc": chromo})
-		
-		with h5py.File(hdf5_filename, "r") as hdf5_file:
-			with self.subTest(desc="all available"):
-				self.check_hdf5_entires(hdf5_file, entries)
-			
-			with self.subTest(desc="missing dataset"):
-				exp_entries = entries + ExpEntries(["habitat"])
-				with self.assertRaises(AssertionError):
-					self.check_hdf5_entires(hdf5_file, exp_entries)
-			
-			with self.subTest(desc="missing attr"):
-				exp_entries = entries + ExpEntries(["chromo.desc"])
-				with self.assertRaises(AssertionError):
-					self.check_hdf5_entires(hdf5_file, exp_entries)
-			
-			with self.subTest(desc="missing attr path data"):
-				exp_entries = entries + ExpEntries([], [FormEntry("rep.carry_data.lut", [FormData(path=[1])])])
-				with self.assertRaises(AssertionError):
-					self.check_hdf5_entires(hdf5_file, exp_entries)
-			
-			with self.subTest(desc="missing attr name data"):
-				exp_entries = entries + ExpEntries([], [FormEntry("rep.carry_data.values", [
-					FormData(name=[3], path=["abc"])])])
-				with self.assertRaises(AssertionError):
-					self.check_hdf5_entires(hdf5_file, exp_entries)
-		
-		del_files([hdf5_filename])
 	
 	def test_write_read_habitat(self):
 		asc_filename = os.path.join(self.asc_dir, "freq_hab.asc")

@@ -5,7 +5,9 @@ import re
 from dataclasses import astuple, dataclass, field
 from functools import partial
 from operator import attrgetter, itemgetter, methodcaller
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+import h5py
 
 from adapters.gear.rigol import FloatCheck, IntCheck, SetupCmd
 from adapters.hdf5_sink import compose, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
@@ -333,3 +335,211 @@ def fixed_prefix(path: str) -> str:
 		i += 1
 	
 	return "/".join(parts[:i])
+
+def missing_hdf5_entries(hdf5_file:h5py.File, exp_entries: ExpEntries) -> List[str]:
+	missing = []
+	
+	def check_pna(path, name, as_attr):
+		grp = hdf5_file[path]
+		if as_attr:
+			return grp.attrs[name]
+		else:
+			return grp[name]
+	
+	def check_any_rec(grp, path_parts, attr):
+		if len(path_parts) == 0:
+			if attr is None:
+				return 1
+			if "{}" not in attr:
+				return int(attr in grp.attrs)
+			pat = attr.replace("{}", ".*")
+			return len([a for a in grp.attrs if re.match(pat, a)])
+		
+		part = path_parts[0]
+		if not part:
+			return check_any_rec(grp, path_parts[1:], attr)
+		if not isinstance(grp, h5py.Group):
+			return 0
+		if "{}" not in part:
+			return check_any_rec(grp[part], path_parts[1:], attr)
+		
+		pat = part.replace("{}", ".*")
+		return sum([check_any_rec(grp[s], path_parts[1:], attr) for s in grp if re.match(pat, s)])
+	
+	for desc_key in exp_entries.simple:
+		desc = HDF5_DICT[desc_key]
+		try:
+			check_pna(desc.h5_path, desc.h5_name, desc.as_attr)
+		except KeyError:
+			
+			missing.append(f"{desc.h5_path}{'.' if desc.as_attr else '/'}{desc.h5_name}")
+	
+	for entry in exp_entries.form:
+		desc = HDF5_DICT[entry.key]
+		if entry.data is None:
+			if desc.as_attr:
+				res = check_any_rec(hdf5_file, desc.h5_path.split("/"), desc.h5_name)
+			else:
+				res = check_any_rec(hdf5_file, desc.h5_path.split("/")+[desc.h5_name], None)
+			if res == 0:
+				missing.append(f"{desc.h5_path}{'.' if desc.as_attr else '/'}{desc.h5_name}")
+			
+			continue
+		
+		for dat in entry.data:
+			full_name = desc.h5_name.format(*dat.name)
+			full_path = desc.h5_path.format(*dat.path)
+			
+			try:
+				check_pna(full_path, full_name, desc.as_attr)
+			except KeyError:
+				missing.append(f"{full_path}{'.' if desc.as_attr else '/'}{full_name}")
+				break
+	
+	return missing
+
+def unknown_hdf5_entries(hdf5_file: h5py.File, exp_entries: ExpEntries) -> List[str]:
+	@dataclass
+	class Node:
+		attrs: Dict[str, bool] = field(default_factory=dict)
+		sub: Optional[Dict[str, "Node"]] = None # None for data sets
+		visited: bool = False
+		
+		def add_attr(self, name):
+			self.attrs[name] = False
+	
+	def collect_sub(grp, nd):
+		for name in grp.attrs:
+			nd.add_attr(name)
+		
+		if isinstance(grp, h5py.Dataset):
+			nd.sub = None
+			return
+		
+		nd.sub = {}
+		for name, sub_grp in grp.items():
+			nd.sub[name] = Node()
+			collect_sub(sub_grp, nd.sub[name])
+	
+	hdf5_root = Node()
+	collect_sub(hdf5_file, hdf5_root)
+	
+	def visit_explicit(grp, path_parts, attr):
+		if len(path_parts) == 0:
+			grp.visited = True
+			if attr is None:
+				return
+			try:
+				grp.attrs[attr] = True
+			except KeyError:
+				pass
+			return
+		
+		if grp.sub is None:
+			# dataset
+			# don't set visited as the path continues, but the HDF5 hierarchy ends
+			return
+		
+		if not path_parts[0]:
+			visit_explicit(grp, path_parts[1:], attr)
+			return
+		
+		grp.visited = True
+		
+		try:
+			sub = grp.sub[path_parts[0]]
+		except KeyError:
+			return
+		
+		visit_explicit(sub, path_parts[1:], attr)
+	
+	def visit_pat(grp, path_parts, attr):
+		if len(path_parts) == 0:
+			grp.visited = True
+			if attr is None:
+				return
+			
+			if "{}" in attr:
+				pat = attr.replace("{}", ".*")
+				for name in grp.attrs:
+					if re.match(pat, name):
+						grp.attrs[name] = True
+			else:
+				try:
+					grp.attrs[attr] = True
+				except KeyError:
+					pass
+			return
+		
+		if grp.sub is None:
+			# dataset
+			# don't set visited as the path continues, but the HDF5 hierarchy ends
+			return
+		
+		if not path_parts[0]:
+			visit_pat(grp, path_parts[1:], attr)
+			return
+		
+		grp.visited = True
+		
+		if "{}" in path_parts[0]:
+			pat = path_parts[0].replace("{}", ".*")
+			for name in grp.sub:
+				if re.match(pat, name):
+					visit_pat(grp.sub[name], path_parts[1:], attr)
+		else:
+			try:
+				sub = grp.sub[path_parts[0]]
+			except KeyError:
+				return
+			
+			visit_pat(sub, path_parts[1:], attr)
+	
+	def start_visit(func, path, name, as_attr):
+		if as_attr:
+			func(hdf5_root, path.split("/"), name)
+		else:
+			func(hdf5_root, path.split("/")+[name], None)
+	
+	for desc_key in exp_entries.simple:
+		desc = HDF5_DICT[desc_key]
+		start_visit(visit_pat, desc.h5_path, desc.h5_name, desc.as_attr)
+	
+	for entry in exp_entries.form:
+		desc = HDF5_DICT[entry.key]
+		if entry.data is None:
+			start_visit(visit_pat, desc.h5_path, desc.h5_name, desc.as_attr)
+			continue
+		
+		for dat in entry.data:
+			full_name = desc.h5_name.format(*dat.name)
+			full_path = desc.h5_path.format(*dat.path)
+			
+			start_visit(visit_pat, full_path, full_name, desc.as_attr)
+	
+	def collect_unvisited(node, path, unvisited):
+		if not node.visited:
+			unvisited.append(path)
+			# don't go deeper, as it is obvious that all attributes and subgroups were not visited
+			return
+		
+		# attriutes
+		for name, visited in node.attrs.items():
+			if visited:
+				continue
+			
+			unvisited.append(path+"."+name)
+		
+		if node.sub is None:
+			# Dataset
+			return
+		
+		# sub
+		for name, sub in node.sub.items():
+			collect_unvisited(sub, path+"/"+name, unvisited)
+	
+	res = []
+	collect_unvisited(hdf5_root, "", res)
+	
+	return res
+ 
