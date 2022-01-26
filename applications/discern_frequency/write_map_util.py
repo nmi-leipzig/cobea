@@ -56,7 +56,7 @@ ENTRIES_OSCI = ExpEntries(["osci.calibration", "osci.calibration.desc", "osci.ca
 	"osci.calibration.rising", "osci.calibration.falling", "osci.calibration.trig_len", "osci.calibration.offset",
 	"freq_gen", "freq_gen.desc"])
 
-ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc"])
+ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.pop", "ea.pop.desc"])
 
 ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA
 
@@ -239,7 +239,7 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 		"SimpleEA.random_initial": create_rng_aim("state", "random_initial_"),
 		"SimpleEA.random_final": create_rng_aim("state", "random_final_"),
 		"SimpleEA.gen":[
-			ParamAim(["pop"], "uint64", "population", as_attr=False, shape=(pop_size, ), shuffle=True),
+			pa_gen("ea.pop", ["pop"], shape=(pop_size, ), shuffle=True),
 		],
 		"Individual.wrap.cxOnePoint": [
 			ParamAim(["in"], "uint64", "parents", "crossover", as_attr=False, shape=(2, ), comp_opt=9, shuffle=True),
@@ -264,7 +264,6 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 	}
 	
 	ea_meta = {
-		"population": [MetaEntry("description", "IDs of the chromosomes included in each generation")],
 		"crossover": [MetaEntry("description", "IDs of the chromosomes participating in and resulting from crossover")],
 		"crossover/generation": [MetaEntry("description", "value i means crossover occured while generating generation "
 			"i from generation i-1")],
@@ -273,6 +272,7 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 		"mutation/generation": [MetaEntry("description", "value i means mutation occured while generating generation "
 			"i from generation i-1")],
 	}
+	add_meta(metadata, "ea.pop.desc", "IDs of the chromosomes included in each generation")
 	add_meta(metadata, "fitness.generation.desc", "generation in which the fitness was evaluated")
 	
 	write_map.update(ea_map)
