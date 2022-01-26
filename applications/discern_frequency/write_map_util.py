@@ -47,7 +47,7 @@ ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "chromo.desc", "chromo.
 	"fitness.st.desc", "carry_enable.values", "carry_enable.bits", "carry_enable.desc", "fitness.desc", "fitness.time",
 	"fitness.time.desc", "fitness.time.unit", "fitness.value", "fitness.fast_sum", "fitness.slow_sum",
 	"fitness.value.desc", "fitness.fast_sum.desc", "fitness.slow_sum.desc", "fitness.measurement",
-	"fitness.measurement.desc"])
+	"fitness.measurement.desc", "fitness.driver_type"])
 
 ENTRIES_TEMP = ExpEntries(["temp.desc", "temp.value", "temp.value.desc", "temp.value.unit", "temp.time",
 	"temp.time.desc", "temp.time.unit", "temp.reader.sn", "temp.reader.hw", "temp.sensor.sn", "temp.sensor.hw"])

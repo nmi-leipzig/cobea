@@ -32,8 +32,9 @@ from adapters.prng import BuiltInPRNG
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
+from applications.discern_frequency.hdf5_desc import add_meta
 from applications.discern_frequency.misc import DriverType
-from applications.discern_frequency.read_hdf5_util import get_chromo_bits, read_carry_enable_bits, read_carry_enable_values, read_chromosome, read_fitness_chromo_id, read_habitat, read_rep, read_s_t_index
+from applications.discern_frequency.read_hdf5_util import data_from_key, get_chromo_bits, read_carry_enable_bits, read_carry_enable_values, read_chromosome, read_fitness_chromo_id, read_habitat, read_rep, read_s_t_index
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink
 from domain.interfaces import Driver, FitnessFunction, InputData, InputGen, Meter, OutputData, PRNG, TargetDevice, \
@@ -345,8 +346,8 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 	setup.target.set_fast(True)
 	stack.callback(man.release, setup.target)
 	
+	add_meta(metadata, "fitness.driver_type", info.driver_type)
 	metadata.setdefault("fitness/measurement", []).extend([
-		MetaEntry("driver_type", info.driver_type.name),
 		MetaEntry("target_serial_number", setup.target.serial_number),
 		MetaEntry("target_hardware", setup.target.hardware_type),
 		MetaEntry("meter_serial_number", setup.meter.serial_number),
@@ -366,7 +367,7 @@ def create_dummy_setup(sub_count: int, write_map: ParamAimMap, metadata: MetaEnt
 		sink_writes = [],
 		preprocessing = create_preprocessing_dummy(sub_count),
 	)
-	metadata.setdefault("fitness/measurement", []).append(MetaEntry("driver_type", DriverType.DUMMY.name))
+	add_meta(metadata, "fitness.driver_type", DriverType.DUMMY)
 	write_map_util.add_dummy(write_map, metadata, sub_count)
 	
 	return measure_setup
@@ -381,7 +382,7 @@ def setup_from_args_hdf5(args: Namespace, hdf5_file: h5py.File, write_map: Param
 	else:
 		# driver
 		try:
-			drv_type = DriverType[args.freq_gen_type or hdf5_file["fitness/measurement"].attrs["driver_type"]]
+			drv_type = DriverType[args.freq_gen_type or data_from_key(hdf5_file, "fitness.driver_type")]
 		except KeyError as ke:
 			raise ValueError("Driver type defined neither in HDF5 nor via argument")
 		

@@ -56,6 +56,7 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"fitness.generation.desc": HDF5Desc(str, "description", "fitness/generation"),
 	"fitness.measurement": HDF5Desc(None, "measurement", "fitness", False),
 	"fitness.measurement.desc": HDF5Desc(str, "description", "fitness/measurement"),
+	"fitness.driver_type": HDF5Desc(str, "driver_type", "fitness/measurement", alter=attrgetter("name")),
 	"carry_enable.values": HDF5Desc(bool, "carry_enable", "fitness", False, None),
 	"carry_enable.bits": HDF5Desc("uint16", "bits", "fitness/carry_enable",
 		alter=chain_funcs([partial(map, methodcaller("to_ints")), list])),
