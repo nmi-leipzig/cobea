@@ -26,6 +26,7 @@ class FormData:
 class FormEntry:
 	key: str
 	data: Optional[List[FormData]]
+	sub_known: bool = False # assume all attributes and sub groups are known
 
 
 @dataclass
@@ -415,10 +416,25 @@ def unknown_hdf5_entries(hdf5_file: h5py.File, exp_entries: ExpEntries) -> List[
 	hdf5_root = Node()
 	collect_sub(hdf5_file, hdf5_root)
 	
-	def visit_pat(grp, path_parts, attr):
+	def visit_all_sub(grp):
+		"""Set visited True for all attributes and subgroups, recusively"""
+		for cur in grp.attrs:
+			grp.attrs[cur] = True
+		
+		if grp.sub is None:
+			# dataset
+			return
+		
+		for sub in grp.sub.values():
+			sub.visited = True
+			visit_all_sub(sub)
+	
+	def visit_pat(grp, path_parts, attr, sub_known):
 		if len(path_parts) == 0:
 			grp.visited = True
 			if attr is None:
+				if sub_known:
+					visit_all_sub(grp)
 				return
 			
 			if "{}" in attr:
@@ -439,7 +455,7 @@ def unknown_hdf5_entries(hdf5_file: h5py.File, exp_entries: ExpEntries) -> List[
 			return
 		
 		if not path_parts[0]:
-			visit_pat(grp, path_parts[1:], attr)
+			visit_pat(grp, path_parts[1:], attr, sub_known)
 			return
 		
 		grp.visited = True
@@ -448,36 +464,36 @@ def unknown_hdf5_entries(hdf5_file: h5py.File, exp_entries: ExpEntries) -> List[
 			pat = path_parts[0].replace("{}", ".*")
 			for name in grp.sub:
 				if re.match(pat, name):
-					visit_pat(grp.sub[name], path_parts[1:], attr)
+					visit_pat(grp.sub[name], path_parts[1:], attr, sub_known)
 		else:
 			try:
 				sub = grp.sub[path_parts[0]]
 			except KeyError:
 				return
 			
-			visit_pat(sub, path_parts[1:], attr)
+			visit_pat(sub, path_parts[1:], attr, sub_known)
 	
-	def start_visit(path, name, as_attr):
+	def start_visit(path, name, as_attr, sub_known):
 		if as_attr:
-			visit_pat(hdf5_root, path.split("/"), name)
+			visit_pat(hdf5_root, path.split("/"), name, sub_known)
 		else:
-			visit_pat(hdf5_root, path.split("/")+[name], None)
+			visit_pat(hdf5_root, path.split("/")+[name], None, sub_known)
 	
 	for desc_key in exp_entries.simple:
 		desc = HDF5_DICT[desc_key]
-		start_visit(desc.h5_path, desc.h5_name, desc.as_attr)
+		start_visit(desc.h5_path, desc.h5_name, desc.as_attr, False)
 	
 	for entry in exp_entries.form:
 		desc = HDF5_DICT[entry.key]
 		if entry.data is None:
-			start_visit(desc.h5_path, desc.h5_name, desc.as_attr)
+			start_visit(desc.h5_path, desc.h5_name, desc.as_attr, entry.sub_known)
 			continue
 		
 		for dat in entry.data:
 			full_name = desc.h5_name.format(*dat.name)
 			full_path = desc.h5_path.format(*dat.path)
 			
-			start_visit(full_path, full_name, desc.as_attr)
+			start_visit(full_path, full_name, desc.as_attr, entry.sub_known)
 	
 	def collect_unvisited(node, path, unvisited):
 		if not node.visited:
