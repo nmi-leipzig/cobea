@@ -52,6 +52,8 @@ ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "chromo.desc", "chromo.
 ENTRIES_TEMP = ExpEntries(["temp.desc", "temp.value", "temp.value.desc", "temp.value.unit", "temp.time",
 	"temp.time.desc", "temp.time.unit", "temp.reader.sn", "temp.reader.hw", "temp.sensor.sn", "temp.sensor.hw"])
 
+ENTRIES_OSCI = ExpEntries(["osci.calibration", "osci.calibration.desc", "osci.calibration.unit", "osci.calibration.rising", "osci.calibration.falling", "osci.calibration.trig_len", "osci.calibration.offset"])
+
 ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc"])
 
 ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA
@@ -126,11 +128,11 @@ def add_fpga_osci(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 		alter=chain_funcs([itemgetter(0), attrgetter("measurement")]), shape=(2**19, ), shuffle=False))
 	
 	write_map.setdefault("calibration", []).extend([
-		ParamAim(["data"], "float64", "calibration", as_attr=False, shuffle=False),
-		ParamAim(["rising_edge"], "uint64", "rising_edge", "calibration"),
-		ParamAim(["falling_edge"], "uint64", "falling_edge", "calibration"),
-		ParamAim(["trig_len"], "uint64", "trig_len", "calibration"),
-		ParamAim(["offset"], "float64", "offset", "calibration"),
+		pa_gen("osci.calibration", ["data"], shuffle=False),
+		pa_gen("osci.calibration.rising", ["rising_edge"]),
+		pa_gen("osci.calibration.falling", ["falling_edge"]),
+		pa_gen("osci.calibration.trig_len", ["trig_len"]),
+		pa_gen("osci.calibration.offset", ["offset"]),
 	])
 	
 	write_map.setdefault("freq_gen", []).extend([ParamAim(["text"], "uint8", "freq_gen", as_attr=False,
@@ -140,12 +142,10 @@ def add_fpga_osci(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 			"measurement took 6 s; in the last 5 s 10 bursts of either 1 kHz or 10 kHz were presented at the input;"
 			" only this last 5 s are relevant for the fitness value; the volt value can be computed by v = (125 - "
 			"r)*:CHAN1:SCAL/25 - :CHAN1:OFFS")
+	add_meta(metadata, "osci.calibration.desc", "calibrate the measurement time to the exact duration of the 10 bursts;"
+			" the trigger signaling the bursts should start at 0.5 s")
+	add_meta(metadata, "osci.calibration.unit", "Volt")
 	
-	metadata.setdefault("calibration", []).extend([
-		MetaEntry("description", "calibrate the measurement time to the exact duration of the 10 bursts; the "
-			"trigger signaling the bursts should start at 0.5 s"),
-		MetaEntry("unit", "Volt"),
-	])
 	metadata.setdefault("freq_gen", []).append(
 		MetaEntry("description", "configuration of the driver FPGA that creates the frequency bursts; the values "
 			"are bytes of the asc format")
