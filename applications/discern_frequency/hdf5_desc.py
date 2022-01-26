@@ -54,6 +54,19 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 		alter=chain_funcs([partial(map, chain_funcs([attrgetter("bits"), partial(map, astuple), list])), list])),
 	"rep.colbufctrl.indices": HDF5Desc("uint16", "colbufctrl_index", "mapping",
 		alter=chain_funcs([partial(map, attrgetter("index")), list])),
+	"temp.desc": HDF5Desc(str, "description", "temperature"),
+	"temp.value": HDF5Desc("float16", "celsius", "temperature", False, alter=chain_funcs([itemgetter(0),
+		attrgetter("measurement"), itemgetter(0)])),
+	"temp.value.desc": HDF5Desc(str, "description", "temperature/celsius"),
+	"temp.value.unit": HDF5Desc(str, "unit", "temperature/celsius"),
+	"temp.time": HDF5Desc("float64", "time", "temperature", False, alter=chain_funcs([itemgetter(0),
+		methodcaller("timestamp")])),
+	"temp.time.desc": HDF5Desc(str, "description", "temperature/time"),
+	"temp.time.unit": HDF5Desc(str, "unit", "temperature/time"),
+	"temp.reader.sn": HDF5Desc(str, "temp_reader_serial_number", "temperature"),
+	"temp.reader.hw": HDF5Desc(str, "temp_reader_hardware", "temperature"),
+	"temp.sensor.sn": HDF5Desc(str, "temp_sensor_serial_number", "temperature"),
+	"temp.sensor.hw": HDF5Desc(str, "temp_sensor_hardware", "temperature"),
 }
 
 def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> ParamAim:

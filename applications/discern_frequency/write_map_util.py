@@ -46,6 +46,9 @@ ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "chromo.desc", "chromo.
 	"chromo.indices", "chromo.indices.desc", "fitness.chromo_id", "fitness.st", "fitness.st.desc",
 	"carry_enable.values", "carry_enable.bits", "carry_enable.desc"])
 
+ENTRIES_TEMP = ExpEntries(["temp.desc", "temp.value", "temp.value.desc", "temp.value.unit", "temp.time",
+	"temp.time.desc", "temp.time.unit", "temp.reader.sn", "temp.reader.hw", "temp.sensor.sn", "temp.sensor.hw"])
+
 ENTRIES_EA = ExpEntries([])
 
 ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE
@@ -188,34 +191,24 @@ def add_dummy(write_map: ParamAimMap, metadata: MetaEntryMap, sub_count: int) ->
 
 def add_temp(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	temp_map = {
-		"temperature.perform": [
-			ParamAim(["return"], "float16", "celsius", "temperature", as_attr=False,
-				alter=partial(compose, funcs=[itemgetter(0), attrgetter("measurement"), itemgetter(0)]), comp_opt=9, shuffle=True),
-		],
-		"temperature.additional": [
-			ParamAim(["time"], "float64", "time", "temperature", as_attr=False,
-				alter=partial(compose, funcs=[itemgetter(0), methodcaller("timestamp")]), comp_opt=9, shuffle=True),
-		],
+		"temperature.perform": [pa_gen("temp.value", ["return"], comp_opt=9, shuffle=True)],
+		"temperature.additional": [pa_gen("temp.time", ["time"], comp_opt=9, shuffle=True)],
 		# use ParamAim for temp serial as it is collected in a separate process
 		"meta.temp": [
-			ParamAim(["sn"], str, "temp_reader_serial_number", "temperature"),
-			ParamAim(["hw"], str, "temp_reader_hardware", "temperature"),
-			ParamAim(["sensor_sn"], str, "temp_sensor_serial_number", "temperature"),
-			ParamAim(["sensor_hw"], str, "temp_sensor_hardware", "temperature"),
+			pa_gen("temp.reader.sn", ["sn"]),
+			pa_gen("temp.reader.hw", ["hw"]),
+			pa_gen("temp.sensor.sn", ["sensor_sn"]),
+			pa_gen("temp.sensor.hw", ["sensor_hw"]),
 		],
 	}
 	
-	temp_meta = {
-		"temperature": [MetaEntry("description", "temperature recorded at the surface of the FPGA")],
-		"temperature/celsius": [MetaEntry("description", "measured temperature"), MetaEntry("unit", "degree celsius")],
-		"temperature/time": [
-			MetaEntry("description", "time the temperature measurement started; timezone UTC"),
-			MetaEntry("unit", "seconds since 01.01.1970 00:00:00")
-		],
-	}
+	add_meta(metadata, "temp.desc", "temperature recorded at the surface of the FPGA")
+	add_meta(metadata, "temp.value.desc", "measured temperature")
+	add_meta(metadata, "temp.value.unit", "degree celsius")
+	add_meta(metadata, "temp.time.desc", "time the temperature measurement started; timezone UTC")
+	add_meta(metadata, "temp.time.unit", "seconds since 01.01.1970 00:00:00")
 	
 	write_map.update(temp_map)
-	metadata.update(temp_meta)
 
 
 def add_measure(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep) -> None:
