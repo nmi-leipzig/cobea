@@ -35,6 +35,7 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"chromo.indices.desc": HDF5Desc(str, "description", "individual/chromosome"),
 	"fitness.chromo_id": HDF5Desc("uint64", "chromo_id", "fitness", False,
 		alter=chain_funcs([itemgetter(0), attrgetter("identifier")])),
+	"fitness.chromo_id.desc": HDF5Desc(str, "description", "fitness/chromo_id"),
 	"fitness.desc": HDF5Desc(str, "description", "fitness"),
 	"fitness.st": HDF5Desc("uint8", "s_t_index", "fitness", False),
 	"fitness.st.desc": HDF5Desc(str, "description", "fitness/s_t_index"),

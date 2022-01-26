@@ -43,8 +43,8 @@ ENTRIES_REP = ExpEntries(["rep.carry_data.desc", "rep.output", "rep.colbufctrl.b
 	FormEntry("rep.carry_data.values", None), FormEntry("rep.genes", None, True), FormEntry("rep.const", None, True)])
 
 ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "chromo.desc", "chromo.id", "chromo.id.desc",
-	"chromo.indices", "chromo.indices.desc", "fitness.chromo_id", "fitness.st", "fitness.st.desc",
-	"carry_enable.values", "carry_enable.bits", "carry_enable.desc", "fitness.desc", "fitness.time",
+	"chromo.indices", "chromo.indices.desc", "fitness.chromo_id", "fitness.chromo_id.desc", "fitness.st",
+	"fitness.st.desc", "carry_enable.values", "carry_enable.bits", "carry_enable.desc", "fitness.desc", "fitness.time",
 	"fitness.time.desc", "fitness.time.unit"])
 
 ENTRIES_TEMP = ExpEntries(["temp.desc", "temp.value", "temp.value.desc", "temp.value.unit", "temp.time",
@@ -228,9 +228,9 @@ def add_measure(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep
 		"fitness/value": [MetaEntry("description", "actual fitness value")],
 		"fitness/fast_sum": [MetaEntry("description", "aggregated area under the curve for all 10 kHz bursts")],
 		"fitness/slow_sum": [MetaEntry("description", "aggregated area under the curve for all 1 kHz bursts")],
-		"fitness/chromo_id": [MetaEntry("description", "ID of the corresponding chromosome")],
 		"fitness/generation": [MetaEntry("description", "generation in which the fitness was evaluated")],
 	}
+	add_meta(metadata, "fitness.chromo_id.desc", "ID of the corresponding chromosome")
 	
 	write_map.update(ea_map)
 	metadata.update(ea_meta)
