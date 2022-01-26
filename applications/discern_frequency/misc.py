@@ -1,4 +1,8 @@
 from enum import auto, Enum
+from typing import Any
+
+from adapters.hdf5_sink import IgnoreValue
+
 
 class DriverType(Enum):
 	FPGA = auto()

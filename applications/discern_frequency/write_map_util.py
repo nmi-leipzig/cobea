@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import h5py
 
 from adapters.gear.rigol import FloatCheck, IntCheck, SetupCmd
-from adapters.hdf5_sink import chain_funcs, compose, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
+from adapters.hdf5_sink import chain_funcs, compose, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftRep
 from applications.discern_frequency.hdf5_desc import add_rep, add_meta, HDF5_DICT, pa_gen
 from applications.discern_frequency.misc import ignore_same
