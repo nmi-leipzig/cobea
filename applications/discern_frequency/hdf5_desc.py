@@ -47,8 +47,11 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"rep.carry_data.values": HDF5Desc(bool, r"carry_use_{}_values", r"mapping/carry_data/carry_data_{}"),
 	"rep.carry_data.desc": HDF5Desc(str, "description", "mapping/carry_data"),
 	# just store path, HDF5Sink takes care of the rest
+	"rep.desc": HDF5Desc(str, "description", "mapping"),
 	"rep.genes": HDF5Desc(None, "gene{}", "mapping/genes", False),
+	"rep.genes.desc": HDF5Desc(str, "description", "mapping/genes"),
 	"rep.const": HDF5Desc(None, "gene{}", "mapping/constant", False),
+	"rep.const.desc": HDF5Desc(str, "description", "mapping/constant"),
 	"rep.output":  HDF5Desc("uint16", "output_lutff", "mapping", alter=chain_funcs([partial(map, astuple), list])),
 	"rep.colbufctrl.bits": HDF5Desc("uint16", "colbufctrl_bits", "mapping",
 		alter=chain_funcs([partial(map, chain_funcs([attrgetter("bits"), partial(map, astuple), list])), list])),

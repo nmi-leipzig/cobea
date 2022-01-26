@@ -38,9 +38,9 @@ class ExpEntries:
 		return ExpEntries(self.simple+other.simple, self.form+other.form)
 
 ENTRIES_REP = ExpEntries(["rep.carry_data.desc", "rep.output", "rep.colbufctrl.bits",
-	"rep.colbufctrl.indices"], [FormEntry("rep.carry_data.lut", None), FormEntry("rep.carry_data.enable", None),
-	FormEntry("rep.carry_data.bits", None), FormEntry("rep.carry_data.values", None),
-	FormEntry("rep.genes", None, True), FormEntry("rep.const", None, True)])
+	"rep.colbufctrl.indices", "rep.desc", "rep.genes.desc", "rep.const.desc"], [FormEntry("rep.carry_data.lut", None),
+	FormEntry("rep.carry_data.enable", None), FormEntry("rep.carry_data.bits", None),
+	FormEntry("rep.carry_data.values", None), FormEntry("rep.genes", None, True), FormEntry("rep.const", None, True)])
 
 ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "chromo.desc", "chromo.id", "chromo.id.desc",
 	"chromo.indices", "chromo.indices.desc", "fitness.chromo_id", "fitness.st", "fitness.st.desc",
@@ -112,10 +112,10 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 			MetaEntry("description", "time the measurement started; timezone UTC"),
 			MetaEntry("unit", "seconds since 01.01.1970 00:00:00")
 		],
-		"mapping": [MetaEntry("description", "mapping of the genotype (allele indices) to configuration bits")],
-		"mapping/genes": [MetaEntry("description", "part of the configuration bits that is configurable")],
-		"mapping/constant": [MetaEntry("description", "part of the configuration bits that is fixed")],
 	}
+	add_meta(metadata, "rep.desc", "mapping of the genotype (allele indices) to configuration bits")
+	add_meta(metadata, "rep.genes.desc", "part of the configuration bits that is configurable")
+	add_meta(metadata, "rep.const.desc", "part of the configuration bits that is fixed")
 	add_meta(metadata, "habitat.desc", "basic configuration of the target FPGA that defines the periphery of the "
 		"evolved part; the values are bytes of the asc format")
 	add_meta(metadata, "chromo.desc", "data for the genotype")
