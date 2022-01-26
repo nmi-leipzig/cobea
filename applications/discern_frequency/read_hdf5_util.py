@@ -127,8 +127,8 @@ def read_rep(hdf5_file: h5py.File, no_carry: bool=False) -> IcecraftRep:
 	gene_desc = HDF5_DICT["rep.genes"]
 	const_desc = HDF5_DICT["rep.const"]
 	
-	genes = HDF5Sink.extract_genes(hdf5_file[gene_desc.h5_path], IcecraftBitPosition, gene_desc.h5_name)
-	const = HDF5Sink.extract_genes(hdf5_file[const_desc.h5_path], IcecraftBitPosition, const_desc.h5_name)
+	genes = HDF5Sink.extract_genes(hdf5_file[gene_desc.h5_path], IcecraftBitPosition, gene_desc.h5_name.format(""))
+	const = HDF5Sink.extract_genes(hdf5_file[const_desc.h5_path], IcecraftBitPosition, const_desc.h5_name.format(""))
 	
 	colbufctrl = read_rep_colbufctrl(hdf5_file)
 	

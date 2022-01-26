@@ -47,8 +47,8 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"rep.carry_data.values": HDF5Desc(bool, r"carry_use_{}_values", r"mapping/carry_data/carry_data_{}"),
 	"rep.carry_data.desc": HDF5Desc(str, "description", "mapping/carry_data"),
 	# just store path, HDF5Sink takes care of the rest
-	"rep.genes": HDF5Desc(None, "gene", "mapping/genes"),
-	"rep.const": HDF5Desc(None, "gene", "mapping/constant"),
+	"rep.genes": HDF5Desc(None, "gene{}", "mapping/genes", False),
+	"rep.const": HDF5Desc(None, "gene{}", "mapping/constant", False),
 	"rep.output":  HDF5Desc("uint16", "output_lutff", "mapping", alter=chain_funcs([partial(map, astuple), list])),
 	"rep.colbufctrl.bits": HDF5Desc("uint16", "colbufctrl_bits", "mapping",
 		alter=chain_funcs([partial(map, chain_funcs([attrgetter("bits"), partial(map, astuple), list])), list])),
@@ -122,9 +122,9 @@ def add_rep(metadata: MetaEntryMap, rep: IcecraftRep) -> None:
 			org.setdefault(key, []).extend(lst)
 	
 	desc = HDF5_DICT["rep.genes"]
-	append_dict_list(metadata, HDF5Sink.create_gene_meta(rep.genes, desc.h5_name, desc.h5_path))
+	append_dict_list(metadata, HDF5Sink.create_gene_meta(rep.genes, desc.h5_name.format(""), desc.h5_path))
 	desc = HDF5_DICT["rep.const"]
-	append_dict_list(metadata, HDF5Sink.create_gene_meta(rep.constant, desc.h5_name, desc.h5_path))
+	append_dict_list(metadata, HDF5Sink.create_gene_meta(rep.constant, desc.h5_name.format(""), desc.h5_path))
 	
 	add_meta(metadata, "rep.colbufctrl.bits", rep.colbufctrl)
 	add_meta(metadata, "rep.colbufctrl.indices", rep.colbufctrl)
