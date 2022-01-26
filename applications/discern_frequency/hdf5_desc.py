@@ -52,6 +52,8 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"fitness.slow_sum": HDF5Desc("float64", "slow_sum", "fitness", False, alter=chain_funcs([itemgetter(0),
 		attrgetter("slow_sum")])),
 	"fitness.slow_sum.desc": HDF5Desc(str, "description", "fitness/slow_sum"),
+	"fitness.generation": HDF5Desc("uint64", "generation", "fitness", False),
+	"fitness.generation.desc": HDF5Desc(str, "description", "fitness/generation"),
 	"carry_enable.values": HDF5Desc(bool, "carry_enable", "fitness", False, None),
 	"carry_enable.bits": HDF5Desc("uint16", "bits", "fitness/carry_enable",
 		alter=chain_funcs([partial(map, methodcaller("to_ints")), list])),

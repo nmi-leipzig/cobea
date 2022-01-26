@@ -51,9 +51,9 @@ ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "chromo.desc", "chromo.
 ENTRIES_TEMP = ExpEntries(["temp.desc", "temp.value", "temp.value.desc", "temp.value.unit", "temp.time",
 	"temp.time.desc", "temp.time.unit", "temp.reader.sn", "temp.reader.hw", "temp.sensor.sn", "temp.sensor.hw"])
 
-ENTRIES_EA = ExpEntries([])
+ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc"])
 
-ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE
+ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA
 
 
 def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
@@ -211,13 +211,9 @@ def add_measure(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep
 			pa_gen("fitness.chromo_id", ["chromosome"], comp_opt=9, shuffle=True),
 			pa_gen("carry_enable.values", ["return"], alter=partial(compose, funcs=[itemgetter(0),
 				attrgetter("carry_enable")]), shape=(len(list(rep.iter_carry_bits())), ), comp_opt=4),
-			ParamAim(["generation"], "uint64", "generation", "fitness", as_attr=False, comp_opt=9, shuffle=True),
 		],
 	}
 	
-	ea_meta = {
-		"fitness/generation": [MetaEntry("description", "generation in which the fitness was evaluated")],
-	}
 	add_meta(metadata, "fitness.value.desc", "actual fitness value")
 	add_meta(metadata, "fitness.fast_sum.desc", "aggregated area under the curve for all 10 kHz bursts")
 	add_meta(metadata, "fitness.slow_sum.desc", "aggregated area under the curve for all 1 kHz bursts")
@@ -231,11 +227,12 @@ def add_measure(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep
 		"by the genotype")
 	
 	write_map.update(ea_map)
-	metadata.update(ea_meta)
 
 
 def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> None:
 	"""Add the entries for an evolutionary algorithm to an existing HDF5Sink write map"""
+	
+	write_map.setdefault("MeasureFitness.perform", []).append(pa_gen("fitness.generation", ["generation"], comp_opt=9, shuffle=True))
 	
 	ea_map = {
 		"SimpleEA.ea_params": [
@@ -282,6 +279,7 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 		"mutation/generation": [MetaEntry("description", "value i means mutation occured while generating generation "
 			"i from generation i-1")],
 	}
+	add_meta(metadata, "fitness.generation.desc", "generation in which the fitness was evaluated")
 	
 	write_map.update(ea_map)
 	metadata.update(ea_meta)
