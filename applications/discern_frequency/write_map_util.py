@@ -44,7 +44,8 @@ ENTRIES_REP = ExpEntries(["rep.carry_data.desc", "rep.output", "rep.colbufctrl.b
 
 ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "chromo.desc", "chromo.id", "chromo.id.desc",
 	"chromo.indices", "chromo.indices.desc", "fitness.chromo_id", "fitness.st", "fitness.st.desc",
-	"carry_enable.values", "carry_enable.bits", "carry_enable.desc"])
+	"carry_enable.values", "carry_enable.bits", "carry_enable.desc", "fitness.desc", "fitness.time",
+	"fitness.time.desc", "fitness.time.unit"])
 
 ENTRIES_TEMP = ExpEntries(["temp.desc", "temp.value", "temp.value.desc", "temp.value.unit", "temp.time",
 	"temp.time.desc", "temp.time.unit", "temp.reader.sn", "temp.reader.hw", "temp.sensor.sn", "temp.sensor.hw"])
@@ -96,9 +97,7 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	write_map = {
 		"Measure.perform": [
 			pa_gen("fitness.st", ["driver_data"], comp_opt=9, shuffle=True),
-			ParamAim(["return"], "float64", "time", "fitness", as_attr=False,
-				 alter=partial(compose, funcs=[itemgetter(0), attrgetter("time"), methodcaller("timestamp")]), comp_opt=9,
-				 shuffle=True),
+			pa_gen("fitness.time", ["return"], comp_opt=9, shuffle=True),
 		],
 		"RandomChromo.perform": chromo_aim,
 		"GenChromo.perform": chromo_aim,
@@ -106,13 +105,10 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 			encoding="utf-8")]), comp_opt=9),],
 	}
 	
-	metadata = {
-		"fitness": [MetaEntry("description", "data regarding the fitness values")],
-		"fitness/time": [
-			MetaEntry("description", "time the measurement started; timezone UTC"),
-			MetaEntry("unit", "seconds since 01.01.1970 00:00:00")
-		],
-	}
+	metadata = {}
+	add_meta(metadata, "fitness.desc", "data regarding the fitness values")
+	add_meta(metadata, "fitness.time.desc", "time the measurement started; timezone UTC")
+	add_meta(metadata, "fitness.time.unit", "seconds since 01.01.1970 00:00:00")
 	add_meta(metadata, "rep.desc", "mapping of the genotype (allele indices) to configuration bits")
 	add_meta(metadata, "rep.genes.desc", "part of the configuration bits that is configurable")
 	add_meta(metadata, "rep.const.desc", "part of the configuration bits that is fixed")
