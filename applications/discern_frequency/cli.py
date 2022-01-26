@@ -2,7 +2,8 @@ import argparse
 
 from adapters.deap.simple_ea import EvalMode
 
-from .action import DriverType, remeasure, run
+from .action import remeasure, run
+from.misc import DriverType
 
 def create_arg_parser():
 	arg_parser = argparse.ArgumentParser(fromfile_prefix_chars="@")

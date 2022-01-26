@@ -8,7 +8,6 @@ from argparse import Namespace
 from contextlib import ExitStack
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from enum import auto, Enum
 from io import StringIO
 from typing import Any, Callable, Iterable, List, Mapping, Optional, TextIO, Tuple
 from unittest.mock import MagicMock
@@ -33,6 +32,7 @@ from adapters.prng import BuiltInPRNG
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
+from applications.discern_frequency.misc import DriverType
 from applications.discern_frequency.read_hdf5_util import get_chromo_bits, read_carry_enable_bits, read_carry_enable_values, read_chromosome, read_fitness_chromo_id, read_habitat, read_rep, read_s_t_index
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink
@@ -192,11 +192,6 @@ class FreqSumFF(FitnessFunction):
 	@property
 	def comb_count(self) -> int:
 		return len(self._comb_table)
-
-class DriverType(Enum):
-	FPGA = auto()
-	DRVMTR = auto()
-	DUMMY = auto()
 
 @dataclass
 class MeasureSetupInfo:
