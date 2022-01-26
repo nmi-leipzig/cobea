@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import h5py
 
 from adapters.gear.rigol import FloatCheck, IntCheck, SetupCmd
-from adapters.hdf5_sink import compose, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
+from adapters.hdf5_sink import chain_funcs, compose, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftRep
 from applications.discern_frequency.hdf5_desc import add_rep, add_meta, HDF5_DICT, pa_gen
 
@@ -46,7 +46,8 @@ ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "chromo.desc", "chromo.
 	"chromo.indices", "chromo.indices.desc", "fitness.chromo_id", "fitness.chromo_id.desc", "fitness.st",
 	"fitness.st.desc", "carry_enable.values", "carry_enable.bits", "carry_enable.desc", "fitness.desc", "fitness.time",
 	"fitness.time.desc", "fitness.time.unit", "fitness.value", "fitness.fast_sum", "fitness.slow_sum",
-	"fitness.value.desc", "fitness.fast_sum.desc", "fitness.slow_sum.desc"])
+	"fitness.value.desc", "fitness.fast_sum.desc", "fitness.slow_sum.desc", "fitness.measurement",
+	"fitness.measurement.desc"])
 
 ENTRIES_TEMP = ExpEntries(["temp.desc", "temp.value", "temp.value.desc", "temp.value.unit", "temp.time",
 	"temp.time.desc", "temp.time.unit", "temp.reader.sn", "temp.reader.hw", "temp.sensor.sn", "temp.sensor.hw"])
@@ -121,8 +122,8 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 def add_fpga_osci(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	"""Add the entries for a FPGA driver and oscilloscope meter to an existing HDF5Sink write map and metadata"""
 	
-	write_map.setdefault("Measure.perform", []).append(ParamAim(["return"], "uint8", "measurement", "fitness",
-		alter=partial(compose, funcs=[itemgetter(0), attrgetter("measurement")]), as_attr=False, shape=(2**19, ), shuffle=False))
+	write_map.setdefault("Measure.perform", []).append(pa_gen("fitness.measurement", ["return"], data_type="uint8",
+		alter=chain_funcs([itemgetter(0), attrgetter("measurement")]), shape=(2**19, ), shuffle=False))
 	
 	write_map.setdefault("calibration", []).extend([
 		ParamAim(["data"], "float64", "calibration", as_attr=False, shuffle=False),
@@ -135,12 +136,10 @@ def add_fpga_osci(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	write_map.setdefault("freq_gen", []).extend([ParamAim(["text"], "uint8", "freq_gen", as_attr=False,
 		alter=partial(compose, funcs=[itemgetter(0), partial(bytearray, encoding="utf-8")]), comp_opt=9),])
 	
-	metadata.setdefault("fitness/measurement", []).append(
-		MetaEntry("description", "raw output of the phenotype measured by an oscilloscope; each " 
+	add_meta(metadata, "fitness.measurement.desc", "raw output of the phenotype measured by an oscilloscope; each " 
 			"measurement took 6 s; in the last 5 s 10 bursts of either 1 kHz or 10 kHz were presented at the input;"
 			" only this last 5 s are relevant for the fitness value; the volt value can be computed by v = (125 - "
 			"r)*:CHAN1:SCAL/25 - :CHAN1:OFFS")
-	)
 	
 	metadata.setdefault("calibration", []).extend([
 		MetaEntry("description", "calibrate the measurement time to the exact duration of the 10 bursts; the "
@@ -155,24 +154,21 @@ def add_fpga_osci(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 def add_drvmtr(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	"""Add the entries for a MCU based combined driver and meter to an existing HDF5Sink write map and metadata"""
 	
-	write_map.setdefault("Measure.perform", []).append(ParamAim(["return"], "uint16", "measurement", "fitness",
-		alter=partial(compose, funcs=[itemgetter(0), attrgetter("measurement")]), as_attr=False, shape=(10*256, ), shuffle=False))
+	write_map.setdefault("Measure.perform", []).append(pa_gen("fitness.measurement", ["return"], data_type="uint16",
+		alter=chain_funcs([itemgetter(0), attrgetter("measurement")]), shape=(10*256, ), shuffle=False))
 	
-	metadata.setdefault("fitness/measurement", []).append(
-		MetaEntry("description", "output of the phenotype processed by an analog integrator measured by a MCU based ADC" 
-			"; 10 0.5 s bursts of either 1 kHz or 10 kHz were presented at the input; per burst 256 measurements were"
-			" performed")
-	)
+	add_meta(metadata, "fitness.measurement.desc", "output of the phenotype processed by an analog integrator measured " 
+			"by a MCU based ADC; 10 0.5 s bursts of either 1 kHz or 10 kHz were presented at the input; per burst 256 "
+			"measurements were performed")
 
 def add_dummy(write_map: ParamAimMap, metadata: MetaEntryMap, sub_count: int) -> None:
 	"""Add the entries for a dummy driver and random meter to an existing HDF5Sink write map and metadata"""
 	
-	write_map.setdefault("Measure.perform", []).append(ParamAim(["return"], "float64", "measurement", "fitness",
-		alter=partial(compose, funcs=[itemgetter(0), attrgetter("measurement")]), as_attr=False, shape=(10*sub_count, ), shuffle=False))
+	write_map.setdefault("Measure.perform", []).append(pa_gen("fitness.measurement", ["return"], data_type="float64", 
+		alter=chain_funcs([itemgetter(0), attrgetter("measurement")]), shape=(10*sub_count, ), shuffle=False))
 	
-	metadata.setdefault("fitness/measurement", []).append(
-		MetaEntry("description", f"random output for simulating a measurement; 10 bursts each {sub_count} measurements")
-	)
+	add_meta(metadata, "fitness.measurement.desc", f"random output for simulating a measurement; 10 bursts each "
+		f"{sub_count} measurements")
 	
 
 def add_temp(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
