@@ -57,7 +57,7 @@ class WriteMapUtilTest(TestCase):
 	])
 	
 	entry_cases = [
-		EntryTC("everything unknown", ExpEntries([], []), [], [""]),
+		EntryTC("everything unknown", ExpEntries([], []), [], ["/"]),
 		EntryTC("everything known", base_entries, [], []),
 		EntryTC("check wildcard", base_entries + ExpEntries([], [FormEntry("rep.carry_data.lut", None),
 			FormEntry("rep.carry_data.values", None)]), [], []),
@@ -71,6 +71,7 @@ class WriteMapUtilTest(TestCase):
 			["/mapping/carry_data/carry_data_{}.carry_enable"], []),
 		EntryTC("unknown wildcard", ExpEntries(["fitness.st.desc", "fitness.chromo_id"], [
 			FormEntry("rep.carry_data.lut", [FormData(path=[5])])]), [], ["/mapping/carry_data/carry_data_abc"]),
+		EntryTC("unknown group", ExpEntries(["fitness.st.desc", "fitness.chromo_id"]), [], ["/mapping"]),
 	]
 	
 	def test_missing_hdf5_entries(self):

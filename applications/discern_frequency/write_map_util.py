@@ -481,7 +481,7 @@ def unknown_hdf5_entries(hdf5_file: h5py.File, exp_entries: ExpEntries) -> List[
 	
 	def collect_unvisited(node, path, unvisited):
 		if not node.visited:
-			unvisited.append(path)
+			unvisited.append(f"{'' if path.startswith('/') else '/'}{path}")
 			# don't go deeper, as it is obvious that all attributes and subgroups were not visited
 			return
 		
@@ -490,7 +490,7 @@ def unknown_hdf5_entries(hdf5_file: h5py.File, exp_entries: ExpEntries) -> List[
 			if visited:
 				continue
 			
-			unvisited.append(path+"."+name)
+			unvisited.append(f"{'' if path.startswith('/') else '/'}{path}.{name}")
 		
 		if node.sub is None:
 			# Dataset
@@ -498,7 +498,7 @@ def unknown_hdf5_entries(hdf5_file: h5py.File, exp_entries: ExpEntries) -> List[
 		
 		# sub
 		for name, sub in node.sub.items():
-			collect_unvisited(sub, path+"/"+name, unvisited)
+			collect_unvisited(sub, f"{path}/{name}", unvisited)
 	
 	res = []
 	collect_unvisited(hdf5_root, "", res)
