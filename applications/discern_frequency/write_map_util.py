@@ -13,6 +13,7 @@ from adapters.gear.rigol import FloatCheck, IntCheck, SetupCmd
 from adapters.hdf5_sink import chain_funcs, compose, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftRep
 from applications.discern_frequency.hdf5_desc import add_rep, add_meta, HDF5_DICT, pa_gen
+from applications.discern_frequency.misc import ignore_same
 
 
 @dataclass
@@ -67,15 +68,6 @@ def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
 		ParamAim([name], "int64", f"{prefix}mt_state", alter=partial(compose, funcs=[itemgetter(0), itemgetter(1)])),
 		ParamAim([name], "float64",f"{prefix}next_gauss",alter=partial(compose, funcs=[itemgetter(0), itemgetter(2)])),
 	]
-
-def ignore_same(x: list) -> Any:
-	"""raise IgnoreValue of first two elements are equal, else return the last
-	
-	That way a third value can be rejected when two other values are identical
-	"""
-	if x[0] == x[1]:
-		raise IgnoreValue()
-	return x[-1]
 
 def is_rep_fitting(rep: IcecraftRep, chromo_bits: int) -> bool:
 	"""check if representation fits in a certain number of bits"""
