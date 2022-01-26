@@ -17,6 +17,11 @@ def data_from_desc(hdf5_file: h5py.File, desc: HDF5Desc) -> Any:
 	else:
 		return grp[desc.h5_name]
 
+def data_from_key(hdf5_file: h5py.File, key: str) -> Any:
+	"""get data for key in HDF5_DICT"""
+	desc = HDF5_DICT[key]
+	return data_from_desc(hdf5_file, desc)
+
 def read_habitat(hdf5_file: h5py.File) -> IcecraftRawConfig:
 	desc = HDF5_DICT["habitat"]
 	hab_data = data_from_desc(hdf5_file, desc)
