@@ -49,6 +49,12 @@ class HDF5DescTest(TestCase):
 			),
 			PATC("alter in HDF5Desc", "rep.output", ["in"], {}, ParamAim(["in"], "uint16", "output_lutff", "mapping",
 				alter=chain_funcs([partial(map, astuple), list]))),
+			PATC("format path", "rep.carry_data.bits", ["in"], {"path_args": [7]}, ParamAim(["in"], "uint16",
+				"carry_use_{}_bits", "mapping/carry_data/carry_data_7")),
+			PATC("format name", "rep.carry_data.bits", ["in"], {"name_args": [7]}, ParamAim(["in"], "uint16",
+				"carry_use_7_bits", "mapping/carry_data/carry_data_{}")),
+			PATC("format name and path", "rep.carry_data.bits", ["in"], {"name_args": [3], "path_args": ["tz"]},
+				ParamAim(["in"], "uint16", "carry_use_3_bits", "mapping/carry_data/carry_data_tz")),
 		]
 		
 		for tc in cases:

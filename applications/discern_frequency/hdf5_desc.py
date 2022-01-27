@@ -144,10 +144,22 @@ def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> Par
 	except KeyError:
 		shape = desc.shape
 	
+	try:
+		name = desc.h5_name.format(*kwargs["name_args"])
+		del kwargs["name_args"]
+	except KeyError:
+		name = desc.h5_name
+	
+	try:
+		path = desc.h5_path.format(*kwargs["path_args"])
+		del kwargs["path_args"]
+	except KeyError:
+		path = desc.h5_path
+	
 	if "alter" not in kwargs and desc.alter:
 		kwargs["alter"] = desc.alter
 	
-	return ParamAim(req_names, typ, desc.h5_name, desc.h5_path, desc.as_attr, shape, **kwargs)
+	return ParamAim(req_names, typ, name, path, desc.as_attr, shape, **kwargs)
 
 def add_meta(metadata: MetaEntryMap, meta_name: str, value: Any) -> None:
 	"""Add MetaEntry to metadata
