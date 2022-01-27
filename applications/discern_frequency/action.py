@@ -595,11 +595,11 @@ def remeasure(args: Namespace) -> None:
 					comp_opt=4,
 				),
 			],
-			"remeasure.meta": [
-				ParamAim(["org_filename"], str, "original_filename"),
-			],
 		}
 		write_map.update(re_map)
+		
+		# org filename
+		add_meta(metadata, "re.org", args.data_file)
 		
 		add_version(metadata)
 		
@@ -614,8 +614,6 @@ def remeasure(args: Namespace) -> None:
 		
 		# chromosome
 		#sink.write("GenChromo.perform", {"return": chromo})
-		# org filename
-		sink.write("remeasure.meta", {"org_filename": args.data_file})
 		# habitat
 		sink.write("habitat", {"text": hab_config.to_text()})
 		# representation

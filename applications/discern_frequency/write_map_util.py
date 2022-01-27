@@ -39,6 +39,8 @@ class ExpEntries:
 
 ENTRIES_BASE = ExpEntries(["git_commit", "python"])
 
+ENTRIES_RE = ExpEntries(["re.org"])
+
 ENTRIES_REP = ExpEntries(["rep.carry_data.desc", "rep.output", "rep.colbufctrl.bits",
 	"rep.colbufctrl.indices", "rep.desc", "rep.genes.desc", "rep.const.desc"], [FormEntry("rep.carry_data.lut", None),
 	FormEntry("rep.carry_data.enable", None), FormEntry("rep.carry_data.bits", None),

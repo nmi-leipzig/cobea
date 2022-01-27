@@ -97,6 +97,7 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"carry_enable.bits": HDF5Desc("uint16", "bits", "fitness/carry_enable",
 		alter=chain_funcs([partial(map, methodcaller("to_ints")), list])),
 	"carry_enable.desc": HDF5Desc(str, "description", "fitness/carry_enable"),
+	"re.org": HDF5Desc(str, "original_filename" "/"),
 	"rep.carry_data.lut": HDF5Desc("uint8", "lut_index", r"mapping/carry_data/carry_data_{}"),
 	"rep.carry_data.enable": HDF5Desc("uint16", "carry_enable", r"mapping/carry_data/carry_data_{}"),
 	"rep.carry_data.bits": HDF5Desc("uint16", r"carry_use_{}_bits", r"mapping/carry_data/carry_data_{}"),
