@@ -47,7 +47,8 @@ ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "chromo.desc", "chromo.
 	"fitness.st.desc", "carry_enable.values", "carry_enable.bits", "carry_enable.desc", "fitness.desc", "fitness.time",
 	"fitness.time.desc", "fitness.time.unit", "fitness.value", "fitness.fast_sum", "fitness.slow_sum",
 	"fitness.value.desc", "fitness.fast_sum.desc", "fitness.slow_sum.desc", "fitness.measurement",
-	"fitness.measurement.desc", "fitness.driver_type"])
+	"fitness.measurement.desc", "fitness.driver_type"], [FormEntry("rand.version", [FormData(["prng_final_"])]),
+	FormEntry("rand.state", [FormData(["prng_final_"])]), FormEntry("rand.gauss", [FormData(["prng_final_"])]), ])
 
 ENTRIES_TEMP = ExpEntries(["temp.desc", "temp.value", "temp.value.desc", "temp.value.unit", "temp.time",
 	"temp.time.desc", "temp.time.unit", "temp.reader.sn", "temp.reader.hw", "temp.sensor.sn", "temp.sensor.hw"])
@@ -60,16 +61,18 @@ ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.po
 	"ea.crossover.in", "ea.crossover.out", "ea.crossover.generation", "ea.crossover.generation.desc",
 	"ea.mutation.desc", "ea.mutation.parent", "ea.mutation.child", "ea.mutation.generation",
 	"ea.mutation.generation.desc", "ea.pop_size", "ea.gen_count", "ea.crossover_prob", "ea.mutation_prob",
-	"ea.eval_mode", ])
+	"ea.eval_mode", ], [FormEntry("rand.version", [FormData(["random_initial_"]), FormData(["random_final_"])]),
+	FormEntry("rand.state", [FormData(["random_initial_"]), FormData(["random_final_"])]),
+	FormEntry("rand.gauss", [FormData(["random_initial_"]), FormData(["random_final_"])]), ])
 
 ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA
 
 
 def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
 	return [
-		ParamAim([name], "int64", f"{prefix}version", alter=partial(compose, funcs=[itemgetter(0), itemgetter(0)])),
-		ParamAim([name], "int64", f"{prefix}mt_state", alter=partial(compose, funcs=[itemgetter(0), itemgetter(1)])),
-		ParamAim([name], "float64",f"{prefix}next_gauss",alter=partial(compose, funcs=[itemgetter(0), itemgetter(2)])),
+		pa_gen("rand.version", [name], name_args=[prefix]),
+		pa_gen("rand.state", [name], name_args=[prefix]),
+		pa_gen("rand.gauss", [name], name_args=[prefix]),
 	]
 
 def is_rep_fitting(rep: IcecraftRep, chromo_bits: int) -> bool:
@@ -246,7 +249,7 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 			pa_gen("ea.mutation.child", ["in", "out"], comp_opt=9, shuffle=True),
 			pa_gen("ea.mutation.generation", ["in", "out", "generation"], comp_opt=9, shuffle=True),
 		],
-		"prng": [ParamAim(["seed"], "int64", "prng_seed")] + create_rng_aim("final_state", "prng_final_"),
+		"prng": [pa_gen("rand.seed", ["seed"], name_args=["prng"])] + create_rng_aim("final_state", "prng_final_"),
 	}
 	
 	add_meta(metadata, "ea.mutation.desc", "IDs of chromosomes resulting from mutation; as all chromosomes of a "
