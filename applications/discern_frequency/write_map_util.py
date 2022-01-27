@@ -41,7 +41,7 @@ ENTRIES_BASE = ExpEntries(["git_commit", "python"])
 
 ENTRIES_RE = ExpEntries(["re.org"])
 
-ENTRIES_DESC = ExpEntries([ "habitat.out_port.pos", "habitat.out_port.dir", "habitat.con", "freq_gen.con"])
+ENTRIES_DESC = ExpEntries(["habitat.out_port.pos", "habitat.out_port.dir"])
 
 ENTRIES_REP = ExpEntries(["rep.carry_data.desc", "rep.output", "rep.colbufctrl.bits",
 	"rep.colbufctrl.indices", "rep.desc", "rep.genes.desc", "rep.const.desc"], [FormEntry("rep.carry_data.lut", None),
@@ -54,11 +54,10 @@ ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "habitat.in_port.pos", 
 	"fitness.st.desc", "carry_enable.values", "carry_enable.bits", "carry_enable.desc", "fitness.desc", "fitness.time",
 	"fitness.time.desc", "fitness.time.unit", "fitness.value", "fitness.fast_sum", "fitness.slow_sum",
 	"fitness.value.desc", "fitness.fast_sum.desc", "fitness.slow_sum.desc", "fitness.measurement",
-	"fitness.measurement.desc", "fitness.driver_type"], [FormEntry("rand.version", [FormData(["prng_final_"])]),
-	FormEntry("rand.state", [FormData(["prng_final_"])]), FormEntry("rand.gauss", [FormData(["prng_final_"])]), ])
+	"fitness.measurement.desc", "fitness.driver_type"])
 
 ENTRIES_HW = ExpEntries(["fitness.driver.sn", "fitness.driver.hw", "fitness.target.sn", "fitness.target.hw",
-	"fitness.meter.sn", "fitness.meter.hw"])
+	"fitness.meter.sn", "fitness.meter.hw", "habitat.con", "freq_gen.con"])
 
 ENTRIES_TEMP = ExpEntries(["temp.desc", "temp.value", "temp.value.desc", "temp.value.unit", "temp.time",
 	"temp.time.desc", "temp.time.unit", "temp.reader.sn", "temp.reader.hw", "temp.sensor.sn", "temp.sensor.hw"])
@@ -71,9 +70,10 @@ ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.po
 	"ea.crossover.in", "ea.crossover.out", "ea.crossover.generation", "ea.crossover.generation.desc",
 	"ea.mutation.desc", "ea.mutation.parent", "ea.mutation.child", "ea.mutation.generation",
 	"ea.mutation.generation.desc", "ea.pop_size", "ea.gen_count", "ea.crossover_prob", "ea.mutation_prob",
-	"ea.eval_mode", ], [FormEntry("rand.version", [FormData(["random_initial_"]), FormData(["random_final_"])]),
-	FormEntry("rand.state", [FormData(["random_initial_"]), FormData(["random_final_"])]),
-	FormEntry("rand.gauss", [FormData(["random_initial_"]), FormData(["random_final_"])]),
+	"ea.eval_mode", ], [
+	FormEntry("rand.version", [FormData(["random_initial_"]), FormData(["random_final_"]), FormData(["prng_final_"])]),
+	FormEntry("rand.state", [FormData(["random_initial_"]), FormData(["random_final_"]), FormData(["prng_final_"])]),
+	FormEntry("rand.gauss", [FormData(["random_initial_"]), FormData(["random_final_"]), FormData(["prng_final_"])]),
 	FormEntry("rand.seed", [FormData(["prng_"])])])
 
 ENTRIES_RUN = ENTRIES_BASE + ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA + ENTRIES_DESC
@@ -275,7 +275,7 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 	
 	write_map.update(ea_map)
 
-def create_for_run(rep: IcecraftRep, pop_size: int, chromo_bits: 16, temp: bool=True)-> Tuple[ParamAimMap,
+def create_for_run(rep: IcecraftRep, pop_size: int, chromo_bits: 16, temp: bool=True) -> Tuple[ParamAimMap,
 	MetaEntryMap]:
 	"""Create HDF5Sink write map for running a full evolutionary algorithm"""
 	write_map, metadata = create_base(rep, chromo_bits)
