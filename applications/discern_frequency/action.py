@@ -409,6 +409,11 @@ def setup_from_args_hdf5(args: Namespace, hdf5_file: h5py.File, write_map: Param
 	return measure_setup
 
 
+def add_version(metadata: MetaEntryMap) -> None:
+		add_meta(metadata, "git_commit", get_git_commit())
+		add_meta(metadata, "python", sys.version)
+
+
 def create_adapter_setup() -> AdapterSetup:
 	setup = AdapterSetup()
 	
@@ -462,10 +467,8 @@ def run(args: Namespace) -> None:
 	
 	#sink = TextfileSink("tmp.out.txt")
 	write_map, metadata = write_map_util.create_for_run(rep, pop_size, chromo_bits, rec_temp)
-	metadata.setdefault("/", []).extend([
-		MetaEntry("git_commit", get_git_commit()),
-		MetaEntry("python_version", sys.version),
-	])
+	add_version(metadata)
+	
 	metadata.setdefault("habitat", []).extend([
 		MetaEntry("in_port_pos", args.in_port[:2], "uint16"),
 		MetaEntry("in_port_dir", args.in_port[2]),
@@ -597,10 +600,8 @@ def remeasure(args: Namespace) -> None:
 			],
 		}
 		write_map.update(re_map)
-		metadata.setdefault("/", []).extend([
-			MetaEntry("git_commit", get_git_commit()),
-			MetaEntry("python_version", sys.version),
-		])
+		
+		add_version(metadata)
 		
 		# prepare setup
 		measure_setup = setup_from_args_hdf5(args, hdf5_file, write_map, metadata)
@@ -630,12 +631,6 @@ def remeasure(args: Namespace) -> None:
 		# set carry enable correctly
 		for bit, val in zip(carry_bits, carry_values):
 			hab_config.set_bit(bit, val)
-		
-		sink.write("misc", {
-			"git_commit": get_git_commit(),
-			"python_version": sys.version,
-		})
-		
 		
 		if rec_temp:
 			start_temp(args.temperature, stack, sink)
