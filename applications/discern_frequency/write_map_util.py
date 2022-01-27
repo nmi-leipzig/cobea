@@ -63,7 +63,8 @@ ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.po
 	"ea.mutation.generation.desc", "ea.pop_size", "ea.gen_count", "ea.crossover_prob", "ea.mutation_prob",
 	"ea.eval_mode", ], [FormEntry("rand.version", [FormData(["random_initial_"]), FormData(["random_final_"])]),
 	FormEntry("rand.state", [FormData(["random_initial_"]), FormData(["random_final_"])]),
-	FormEntry("rand.gauss", [FormData(["random_initial_"]), FormData(["random_final_"])]), ])
+	FormEntry("rand.gauss", [FormData(["random_initial_"]), FormData(["random_final_"])]),
+	FormEntry("rand.seed", [FormData(["prng_"])])])
 
 ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA
 
@@ -249,7 +250,7 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 			pa_gen("ea.mutation.child", ["in", "out"], comp_opt=9, shuffle=True),
 			pa_gen("ea.mutation.generation", ["in", "out", "generation"], comp_opt=9, shuffle=True),
 		],
-		"prng": [pa_gen("rand.seed", ["seed"], name_args=["prng"])] + create_rng_aim("final_state", "prng_final_"),
+		"prng": [pa_gen("rand.seed", ["seed"], name_args=["prng_"])] + create_rng_aim("final_state", "prng_final_"),
 	}
 	
 	add_meta(metadata, "ea.mutation.desc", "IDs of chromosomes resulting from mutation; as all chromosomes of a "
