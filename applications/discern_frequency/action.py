@@ -469,20 +469,17 @@ def run(args: Namespace) -> None:
 	write_map, metadata = write_map_util.create_for_run(rep, pop_size, chromo_bits, rec_temp)
 	add_version(metadata)
 	
-	metadata.setdefault("habitat", []).extend([
-		MetaEntry("in_port_pos", args.in_port[:2], "uint16"),
-		MetaEntry("in_port_dir", args.in_port[2]),
-		MetaEntry("area_min_pos", args.area[:2], "uint16"),
-		MetaEntry("area_max_pos", args.area[2:], "uint16"),
-	])
+	add_meta(metadata, "habitat.in_port.pos", args.in_port[:2])
+	add_meta(metadata, "habitat.in_port.dir", args.in_port[2])
+	add_meta(metadata, "habitat.area.min", args.area[:2])
+	add_meta(metadata, "habitat.area.max", args.area[2:])
+	
 	if args.out_port:
 		# can access without setdefault as it is set above
-		metadata["habitat"].extend([
-			MetaEntry("out_port_pos", args.out_port[:2], "uint16"),
-			MetaEntry("out_port_dir", args.out_port[2]),
-		])
+		add_meta(metadata, "habitat.out_port.pos", args.out_port[:2])
+		add_meta(metadata, "habitat.out_port.dir", args.out_port[2])
 	if args.habitat_con:
-		metadata["habitat"].append(MetaEntry("connection", args.habitat_con))
+		add_meta(metadata, "habitat.con", args.habitat_con)
 	if args.freq_gen_con:
 		metadata.setdefault("freq_gen", []).append(MetaEntry("connection", args.freq_gen_con))
 	

@@ -26,6 +26,13 @@ class HDF5Desc(NamedTuple):
 HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions like {:05d} not
 	"habitat": HDF5Desc("uint8", "habitat", "/", False, tuple()),
 	"habitat.desc": HDF5Desc(str, "description", "habitat"),
+	"habitat.con": HDF5Desc(str, "connection", "habitat"),
+	"habitat.area.min": HDF5Desc("uint16", "area_min_pos", "habitat"),
+	"habitat.area.max": HDF5Desc("uint16", "area_max_pos", "habitat"),
+	"habitat.in_port.pos": HDF5Desc("uint16", "in_port_pos", "habitat"),
+	"habitat.in_port.dir": HDF5Desc(str, "in_port_dir", "habitat"),
+	"habitat.out_port.pos": HDF5Desc("uint16", "out_port_pos", "habitat"),
+	"habitat.out_port.dir": HDF5Desc(str, "out_port_dir", "habitat"),
 	"chromo.desc": HDF5Desc(str, "description", "individual"), 
 	"chromo.id": HDF5Desc("uint64", "chromo_id", "individual", False,
 		alter=chain_funcs([itemgetter(0), attrgetter("chromosome"), attrgetter("identifier")])),

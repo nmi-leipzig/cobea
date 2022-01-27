@@ -41,12 +41,15 @@ ENTRIES_BASE = ExpEntries(["git_commit", "python"])
 
 ENTRIES_RE = ExpEntries(["re.org"])
 
+ENTRIES_DESC = ExpEntries([ "habitat.out_port.pos", "habitat.out_port.dir", "habitat.con"])
+
 ENTRIES_REP = ExpEntries(["rep.carry_data.desc", "rep.output", "rep.colbufctrl.bits",
 	"rep.colbufctrl.indices", "rep.desc", "rep.genes.desc", "rep.const.desc"], [FormEntry("rep.carry_data.lut", None),
 	FormEntry("rep.carry_data.enable", None), FormEntry("rep.carry_data.bits", None),
 	FormEntry("rep.carry_data.values", None), FormEntry("rep.genes", None, True), FormEntry("rep.const", None, True)])
 
-ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "chromo.desc", "chromo.id", "chromo.id.desc",
+ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "habitat.in_port.pos", "habitat.in_port.dir",
+	"habitat.area.min", "habitat.area.max", "chromo.desc", "chromo.id", "chromo.id.desc",
 	"chromo.indices", "chromo.indices.desc", "fitness.chromo_id", "fitness.chromo_id.desc", "fitness.st",
 	"fitness.st.desc", "carry_enable.values", "carry_enable.bits", "carry_enable.desc", "fitness.desc", "fitness.time",
 	"fitness.time.desc", "fitness.time.unit", "fitness.value", "fitness.fast_sum", "fitness.slow_sum",
@@ -70,7 +73,7 @@ ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.po
 	FormEntry("rand.gauss", [FormData(["random_initial_"]), FormData(["random_final_"])]),
 	FormEntry("rand.seed", [FormData(["prng_"])])])
 
-ENTRIES_RUN = ENTRIES_BASE + ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA
+ENTRIES_RUN = ENTRIES_BASE + ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA + ENTRIES_DESC
 
 
 def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
