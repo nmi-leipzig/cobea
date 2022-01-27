@@ -37,6 +37,8 @@ class ExpEntries:
 	def __add__(self, other: "ExpEntries") -> "ExpEntries":
 		return ExpEntries(self.simple+other.simple, self.form+other.form)
 
+ENTRIES_BASE = ExpEntries(["git_commit", "python"])
+
 ENTRIES_REP = ExpEntries(["rep.carry_data.desc", "rep.output", "rep.colbufctrl.bits",
 	"rep.colbufctrl.indices", "rep.desc", "rep.genes.desc", "rep.const.desc"], [FormEntry("rep.carry_data.lut", None),
 	FormEntry("rep.carry_data.enable", None), FormEntry("rep.carry_data.bits", None),
@@ -66,7 +68,7 @@ ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.po
 	FormEntry("rand.gauss", [FormData(["random_initial_"]), FormData(["random_final_"])]),
 	FormEntry("rand.seed", [FormData(["prng_"])])])
 
-ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA
+ENTRIES_RUN = ENTRIES_BASE + ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA
 
 
 def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:

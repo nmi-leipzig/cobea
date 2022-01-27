@@ -34,6 +34,8 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"chromo.indices": HDF5Desc("dyn", "chromosome", "individual", False,
 		alter=chain_funcs([itemgetter(0), attrgetter("chromosome"), attrgetter("allele_indices")])),
 	"chromo.indices.desc": HDF5Desc(str, "description", "individual/chromosome"),
+	"git_commit": HDF5Desc(str, "git_commit", "/"),
+	"python": HDF5Desc(str, "python_version", "/"),
 	"rand.seed": HDF5Desc("int64", r"{}seed", "/"),
 	"rand.version": HDF5Desc("int64", r"{}version", "/", alter=chain_funcs([itemgetter(0), itemgetter(0)])),
 	"rand.state": HDF5Desc("int64", r"{}mt_state", "/", alter=chain_funcs([itemgetter(0), itemgetter(1)])),
