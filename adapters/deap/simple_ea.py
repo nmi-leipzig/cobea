@@ -111,7 +111,7 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 			"gen_count": gen_count,
 			"crossover_prob": crossover_prob,
 			"mutation_prob": mutation_prob,
-			"eval_mode": eval_mode.name,
+			"eval_mode": eval_mode,
 		})
 		# DEAP uses random directly, so store it's inital state
 		self.write_to_sink("random_initial", {"state": random.getstate()})

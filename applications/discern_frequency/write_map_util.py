@@ -59,7 +59,8 @@ ENTRIES_OSCI = ExpEntries(["osci.calibration", "osci.calibration.desc", "osci.ca
 ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.pop", "ea.pop.desc", "ea.crossover.desc",
 	"ea.crossover.in", "ea.crossover.out", "ea.crossover.generation", "ea.crossover.generation.desc",
 	"ea.mutation.desc", "ea.mutation.parent", "ea.mutation.child", "ea.mutation.generation",
-	"ea.mutation.generation.desc", ])
+	"ea.mutation.generation.desc", "ea.pop_size", "ea.gen_count", "ea.crossover_prob", "ea.mutation_prob",
+	"ea.eval_mode", ])
 
 ENTRIES_RUN = ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA
 
@@ -224,11 +225,11 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 	
 	ea_map = {
 		"SimpleEA.ea_params": [
-			ParamAim(["pop_size"], "uint64", "pop_size"),
-			ParamAim(["gen_count"], "uint64", "gen_count"),
-			ParamAim(["crossover_prob"], "float64", "crossover_prob"),
-			ParamAim(["mutation_prob"], "float64", "mutation_prob"),
-			ParamAim(["eval_mode"], str, "eval_mode"),
+			pa_gen("ea.pop_size", ["pop_size"]),
+			pa_gen("ea.gen_count", ["gen_count"]),
+			pa_gen("ea.crossover_prob", ["crossover_prob"]),
+			pa_gen("ea.mutation_prob", ["mutation_prob"]),
+			pa_gen("ea.eval_mode", ["eval_mode"]),
 		],
 		"SimpleEA.random_initial": create_rng_aim("state", "random_initial_"),
 		"SimpleEA.random_final": create_rng_aim("state", "random_final_"),
