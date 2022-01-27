@@ -118,12 +118,11 @@ class ActionTest(TestCase):
 	
 	def check_hdf5(self, hdf5_filename, entries = ENTRIES_RUN):
 		with h5py.File(hdf5_filename, "r") as hdf5_file:
-			self.assertIn("fitness", hdf5_file)
-			self.assertIn("measurement", hdf5_file["fitness"])
 			missing = missing_hdf5_entries(hdf5_file, entries)
-			print("missing", missing)
+			self.assertEqual(0, len(missing), f"Missing entries: {missing}")
 			unknown = unknown_hdf5_entries(hdf5_file, entries)
-			print("unknown", unknown)
+			if len(unknown):
+				print(f"Warning: unknonw entries {unknown}")
 	
 	def test_setup_from_args_hdf5_dummy(self):
 		# create HDF5 input file
