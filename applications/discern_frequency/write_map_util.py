@@ -78,6 +78,7 @@ ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.po
 
 ENTRIES_RUN = ENTRIES_BASE + ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA + ENTRIES_DESC
 
+ENTRIES_REMEASURE = ENTRIES_BASE + ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_DESC + ENTRIES_RE
 
 def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
 	return [
@@ -282,6 +283,15 @@ def create_for_run(rep: IcecraftRep, pop_size: int, chromo_bits: 16, temp: bool=
 	if temp:
 		add_temp(write_map, metadata)
 	add_ea(write_map, metadata, pop_size)
+	add_measure(write_map, metadata, rep)
+	
+	return write_map, metadata
+
+def create_for_remeasure(rep: IcecraftRep, chromo_bits: 16, temp: bool=True) -> Tuple[ParamAimMap, MetaEntryMap]:
+	"""Create HDF5Sink write map for running a full evolutionary algorithm"""
+	write_map, metadata = create_base(rep, chromo_bits)
+	if temp:
+		add_temp(write_map, metadata)
 	add_measure(write_map, metadata, rep)
 	
 	return write_map, metadata

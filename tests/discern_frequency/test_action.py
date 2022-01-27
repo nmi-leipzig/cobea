@@ -10,6 +10,8 @@ from adapters.dummies import DummyDriver
 from adapters.icecraft import IcecraftPosition, IcecraftRawConfig, IcecraftRepGen
 from adapters.minvia import MinviaDriver
 from applications.discern_frequency.action import extract_carry_enable, FreqSumFF, remeasure, run, setup_from_args_hdf5
+from applications.discern_frequency.write_map_util import ENTRIES_REMEASURE, ENTRIES_RUN, missing_hdf5_entries,\
+	unknown_hdf5_entries
 from domain.model import Chromosome, InputData, OutputData
 from domain.request_model import ResponseObject, RequestObject
 
@@ -114,10 +116,14 @@ class ActionTest(TestCase):
 			except FileNotFoundError:
 				pass
 	
-	def check_hdf5(self, hdf5_filename):
+	def check_hdf5(self, hdf5_filename, entries = ENTRIES_RUN):
 		with h5py.File(hdf5_filename, "r") as hdf5_file:
 			self.assertIn("fitness", hdf5_file)
 			self.assertIn("measurement", hdf5_file["fitness"])
+			missing = missing_hdf5_entries(hdf5_file, entries)
+			print("missing", missing)
+			unknown = unknown_hdf5_entries(hdf5_file, entries)
+			print("unknown", unknown)
 	
 	def test_setup_from_args_hdf5_dummy(self):
 		# create HDF5 input file
@@ -148,7 +154,6 @@ class ActionTest(TestCase):
 		# clean up
 		self.delete([hdf5_filename])
 	
-	@skip("not implemented yet")
 	def test_run_remeasure_dummy(self):
 		run_filename = "tmp.test_run_remeasure_dummy.run.h5"
 		out1_filename = "tmp.test_run_remeasure_dummy.re1.h5"
@@ -157,6 +162,9 @@ class ActionTest(TestCase):
 		self.delete(fn_list)
 		
 		self.run_dummy(run_filename)
+		
+		# check
+		self.check_hdf5(run_filename)
 		
 		args = Namespace(
 			output = out1_filename,
@@ -171,7 +179,7 @@ class ActionTest(TestCase):
 		remeasure(args)
 		
 		# check
-		self.check_hdf5(out1_filename)
+		self.check_hdf5(out1_filename, ENTRIES_REMEASURE)
 		
 		# remeasure the result of remeasure
 		args.output = out2_filename
@@ -179,6 +187,6 @@ class ActionTest(TestCase):
 		remeasure(args)
 		
 		# check
-		self.check_hdf5(out2_filename)
+		self.check_hdf5(out2_filename, ENTRIES_REMEASURE)
 		
 		self.delete(fn_list)

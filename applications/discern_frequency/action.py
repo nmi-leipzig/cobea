@@ -408,13 +408,17 @@ def add_version(metadata: MetaEntryMap) -> None:
 		add_meta(metadata, "python", sys.version)
 
 
+def create_fit_func() -> FitnessFunction:
+	return FreqSumFF(5, 5)
+
+
 def create_adapter_setup() -> AdapterSetup:
 	setup = AdapterSetup()
 	
 	setup.seed = int(datetime.utcnow().timestamp())
 	setup.prng = BuiltInPRNG(setup.seed)
 	
-	setup.fit_func = FreqSumFF(5, 5)
+	setup.fit_func = create_fit_func()
 	
 	setup.input_gen = RandIntGen(setup.prng, 0, setup.fit_func.comb_count-1)
 	
@@ -504,14 +508,6 @@ def run(args: Namespace) -> None:
 		for prms in measure_setup.sink_writes:
 			sink.write(*prms)
 		
-		sink.write("Action.rep", {
-			"genes": rep.genes,
-			"const": rep.constant,
-			"carry_bits": list(rep.iter_carry_bits()),
-			"output": rep.output,
-			"colbufctrl": rep.colbufctrl,
-		})
-		
 		measure_uc = Measure(measure_setup.driver, measure_setup.meter, sink)
 		
 		hab_config = IcecraftRawConfig.create_from_filename(args.habitat)
@@ -547,11 +543,7 @@ def remeasure(args: Namespace) -> None:
 		hab_config = read_habitat(hdf5_file)
 		
 		# rep
-		rep = read_rep(hdf5_file, no_carry=True)
-		
-		# carry enable
-		carry_bits = read_carry_enable_bits(hdf5_file)
-		carry_values = read_carry_enable_values(hdf5_file, measurement_index)
+		rep = read_rep(hdf5_file, no_carry=False)
 		
 		# s-t index
 		if not comb_list:
@@ -564,35 +556,24 @@ def remeasure(args: Namespace) -> None:
 		chromo_bits = get_chromo_bits(hdf5_file)
 		
 		# write to sink
-		write_map, metadata = write_map_util.create_base(rep, chromo_bits)
-		if rec_temp:
-			write_map_util.add_temp(write_map, metadata)
-		re_map = {
-		#TODO: adapt to sink writes from MeasureFitness
-			"SimpleEA.fitness": [
-				ParamAim(["fitness"], "float64", "value", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-				ParamAim(["fast_sum"], "float64", "fast_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-				ParamAim(["slow_sum"], "float64", "slow_sum", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-				ParamAim(["chromo_index"], "uint64", "chromo_id", "fitness", as_attr=False, comp_opt=9, shuffle=True),
-			],
-			"remeasure.enable": [
-				ParamAim(
-					["carry_enable"],
-					bool,
-					"carry_enable",
-					"fitness",
-					as_attr=False,
-					shape=(len(carry_bits), ),
-					comp_opt=4,
-				),
-			],
-		}
-		write_map.update(re_map)
+		write_map, metadata = write_map_util.create_for_remeasure(rep, chromo_bits, rec_temp)
 		
 		# org filename
 		add_meta(metadata, "re.org", args.data_file)
 		
 		add_version(metadata)
+		
+		# copy simple metadata
+		for key in ["habitat.con", "freq_gen.con", "habitat.in_port.pos", "habitat.in_port.dir", "habitat.out_port.pos",
+			"habitat.out_port.dir", "habitat.area.min", "habitat.area.max"]:
+			
+			try:
+				value = data_from_key(hdf5_file, key)
+			except KeyError:
+				print(f"Warning: {key} not found in original file")
+				continue
+			
+			add_meta(metadata, key, value)
 		
 		# prepare setup
 		measure_setup = setup_from_args_hdf5(args, hdf5_file, write_map, metadata)
@@ -603,23 +584,14 @@ def remeasure(args: Namespace) -> None:
 		sink = ParallelSink(HDF5Sink, (write_map, metadata, hdf5_filename))
 		stack.enter_context(sink)
 		
+		for prms in measure_setup.sink_writes:
+			sink.write(*prms)
+		
 		# chromosome
-		#sink.write("GenChromo.perform", {"return": chromo})
+		sink.write("GenChromo.perform", {"return": ResponseObject(chromosome=chromo)})
 		# habitat
 		sink.write("habitat", {"text": hab_config.to_text()})
-		# representation
-		sink.write("Action.rep", {
-			"genes": rep.genes,
-			"const": rep.constant,
-			"carry_bits": list(rep.iter_carry_bits()),
-			"output": rep.output,
-			"colbufctrl": rep.colbufctrl,
-		})
 		rep.prepare_config(hab_config)
-		
-		# set carry enable correctly
-		for bit, val in zip(carry_bits, carry_values):
-			hab_config.set_bit(bit, val)
 		
 		if rec_temp:
 			start_temp(args.temperature, stack, sink)
@@ -627,14 +599,15 @@ def remeasure(args: Namespace) -> None:
 		measure_uc = Measure(measure_setup.driver, measure_setup.meter, sink)
 		dec_uc = DecTarget(rep, hab_config, measure_setup.target, extract_info=extract_carry_enable)
 		
-		adapter_setup = create_adapter_setup()
+		#adapter_setup = create_adapter_setup()
+		fit_func = create_fit_func()
 		
-		mf_uc = MeasureFitness(dec_uc, measure_uc, adapter_setup.fit_func, adapter_setup.input_gen,
-			prep=measure_setup.preprocessing, data_sink=sink)
+		mf_uc = MeasureFitness(dec_uc, measure_uc, fit_func, None, prep=measure_setup.preprocessing, data_sink=sink)
 		
 		# run measurement
 		for r in range(args.rounds):
 			for comb_index in comb_list:
-				req = RequestObject(chromosome=chromo)
+				req = RequestObject(chromosome=chromo, driver_data=InputData([comb_index]))
 				fit_res = mf_uc(req)
 				print(f"fit for {comb_index}: {fit_res.fitness}")
+		
