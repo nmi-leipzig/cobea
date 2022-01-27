@@ -481,7 +481,7 @@ def run(args: Namespace) -> None:
 	if args.habitat_con:
 		add_meta(metadata, "habitat.con", args.habitat_con)
 	if args.freq_gen_con:
-		metadata.setdefault("freq_gen", []).append(MetaEntry("connection", args.freq_gen_con))
+		add_meta(metadata, "freq_gen.con", args.freq_gen_con)
 	
 	with ExitStack() as stack:
 		if use_dummy:

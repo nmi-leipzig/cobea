@@ -41,7 +41,7 @@ ENTRIES_BASE = ExpEntries(["git_commit", "python"])
 
 ENTRIES_RE = ExpEntries(["re.org"])
 
-ENTRIES_DESC = ExpEntries([ "habitat.out_port.pos", "habitat.out_port.dir", "habitat.con"])
+ENTRIES_DESC = ExpEntries([ "habitat.out_port.pos", "habitat.out_port.dir", "habitat.con", "freq_gen.con"])
 
 ENTRIES_REP = ExpEntries(["rep.carry_data.desc", "rep.output", "rep.colbufctrl.bits",
 	"rep.colbufctrl.indices", "rep.desc", "rep.genes.desc", "rep.const.desc"], [FormEntry("rep.carry_data.lut", None),

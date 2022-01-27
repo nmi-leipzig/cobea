@@ -100,6 +100,7 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"freq_gen": HDF5Desc("uint8", "freq_gen", as_attr=False, alter=chain_funcs([itemgetter(0),
 		partial(bytearray, encoding="utf-8")])),
 	"freq_gen.desc": HDF5Desc(str, "description", "freq_gen"),
+	"freq_gen.con": HDF5Desc(str, "connection", "freq_gen"),
 	"carry_enable.values": HDF5Desc(bool, "carry_enable", "fitness", False, None),
 	"carry_enable.bits": HDF5Desc("uint16", "bits", "fitness/carry_enable",
 		alter=chain_funcs([partial(map, methodcaller("to_ints")), list])),
