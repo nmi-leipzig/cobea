@@ -320,11 +320,9 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 		setup.preprocessing = create_preprocessing_fpga(setup.meter, meter_setup, cal_data)
 		stack.callback(setup.meter.close)
 		
-		metadata.setdefault("fitness/measurement", []).extend([
-			MetaEntry("driver_serial_number", gen.serial_number),
-			MetaEntry("driver_hardware", gen.hardware_type),
-			MetaEntry("meter_firmware", setup.meter.firmware_version),
-		])
+		add_meta(metadata, "fitness.driver.sn", gen.serial_number)
+		add_meta(metadata, "fitness.driver.hw", gen.hardware_type)
+		add_meta(metadata, "fitness.meter.fw", setup.meter.firmware_version)
 	elif info.driver_type == DriverType.DRVMTR:
 		write_map_util.add_drvmtr(write_map, metadata)
 		setup.meter = MCUDrvMtr(info.meter_sn, 10*256, "<h", 2, 500000)
@@ -335,10 +333,8 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 		
 		setup.preprocessing = create_preprocessing_mcu(256)
 		
-		metadata.setdefault("fitness/measurement", []).extend([
-			MetaEntry("driver_serial_number", setup.meter.serial_number),
-			MetaEntry("driver_hardware", setup.meter.hardware_type),
-		])
+		add_meta(metadata, "fitness.driver.sn", setup.meter.serial_number)
+		add_meta(metadata, "fitness.driver.hw", setup.meter.hardware_type)
 	else:
 		raise Exception(f"unsupported driver type '{info.driver_type}'")
 	
@@ -347,12 +343,10 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 	stack.callback(man.release, setup.target)
 	
 	add_meta(metadata, "fitness.driver_type", info.driver_type)
-	metadata.setdefault("fitness/measurement", []).extend([
-		MetaEntry("target_serial_number", setup.target.serial_number),
-		MetaEntry("target_hardware", setup.target.hardware_type),
-		MetaEntry("meter_serial_number", setup.meter.serial_number),
-		MetaEntry("meter_hardware", setup.meter.hardware_type),
-	])
+	add_meta(metadata, "fitness.target.sn", setup.target.serial_number)
+	add_meta(metadata, "fitness.target.hw", setup.target.hardware_type)
+	add_meta(metadata, "fitness.meter.sn", setup.meter.serial_number)
+	add_meta(metadata, "fitness.meter.hw", setup.meter.hardware_type)
 	
 	return setup
 
@@ -392,14 +386,14 @@ def setup_from_args_hdf5(args: Namespace, hdf5_file: h5py.File, write_map: Param
 				freq_gen_file = open(args.freq_gen, "r")
 				stack.enter_context(freq_gen_file)
 			elif drv_type == DriverType.FPGA:
-				freq_gen_text = hdf5_file["freq_gen"][:].tobytes().decode(encoding="utf-8")
+				freq_gen_text = data_from_key(hdf5_file, "freq_gen")[:].tobytes().decode(encoding="utf-8")
 				freq_gen_file = StringIO(freq_gen_text)
 				stack.enter_context(freq_gen_file)
 			
 			setup_info = MeasureSetupInfo(
-				args.target or hdf5_file["fitness/measurement"].attrs["target_serial_number"],
-				args.meter or hdf5_file["fitness/measurement"].attrs["meter_serial_number"],
-				args.generator or hdf5_file["fitness/measurement"].attrs["driver_serial_number"],
+				args.target or data_from_key(hdf5_file, "fitness.target.sn"),
+				args.meter or data_from_key(hdf5_file, "fitness.meter.sn"),
+				args.generator or data_from_key(hdf5_file, "fitness.driver.sn"),
 				drv_type,
 				freq_gen_file,
 			)

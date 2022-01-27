@@ -57,12 +57,15 @@ ENTRIES_MEASURE = ExpEntries(["habitat", "habitat.desc", "habitat.in_port.pos", 
 	"fitness.measurement.desc", "fitness.driver_type"], [FormEntry("rand.version", [FormData(["prng_final_"])]),
 	FormEntry("rand.state", [FormData(["prng_final_"])]), FormEntry("rand.gauss", [FormData(["prng_final_"])]), ])
 
+ENTRIES_HW = ExpEntries(["fitness.driver.sn", "fitness.driver.hw", "fitness.target.sn", "fitness.target.hw",
+	"fitness.meter.sn", "fitness.meter.hw"])
+
 ENTRIES_TEMP = ExpEntries(["temp.desc", "temp.value", "temp.value.desc", "temp.value.unit", "temp.time",
 	"temp.time.desc", "temp.time.unit", "temp.reader.sn", "temp.reader.hw", "temp.sensor.sn", "temp.sensor.hw"])
 
 ENTRIES_OSCI = ExpEntries(["osci.calibration", "osci.calibration.desc", "osci.calibration.unit",
 	"osci.calibration.rising", "osci.calibration.falling", "osci.calibration.trig_len", "osci.calibration.offset",
-	"freq_gen", "freq_gen.desc"])
+	"freq_gen", "freq_gen.desc", "fitness.meter.fw"])
 
 ENTRIES_EA = ExpEntries(["fitness.generation", "fitness.generation.desc", "ea.pop", "ea.pop.desc", "ea.crossover.desc",
 	"ea.crossover.in", "ea.crossover.out", "ea.crossover.generation", "ea.crossover.generation.desc",
