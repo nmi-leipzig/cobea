@@ -232,6 +232,10 @@ class PRNG(ABC):
 	@abstractmethod
 	def randint(self, a: int, b: int) -> int:
 		raise NotImplementedError()
+	
+	@abstractmethod
+	def shuffle(self, a: Sequence) -> None:
+		raise NotImplementedError()
 
 class UniqueID(ABC):
 	"""Interface for generating unique IDs"""
