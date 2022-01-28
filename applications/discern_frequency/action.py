@@ -687,7 +687,9 @@ def clamp(args: Namespace) -> None:
 		mf_uc = MeasureFitness(dec_uc, measure_uc, adapter_setup.fit_func, None,
 			prep=measure_setup.preprocessing, data_sink=sink)
 		
-		chromo_gen = GenChromo(SimpleUID(), sink)
+		id_gen = SimpleUID()
+		id_gen.exclude([chromo_id])
+		chromo_gen = GenChromo(id_gen, sink)
 		
 		@dataclass
 		class FGene:
