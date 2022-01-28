@@ -2,8 +2,8 @@ import argparse
 
 from adapters.deap.simple_ea import EvalMode
 
-from .action import clamp, remeasure, run
-from.misc import DriverType
+from .action import clamp, explain, OutFormat, remeasure, run
+from .misc import DriverType
 
 def create_arg_parser():
 	arg_parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
@@ -13,7 +13,7 @@ def create_arg_parser():
 	arg_parser.add_argument("-m", "--meter", type=str, help="serial number of the meter")
 	arg_parser.add_argument("--temperature", type=str, help="serial number of the temperature reader; empty string for"
 		" autodetect; leave out to deactivate temperature measurement")
-	arg_parser.add_argument("-o", "--output", type=str, help="name of the HDF5 output file")
+	arg_parser.add_argument("-o", "--output", type=str, help="name of the output file")
 	arg_parser.add_argument("--dummy", action="store_true", help="use dummies instead of real hardware")
 	arg_parser.add_argument("--freq-gen-type", default="FPGA", type=str, choices=[d.name for d in DriverType], help="")
 	
@@ -53,9 +53,17 @@ def create_arg_parser():
 	clamp_parser = sub_parsers.add_parser("clamp", help="iteratively set function unit to fixed output")
 	clamp_parser.set_defaults(function=clamp)
 	
-	clamp_parser.add_argument("-d", "--data-file", type=str, required=True, help="HDF5 file contianing the original data")
+	clamp_parser.add_argument("-d", "--data-file", type=str, required=True, help="HDF5 file containing the original data")
 	clamp_parser.add_argument("-c", "--chromosome", type=int, required=True, help="id of the chromosome")
 	clamp_parser.add_argument("-r", "--repeat", default=1, type=int, help="how many times the measurement is repeated "
 		"per function unit")
+	
+	epl_parser = sub_parsers.add_parser("explain", help="transfer chromosome to more understandable form")
+	epl_parser.set_defaults(function=explain)
+	
+	epl_parser.add_argument("-d", "--data-file", type=str, required=True, help="HDF5 file containing the original data")
+	epl_parser.add_argument("-c", "--chromosome", type=int, required=True, help="id of the chromosome")
+	epl_parser.add_argument("-f", "--format", type=str, choices=[o.name for o in OutFormat], help="output format")
+	
 	
 	return arg_parser
