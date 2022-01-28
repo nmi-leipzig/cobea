@@ -3,7 +3,7 @@ import time
 
 from copy import deepcopy
 from types import TracebackType
-from typing import Any, Iterable, Mapping, Optional, Union, Type, Tuple
+from typing import Any, Iterable, Mapping, Optional, Union, Sequence, Type, Tuple
 
 from domain.base_structures import BitPos
 from domain.data_sink import DataSink
@@ -138,6 +138,7 @@ class MockRandInt(PRNG):
 	"""integers are passed to the constructor and returned in the order given
 	
 	The validity (a<=i<=b) is not checked.
+	Shuffle does nothing.
 	"""
 	
 	def __init__(self, int_iter: Iterable[int]) -> None:
@@ -149,6 +150,9 @@ class MockRandInt(PRNG):
 	
 	def randint(self, a: int, b: int) -> int:
 		return self._int_list.pop()
+	
+	def shuffle(self, a: Sequence) -> None:
+		pass
 
 
 class MockRepresentation(Representation):
