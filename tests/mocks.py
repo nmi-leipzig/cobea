@@ -132,6 +132,10 @@ class MockUniqueID(UniqueID):
 	
 	def get_id(self) -> int:
 		return self._id_list.pop()
+	
+	def exclude(self, ids: Iterable[int]) -> None:
+		pass
+
 
 
 class MockRandInt(PRNG):

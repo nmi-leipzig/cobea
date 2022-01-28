@@ -8,3 +8,6 @@ class SimpleUID(UniqueID):
 		uid = self._counter
 		self._counter += 1
 		return uid
+	
+	def exclude(self, ids: Iterable[int]) -> None:
+		self._counter = max(self._counter, max(ids)+1)

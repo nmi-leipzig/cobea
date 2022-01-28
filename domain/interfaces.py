@@ -243,6 +243,10 @@ class UniqueID(ABC):
 	@abstractmethod
 	def get_id(self) -> int:
 		raise NotImplementedError()
+	
+	@abstractmethod
+	def exclude(self, ids: Iterable[int]) -> None:
+		raise NotImplementedError()
 
 class DataCollector(AbstractContextManager):
 	"""Interface for collecting data and writing it to a DataSink"""
