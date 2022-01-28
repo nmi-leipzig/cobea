@@ -1,3 +1,5 @@
+from typing import Iterable
+
 from domain.interfaces import UniqueID
 
 class SimpleUID(UniqueID):
