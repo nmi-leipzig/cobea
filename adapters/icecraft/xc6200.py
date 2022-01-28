@@ -29,6 +29,29 @@ class XC6200Port:
 	direction: XC6200Direction
 
 class XC6200RepGen(RepresentationGenerator):
+	LUT_BITS = {
+		XC6200Direction.f: ( # LC_0
+			(0, 40), (1, 40), (1, 41), (0, 41), (0, 42), (1, 42), (1, 43), (0, 43),
+			(0, 39), (1, 39), (1, 38), (0, 38), (0, 37), (1, 37), (1, 36), (0, 36)
+		),
+		XC6200Direction.top: ( # LC_1
+			(2, 40), (3, 40), (3, 41), (2, 41), (2, 42), (3, 42), (3, 43), (2, 43),
+			(2, 39), (3, 39), (3, 38), (2, 38), (2, 37), (3, 37), (3, 36), (2, 36)
+		),
+		XC6200Direction.lft: ( # LC_2
+			(4, 40), (5, 40), (5, 41), (4, 41), (4, 42), (5, 42), (5, 43), (4, 43),
+			(4, 39), (5, 39), (5, 38), (4, 38), (4, 37), (5, 37), (5, 36), (4, 36)
+		),
+		XC6200Direction.bot: ( # LC_3
+			(6, 40), (7, 40), (7, 41), (6, 41), (6, 42), (7, 42), (7, 43), (6, 43),
+			(6, 39), (7, 39), (7, 38), (6, 38), (6, 37), (7, 37), (7, 36), (6, 36)
+		),
+		XC6200Direction.rgt: ( # LC_4
+			(8, 40), (9, 40), (9, 41), (8, 41), (8, 42), (9, 42), (9, 43), (8, 43),
+			(8, 39), (9, 39), (9, 38), (8, 38), (8, 37), (9, 37), (9, 36), (8, 36)
+		),
+	}
+	
 	def __init__(self) -> None:
 		self._parameters = {"__call__": [
 			Parameter("tiles", IcecraftPosition, multiple=True),
@@ -128,29 +151,12 @@ class XC6200RepGen(RepresentationGenerator):
 					tuple((s & (1<<i)) > 0 for s in range(16)) for i in range(4)
 				)
 			) for b in [
-				(
-					(2, 40), (3, 40), (3, 41), (2, 41), (2, 42), (3, 42), (3, 43), (2, 43),
-					(2, 39), (3, 39), (3, 38), (2, 38), (2, 37), (3, 37), (3, 36), (2, 36)
-				),
-				(
-					(4, 40), (5, 40), (5, 41), (4, 41), (4, 42), (5, 42), (5, 43), (4, 43),
-					(4, 39), (5, 39), (5, 38), (4, 38), (4, 37), (5, 37), (5, 36), (4, 36)
-				),
-				(
-					(6, 40), (7, 40), (7, 41), (6, 41), (6, 42), (7, 42), (7, 43), (6, 43),
-					(6, 39), (7, 39), (7, 38), (6, 38), (6, 37), (7, 37), (7, 36), (6, 36)
-				),
-				(
-					(8, 40), (9, 40), (9, 41), (8, 41), (8, 42), (9, 42), (9, 43), (8, 43),
-					(8, 39), (9, 39), (9, 38), (8, 38), (8, 37), (9, 37), (9, 36), (8, 36)
-				)
+				self.LUT_BITS[XC6200Direction.top], self.LUT_BITS[XC6200Direction.lft],
+				self.LUT_BITS[XC6200Direction.bot], self.LUT_BITS[XC6200Direction.rgt],
 			]
 		] + [# truth table LUT 0, i.e. function unit
 			IcecraftGeneConstraint(
-				tuple(IcecraftBitPosition(TILE_ALL_LOGIC, TILE_ALL_LOGIC, *c) for c in [
-					(0, 40), (1, 40), (1, 41), (0, 41), (0, 42), (1, 42), (1, 43), (0, 43),
-					(0, 39), (1, 39), (1, 38), (0, 38), (0, 37), (1, 37), (1, 36), (0, 36)
-				]),
+				tuple(IcecraftBitPosition(TILE_ALL_LOGIC, TILE_ALL_LOGIC, *c) for c in self.LUT_BITS[XC6200Direction.f]),
 				(
 					(False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False),
 					(False, False, False, False, False, False, False, False, False, False, False, False, True, True, True, True),
