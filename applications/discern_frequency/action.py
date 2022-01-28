@@ -9,6 +9,7 @@ from contextlib import ExitStack
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from io import StringIO
+from statistics import mean, stdev
 from typing import Any, Callable, Iterable, List, Mapping, Optional, TextIO, Tuple
 from unittest.mock import MagicMock
 
@@ -41,7 +42,7 @@ from domain.interfaces import Driver, FitnessFunction, InputData, InputGen, Mete
 TargetManager
 from domain.model import AlleleAll, Chromosome, Gene
 from domain.request_model import ResponseObject, RequestObject, Parameter, ParameterValues
-from domain.use_cases import DecTarget, ExInfoCallable, Measure, MeasureFitness
+from domain.use_cases import DecTarget, ExInfoCallable, GenChromo, Measure, MeasureFitness
 from tests.mocks import RandomMeter
 
 
@@ -610,4 +611,152 @@ def remeasure(args: Namespace) -> None:
 				req = RequestObject(chromosome=chromo, driver_data=InputData([comb_index]))
 				fit_res = mf_uc(req)
 				print(f"fit for {comb_index}: {fit_res.fitness}")
+	
+def clamp(args: Namespace) -> None:
+	rec_temp = args.temperature is not None
+	repeat = args.repeat
+	
+	with ExitStack() as stack:
+		# extract information from HDF5 file
+		hdf5_file = h5py.File(args.data_file, "r")
+		stack.enter_context(hdf5_file)
 		
+		# habitat
+		hab_config = read_habitat(hdf5_file)
+		
+		# rep
+		rep = read_rep(hdf5_file, no_carry=False)
+		
+		# chromosome
+		chromo_id = args.chromosome
+		chromo = read_chromosome(hdf5_file, chromo_id)
+		
+		chromo_bits = get_chromo_bits(hdf5_file)
+		
+		# write to sink
+		write_map, metadata = write_map_util.create_for_remeasure(rep, chromo_bits, rec_temp)
+		
+		# org filename
+		add_meta(metadata, "re.org", args.data_file)
+		
+		add_version(metadata)
+		
+		# copy simple metadata
+		for key in ["habitat.con", "freq_gen.con", "habitat.in_port.pos", "habitat.in_port.dir", "habitat.out_port.pos",
+			"habitat.out_port.dir", "habitat.area.min", "habitat.area.max"]:
+			
+			try:
+				value = data_from_key(hdf5_file, key)
+			except KeyError:
+				print(f"Warning: {key} not found in original file")
+				continue
+			
+			add_meta(metadata, key, value)
+		
+		# prepare setup
+		measure_setup = setup_from_args_hdf5(args, hdf5_file, write_map, metadata)
+		
+		# prepare sink
+		cur_date = datetime.now(timezone.utc)
+		hdf5_filename = args.output or f"clamp-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
+		sink = ParallelSink(HDF5Sink, (write_map, metadata, hdf5_filename))
+		stack.enter_context(sink)
+		
+		for prms in measure_setup.sink_writes:
+			sink.write(*prms)
+		
+		# chromosome
+		sink.write("GenChromo.perform", {"return": ResponseObject(chromosome=chromo)})
+		# habitat
+		sink.write("habitat", {"text": hab_config.to_text()})
+		rep.prepare_config(hab_config)
+		
+		if rec_temp:
+			start_temp(args.temperature, stack, sink)
+		
+		measure_uc = Measure(measure_setup.driver, measure_setup.meter, sink)
+		dec_uc = DecTarget(rep, hab_config, measure_setup.target, extract_info=extract_carry_enable)
+		
+		adapter_setup = create_adapter_setup()
+		
+		mf_uc = MeasureFitness(dec_uc, measure_uc, adapter_setup.fit_func, None,
+			prep=measure_setup.preprocessing, data_sink=sink)
+		
+		chromo_gen = GenChromo(SimpleUID(), sink)
+		
+		@dataclass
+		class FGene:
+			gene: Gene
+			index: int
+			tile: IcecraftPosition
+			const: Tuple[int, int] # index of const 0 and const 1 allele
+			
+			@classmethod
+			def from_gene(cls, gene: Gene, index: int) -> "FGene":
+				const_0 = gene.alleles.values_index([False]*len(gene.bit_positions))
+				const_1 = gene.alleles.values_index([True]*len(gene.bit_positions))
+				
+				return cls(gene, index, gene.bit_positions[0].tile, (const_0, const_1))
+		
+		# get all tiles
+		f_bits = set(XC6200RepGen.LUT_BITS[XC6200Direction.f])
+		f_units = []
+		for gene_index, gene, in enumerate(rep.iter_genes()):
+			gene_bits = set([(b.group, b.index) for b in gene.bit_positions])
+			if not f_bits & gene_bits:
+				#print(f"Nothing found in {gene_bits}")
+				continue
+			if f_bits ^ gene_bits:
+				raise ValueError(f"Can't handle mixed gene: {f_bits ^ gene_bits}")
+			
+			gene_tiles = set([b.tile for b in gene.bit_positions])
+			if len(gene_tiles) > 1:
+				raise ValueError(f"Multiple tiles in f gene: {gene_tiles}")
+			
+			print("found", gene_tiles)
+			
+			f_units.append(FGene.from_gene(gene, gene_index))
+		
+		#TODO: sanity check with habitat area
+		#print(candidates)
+		# ignore the ones with fixed values
+		candidates = [f for f in f_units if chromo.allele_indices[f.index] not in f.const]
+		#print([f.tile for f in f_units if chromo.allele_indices[f.index] in f.const])
+		
+		fixed = []
+		# choose one randomly -> shuffle
+		adapter_setup.prng.shuffle(candidates)
+		prev_chromo = chromo
+		#print([c.tile for c in candidates])
+		
+		dd_list = [adapter_setup.input_gen.generate(RequestObject()).driver_data for _ in range(repeat)]
+		def get_fit(dut):
+			fit_list = []
+			for driver_data in dd_list:
+				req = RequestObject(chromosome=dut, driver_data=driver_data)
+				res = mf_uc(req)
+				fit_list.append(res.fitness)
+			return fit_list
+		
+		org_fit = get_fit(chromo)
+		limit = mean(org_fit)
+		if repeat > 1:
+			limit -= stdev(org_fit)
+		print("limit", limit)
+		for cur in candidates:
+			# choose fixed value
+			val = adapter_setup.prng.randint(0, 1)
+			# set fixed value
+			allele_indices = prev_chromo.allele_indices[:cur.index] + (cur.const[val], ) + prev_chromo.allele_indices[
+				cur.index+1:]
+			new_chromo = chromo_gen(RequestObject(allele_indices=allele_indices)).chromosome
+			
+			# measure
+			new_fit = get_fit(new_chromo)
+			print("fit", mean(new_fit), cur.tile)
+			if limit <= mean(new_fit):
+				prev_chromo = new_chromo
+				fixed.append(cur)
+		
+		print([c.tile for c in fixed])
+		sink.write("prng", {"seed": adapter_setup.seed, "final_state": adapter_setup.prng.get_state()})

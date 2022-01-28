@@ -2,7 +2,7 @@ import argparse
 
 from adapters.deap.simple_ea import EvalMode
 
-from .action import remeasure, run
+from .action import clamp, remeasure, run
 from.misc import DriverType
 
 def create_arg_parser():
@@ -49,5 +49,13 @@ def create_arg_parser():
 	rem_parser.add_argument("-i", "--index", type=int, required=True, help="index of the measurement")
 	rem_parser.add_argument("-r", "--rounds", default=1, type=int, help="how many times the measurement is repeated")
 	rem_parser.add_argument("-c", "--comb-index", action="append", type=int, help="index of s-t-combination to be used")
+	
+	clamp_parser = sub_parsers.add_parser("clamp", help="iteratively set function unit to fixed output")
+	clamp_parser.set_defaults(function=clamp)
+	
+	clamp_parser.add_argument("-d", "--data-file", type=str, required=True, help="HDF5 file contianing the original data")
+	clamp_parser.add_argument("-c", "--chromosome", type=int, required=True, help="id of the chromosome")
+	clamp_parser.add_argument("-r", "--repeat", default=1, type=int, help="how many times the measurement is repeated "
+		"per function unit")
 	
 	return arg_parser
