@@ -142,6 +142,17 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"temp.reader.hw": HDF5Desc(str, "temp_reader_hardware", "temperature"),
 	"temp.sensor.sn": HDF5Desc(str, "temp_sensor_serial_number", "temperature"),
 	"temp.sensor.hw": HDF5Desc(str, "temp_sensor_hardware", "temperature"),
+	"clamp.desc": HDF5Desc(str, "description", "clamp"),
+	"clamp.parent": HDF5Desc("uint64", "parent", "clamp", False),
+	"clamp.parent.desc": HDF5Desc(str, "description", ),
+	"clamp.child": HDF5Desc("uint64", "child", "clamp", False),
+	"clamp.child.desc": HDF5Desc(str, "description", ),
+	"clamp.cell": HDF5Desc("uint16", "cell", "clamp", False, (2, )),
+	"clamp.cell.desc": HDF5Desc(str, "description", ),
+	"clamp.value": HDF5Desc(bool, "value", "clamp", False),
+	"clamp.value.desc": HDF5Desc(str, "description", ),
+	"clamp.clamped": HDF5Desc(bool, "clamped", "clamp", False),
+	"clamp.clamped.desc": HDF5Desc(str, "description", ),
 }
 
 def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> ParamAim:
