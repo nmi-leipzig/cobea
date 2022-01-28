@@ -52,6 +52,18 @@ class XC6200RepGen(RepresentationGenerator):
 		),
 	}
 	
+	STATIC_CONS = [ # static connections, (source, destination)
+		("neigh_op_bot_1", "local_g0_1"), ("neigh_op_bot_1", "local_g1_1"), ("neigh_op_lft_4", "local_g0_4"),
+		("neigh_op_rgt_2", "local_g3_2"), ("neigh_op_top_3", "local_g1_3"), ("lutff_0/out", "local_g1_0"),
+		("local_g0_1", "lutff_0/in_1"), ("local_g0_1", "lutff_4/in_1"), ("local_g0_4", "lutff_0/in_0"),
+		("local_g0_4", "lutff_1/in_3"), ("local_g0_4", "lutff_3/in_1"), ("local_g0_4", "lutff_4/in_0"),
+		("local_g1_0", "lutff_1/in_0"), ("local_g1_0", "lutff_2/in_1"), ("local_g1_0", "lutff_3/in_0"),
+		("local_g1_0", "lutff_4/in_3"), ("local_g1_1", "lutff_1/in_1"), ("local_g1_1", "lutff_2/in_2"),
+		("local_g1_3", "lutff_0/in_2"), ("local_g1_3", "lutff_2/in_0"), ("local_g1_3", "lutff_3/in_3"),
+		("local_g1_3", "lutff_4/in_2"), ("local_g3_2", "lutff_0/in_3"), ("local_g3_2", "lutff_1/in_2"),
+		("local_g3_2", "lutff_2/in_3"), ("local_g3_2", "lutff_3/in_2")
+	]
+	
 	def __init__(self) -> None:
 		self._parameters = {"__call__": [
 			Parameter("tiles", IcecraftPosition, multiple=True),
@@ -108,17 +120,9 @@ class XC6200RepGen(RepresentationGenerator):
 			IcecraftResource(t.x, t.y, "NET#neigh_op_lft_4") for t in tile_set if t not in border[XC6200Direction["lft"]]
 		]
 		req["exclude_connections"] = [IcecraftResCon(TILE_ALL, TILE_ALL, "", "")]
-		req["include_connections"] = [IcecraftResCon(TILE_ALL_LOGIC, TILE_ALL_LOGIC, f"NET#{s}$", f"NET#{d}$") for s, d in [
-			("neigh_op_bot_1", "local_g0_1"), ("neigh_op_bot_1", "local_g1_1"), ("neigh_op_lft_4", "local_g0_4"),
-			("neigh_op_rgt_2", "local_g3_2"), ("neigh_op_top_3", "local_g1_3"), ("lutff_0/out", "local_g1_0"),
-			("local_g0_1", "lutff_0/in_1"), ("local_g0_1", "lutff_4/in_1"), ("local_g0_4", "lutff_0/in_0"),
-			("local_g0_4", "lutff_1/in_3"), ("local_g0_4", "lutff_3/in_1"), ("local_g0_4", "lutff_4/in_0"),
-			("local_g1_0", "lutff_1/in_0"), ("local_g1_0", "lutff_2/in_1"), ("local_g1_0", "lutff_3/in_0"),
-			("local_g1_0", "lutff_4/in_3"), ("local_g1_1", "lutff_1/in_1"), ("local_g1_1", "lutff_2/in_2"),
-			("local_g1_3", "lutff_0/in_2"), ("local_g1_3", "lutff_2/in_0"), ("local_g1_3", "lutff_3/in_3"),
-			("local_g1_3", "lutff_4/in_2"), ("local_g3_2", "lutff_0/in_3"), ("local_g3_2", "lutff_1/in_2"),
-			("local_g3_2", "lutff_2/in_3"), ("local_g3_2", "lutff_3/in_2")
-		]] + [
+		req["include_connections"] = [
+			IcecraftResCon(TILE_ALL_LOGIC, TILE_ALL_LOGIC, f"NET#{s}$", f"NET#{d}$") for s, d in self.STATIC_CONS
+		] + [
 			IcecraftResCon(TILE_ALL_LOGIC, TILE_ALL_LOGIC, f"NET#lutff_{l}/in_{i}$", f"LUT#{l}$") for l in range(5) for i in range(4)
 		] + [
 			IcecraftResCon(TILE_ALL_LOGIC, TILE_ALL_LOGIC, f"LUT#{l}$", f"NET#lutff_{l}/out") for l in range(5)
