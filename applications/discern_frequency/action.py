@@ -491,16 +491,20 @@ def run(args: Namespace) -> None:
 		if use_dummy:
 			measure_setup = create_dummy_setup(25, write_map, metadata)
 		else:
-			with open(args.freq_gen, "r") as asc_file:
-				setup_info = MeasureSetupInfo(
-					args.target,
-					args.meter,
-					args.generator,
-					DriverType[args.freq_gen_type],
-					asc_file,
-				)
-				
-				measure_setup = create_measure_setup(setup_info, stack, write_map, metadata)
+			asc_file = None
+			if args.freq_gen:
+				asc_file = open(args.freq_gen, "r")
+				stack.enter_context(asc_file)
+			
+			setup_info = MeasureSetupInfo(
+				args.target,
+				args.meter,
+				args.generator,
+				DriverType[args.freq_gen_type],
+				asc_file,
+			)
+			
+			measure_setup = create_measure_setup(setup_info, stack, write_map, metadata)
 		
 		cur_date = datetime.now(timezone.utc)
 		hdf5_filename = args.output or f"evo-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
