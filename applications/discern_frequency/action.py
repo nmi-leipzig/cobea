@@ -869,3 +869,25 @@ def explain(args: Namespace) -> None:
 				out.append(cell_state[tile][lut_dir].name)
 			out.append(str(cell_state[tile][XC6200Direction.f]))
 			print(",".join(out))
+
+def generation_info(hdf5_file: h5py.File):
+	# generation
+	print("last generation")
+	gen = data_from_key(hdf5_file, "fitness.generation")[:]
+	fit = data_from_key(hdf5_file, "fitness.value")
+	chromo_ids = data_from_key(hdf5_file, "fitness.chromo_id")
+	last_indices = np.where(gen == gen[-1])[0]
+	last_fit = fit[last_indices]
+	last_id = chromo_ids[last_indices]
+	rank = last_fit.argsort()[::-1]#[:3]
+	
+	for f, i in zip(last_fit[rank], last_id[rank]):
+		print(i, f)
+	# top 3 chromosomes
+
+def info(args: Namespace) -> None:
+	with h5py.File(args.data_file, "r") as hdf5_file:
+		
+		generation_info(hdf5_file)
+		
+
