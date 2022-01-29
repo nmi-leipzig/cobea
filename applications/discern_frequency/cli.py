@@ -49,6 +49,8 @@ def create_arg_parser():
 	rem_parser.add_argument("-i", "--index", type=int, required=True, help="index of the measurement")
 	rem_parser.add_argument("-r", "--rounds", default=1, type=int, help="how many times the measurement is repeated")
 	rem_parser.add_argument("-c", "--comb-index", action="append", type=int, help="index of s-t-combination to be used")
+	rem_parser.add_argument("--freq-gen", type=str, help="configuration file of the frequency generator;"
+		" ASC format")
 	
 	clamp_parser = sub_parsers.add_parser("clamp", help="iteratively set function unit to fixed output")
 	clamp_parser.set_defaults(function=clamp)
