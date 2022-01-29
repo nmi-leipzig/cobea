@@ -661,6 +661,8 @@ def clamp(args: Namespace) -> None:
 		# prepare setup
 		measure_setup = setup_from_args_hdf5(args, hdf5_file, write_map, metadata)
 		
+		write_map_util.add_clamp(write_map, metadata)
+		
 		# prepare sink
 		cur_date = datetime.now(timezone.utc)
 		hdf5_filename = args.output or f"clamp-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
@@ -761,7 +763,17 @@ def clamp(args: Namespace) -> None:
 			# measure
 			new_fit = get_fit(new_chromo)
 			print("fit", mean(new_fit), cur.tile)
-			if limit <= mean(new_fit):
+			keep = limit <= mean(new_fit)
+			
+			sink.write("clamp", {
+				"parent": prev_chromo.identifier,
+				"child": new_chromo.identifier,
+				"cell": cur.tile,
+				"value": val,
+				"clamped": keep,
+			})
+			
+			if keep:
 				prev_chromo = new_chromo
 				fixed.append(cur)
 		

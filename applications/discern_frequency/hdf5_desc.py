@@ -147,7 +147,7 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"clamp.parent.desc": HDF5Desc(str, "description", ),
 	"clamp.child": HDF5Desc("uint64", "child", "clamp", False),
 	"clamp.child.desc": HDF5Desc(str, "description", ),
-	"clamp.cell": HDF5Desc("uint16", "cell", "clamp", False, (2, )),
+	"clamp.cell": HDF5Desc("uint16", "cell", "clamp", False, (2, ), alter=chain_funcs([itemgetter(0), astuple])),
 	"clamp.cell.desc": HDF5Desc(str, "description", ),
 	"clamp.value": HDF5Desc(bool, "value", "clamp", False),
 	"clamp.value.desc": HDF5Desc(str, "description", ),

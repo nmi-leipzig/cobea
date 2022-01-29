@@ -276,6 +276,25 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 	
 	write_map.update(ea_map)
 
+
+def add_clamp(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
+	add_meta(metadata, "clamp.desc", "Iteratively set function units to fixed value if this does not impair the "
+		"fitness")
+	add_meta(metadata, "clamp.parent.desc", "ID of the previous chromosome")
+	add_meta(metadata, "clamp.child.desc", "ID of the clamped chromosome")
+	add_meta(metadata, "clamp.cell.desc", "Cell whos function unit was clamped")
+	add_meta(metadata, "clamp.value.desc", "Value the cell was clamped to")
+	add_meta(metadata, "clamp.clamped.desc", "True iff cell was kept clamped")
+	
+	write_map["clamp"] = [
+		pa_gen("clamp.parent", ["parent"], comp_opt=9, shuffle=True),
+		pa_gen("clamp.child", ["child"], comp_opt=9, shuffle=True),
+		pa_gen("clamp.cell", ["cell"], comp_opt=9, shuffle=True),
+		pa_gen("clamp.value", ["value"], comp_opt=4),
+		pa_gen("clamp.clamped", ["clamped"], comp_opt=4),
+	]
+
+
 def create_for_run(rep: IcecraftRep, pop_size: int, chromo_bits: 16, temp: bool=True) -> Tuple[ParamAimMap,
 	MetaEntryMap]:
 	"""Create HDF5Sink write map for running a full evolutionary algorithm"""
