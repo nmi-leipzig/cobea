@@ -59,6 +59,8 @@ def create_arg_parser():
 	clamp_parser.add_argument("-c", "--chromosome", type=int, required=True, help="id of the chromosome")
 	clamp_parser.add_argument("-r", "--repeat", default=1, type=int, help="how many times the measurement is repeated "
 		"per function unit")
+	clamp_parser.add_argument("--freq-gen", type=str, help="configuration file of the frequency generator;"
+		" ASC format")
 	
 	epl_parser = sub_parsers.add_parser("explain", help="transfer chromosome to more understandable form")
 	epl_parser.set_defaults(function=explain)
