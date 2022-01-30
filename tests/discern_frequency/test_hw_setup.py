@@ -8,6 +8,7 @@ import struct
 import subprocess
 import time
 
+from argparse import Namespace
 from collections import defaultdict
 from contextlib import ExitStack
 from dataclasses import asdict
