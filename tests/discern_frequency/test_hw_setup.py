@@ -17,6 +17,7 @@ from serial.tools.list_ports import comports
 from unittest import skipIf, TestCase
 from unittest.mock import MagicMock, patch
 
+import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -440,7 +441,7 @@ class HWSetupTest(TestCase):
 		out1_filename = "tmp.test_remeasure_fpga.out1.h5"
 		out2_filename = "tmp.test_remeasure_fpga.out2.h5"
 		
-		self.run_run(hdf5_filename, False)
+		self.run_run(run_filename, False)
 		
 		# check
 		self.check_hdf5(run_filename, ENTRIES_RUN)
@@ -448,7 +449,11 @@ class HWSetupTest(TestCase):
 		args = Namespace(
 			output = out1_filename,
 			dummy = False,
+			generator = None,
+			target = None,
+			meter = None,
 			temperature = None,
+			freq_gen = None,
 			freq_gen_type = None,
 			data_file = run_filename,
 			index = 3,
