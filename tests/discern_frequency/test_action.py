@@ -1,6 +1,7 @@
 import os
 
 from argparse import Namespace
+from contextlib import ExitStack
 from unittest import skip, TestCase
 from unittest.mock import MagicMock
 
@@ -133,8 +134,8 @@ class ActionTest(TestCase):
 		args = Namespace(dummy=True)
 		write_map = {}
 		metadata = {}
-		with h5py.File(hdf5_filename, "r") as hdf5_file:
-			res = setup_from_args_hdf5(args, hdf5_file, write_map, metadata)
+		with h5py.File(hdf5_filename, "r") as hdf5_file, ExitStack() as stack:
+			res = setup_from_args_hdf5(args, hdf5_file, stack, write_map, metadata)
 		
 		# check
 		self.assertIsInstance(res.driver, MinviaDriver)

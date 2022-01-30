@@ -372,8 +372,8 @@ def create_dummy_setup(sub_count: int, write_map: ParamAimMap, metadata: MetaEnt
 	return measure_setup
 
 
-def setup_from_args_hdf5(args: Namespace, hdf5_file: h5py.File, write_map: ParamAimMap, metadata: MetaEntryMap
-) -> MeasureSetup:
+def setup_from_args_hdf5(args: Namespace, hdf5_file: h5py.File, stack: ExitStack, write_map: ParamAimMap,
+	metadata: MetaEntryMap) -> MeasureSetup:
 	"""create MeasureSetup from arguments and existing HDF5 file"""
 	
 	if args.dummy:
@@ -385,23 +385,22 @@ def setup_from_args_hdf5(args: Namespace, hdf5_file: h5py.File, write_map: Param
 		except KeyError as ke:
 			raise ValueError("Driver type defined neither in HDF5 nor via argument")
 		
-		with ExitStack() as stack:
-			freq_gen_text = None
-			if args.freq_gen:
-				with open(args.freq_gen, "r") as freq_gen_file:
-					freq_gen_text = freq_gen_file.read()
-			elif drv_type == DriverType.FPGA:
-				freq_gen_text = data_from_key(hdf5_file, "freq_gen")[:].tobytes().decode(encoding="utf-8")
-			
-			setup_info = MeasureSetupInfo(
-				args.target or data_from_key(hdf5_file, "fitness.target.sn"),
-				args.meter or data_from_key(hdf5_file, "fitness.meter.sn"),
-				args.generator or data_from_key(hdf5_file, "fitness.driver.sn"),
-				drv_type,
-				freq_gen_text,
-			)
-			
-			measure_setup = create_measure_setup(setup_info, stack, write_map, metadata)
+		freq_gen_text = None
+		if args.freq_gen:
+			with open(args.freq_gen, "r") as freq_gen_file:
+				freq_gen_text = freq_gen_file.read()
+		elif drv_type == DriverType.FPGA:
+			freq_gen_text = data_from_key(hdf5_file, "freq_gen")[:].tobytes().decode(encoding="utf-8")
+		
+		setup_info = MeasureSetupInfo(
+			args.target or data_from_key(hdf5_file, "fitness.target.sn"),
+			args.meter or data_from_key(hdf5_file, "fitness.meter.sn"),
+			args.generator or data_from_key(hdf5_file, "fitness.driver.sn"),
+			drv_type,
+			freq_gen_text,
+		)
+		
+		measure_setup = create_measure_setup(setup_info, stack, write_map, metadata)
 	
 	return measure_setup
 
@@ -583,7 +582,7 @@ def remeasure(args: Namespace) -> None:
 			add_meta(metadata, key, value)
 		
 		# prepare setup
-		measure_setup = setup_from_args_hdf5(args, hdf5_file, write_map, metadata)
+		measure_setup = setup_from_args_hdf5(args, hdf5_file, stack, write_map, metadata)
 		
 		# prepare sink
 		cur_date = datetime.now(timezone.utc)
@@ -660,7 +659,7 @@ def clamp(args: Namespace) -> None:
 			add_meta(metadata, key, value)
 		
 		# prepare setup
-		measure_setup = setup_from_args_hdf5(args, hdf5_file, write_map, metadata)
+		measure_setup = setup_from_args_hdf5(args, hdf5_file, stack, write_map, metadata)
 		
 		write_map_util.add_clamp(write_map, metadata)
 		
