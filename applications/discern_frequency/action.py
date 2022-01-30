@@ -813,7 +813,26 @@ def explain(args: Namespace) -> None:
 	# dict to look up which input is routed trough by a lut
 	mux_lut = {tuple((s & (1<<i)) > 0 for s in range(16)): i for i in range(4)}
 	
-	print(lut_port_to_dir)
+	def used_inputs(tt):
+		# check which inputs are used by a truth table
+		used = []
+		
+		for port in range(4):
+			pre_mask = (1<<port) - 1
+			for i in range(8):
+				pre = i & pre_mask
+				post = (i ^ pre) << 1
+				index = post | pre
+				if tt[index] != tt[index | (1<<port)]:
+					used.append(port)
+					break
+		
+		return used
+	
+	for tt, exp in mux_lut.items():
+		assert [exp] == used_inputs(tt)
+	
+	#print(lut_port_to_dir)
 	
 	with ExitStack() as stack:
 		# extract information from HDF5 file
@@ -854,11 +873,11 @@ def explain(args: Namespace) -> None:
 				gene = rep.genes[gene_index]
 				allele_index = chromo.allele_indices[gene_index]
 				value = gene.alleles[allele_index].values
-				if lut_dir == XC6200Direction.f:
-					print("function", value)
-					cell_state[tile][lut_dir] = value
-					continue
 				lut_index = gene.bit_positions[0].group//2
+				if lut_dir == XC6200Direction.f:
+					print("function", value, used_inputs(value))
+					cell_state[tile][lut_dir] = [lut_port_to_dir[lut_index][p] for p in used_inputs(value)]#value
+					continue
 				in_port = mux_lut[value]
 				print(lut_dir, gene_index, lut_port_to_dir[lut_index][in_port])
 				cell_state[tile][lut_dir] = lut_port_to_dir[lut_index][in_port]
