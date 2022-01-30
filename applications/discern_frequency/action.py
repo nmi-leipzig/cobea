@@ -882,6 +882,7 @@ def generation_info(hdf5_file: h5py.File):
 	rank = last_fit.argsort()[::-1]#[:3]
 	offset = len(fit) - len(last_fit)
 	
+	print("chromo_id fitness measurement_index")
 	for f, i, r in zip(last_fit[rank], last_id[rank], rank):
 		print(i, f, r+offset)
 	# top 3 chromosomes
