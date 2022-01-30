@@ -45,8 +45,10 @@ from adapters.mcu_drv_mtr import MCUDrvMtr
 from adapters.parallel_sink import ParallelSink
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
-from applications.discern_frequency.action import calibrate, create_preprocessing_mcu, DataCollectionError, run, start_temp
+from applications.discern_frequency.action import calibrate, create_preprocessing_mcu, DataCollectionError, remeasure, run, start_temp
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
+from applications.discern_frequency.write_map_util import ENTRIES_REMEASURE, ENTRIES_RUN, missing_hdf5_entries,\
+	unknown_hdf5_entries
 from domain.interfaces import InputData
 from domain.request_model import RequestObject
 from domain.use_cases import Measure
@@ -358,44 +360,115 @@ class HWSetupTest(TestCase):
 					check(comb_index, data)
 		
 	
-	def run_fpga(self, hdf5_filename):
-		try:
-			driver_sn, target_sn, meter_sn = self.detect_osci_setup()
-		except DetectSetupError:
-			self.skipTest("Couldn't detect FPGA hardware setup.")
-		
+	def run_run(self, hdf5_filename, use_mcu):
 		del_files([hdf5_filename])
 		
-		args = Namespace(
-			output = hdf5_filename,
-			dummy = False,
-			generator = driver_sn,
-			target = target_sn,
-			meter = meter_sn,
-			temperature = None,
-			freq_gen_type = "FPGA",
-			freq_gen = os.path.join(self.app_path, "freq_gen.asc"),
-			habitat = os.path.join(self.app_path, "nhabitat.asc"),
-			area = [13, 32, 13, 32],
-			in_port = ["13", "32", "lft"],
-			out_port = ["13", "32", "top"],
-			habitat_con = "not specified",
-			freq_gen_con = "not specified",
-			pop_size = 3,
-			generations = 1,
-			crossover_prob = 0.7,
-			mutation_prob = 0.001756,
-			eval_mode = "ALL",
-		)
+		if use_mcu:
+			baudrate = 500000
+			try:
+				drv_mtr_sn, target_sn = self.detect_mcu_setup(baudrate)
+			except DetectSetupError:
+				self.skipTest("Couldn't detect hardware setup.")
+			
+			args = Namespace(
+				output = hdf5_filename,
+				dummy = False,
+				generator = None,
+				target = target_sn,
+				meter = drv_mtr_sn,
+				temperature = None,
+				freq_gen_type = "DRVMTR",
+				habitat = os.path.join(self.app_path, "nhabitat.asc"),
+				area = [13, 32, 13, 32],
+				in_port = ["13", "32", "lft"],
+				out_port = ["13", "32", "top"],
+				habitat_con = "not specified",
+				freq_gen_con = "not specified",
+				pop_size = 3,
+				generations = 1,
+				crossover_prob = 0.7,
+				mutation_prob = 0.001756,
+				eval_mode = "ALL",
+			)
+		else:
+			try:
+				driver_sn, target_sn, meter_sn = self.detect_osci_setup()
+			except DetectSetupError:
+				self.skipTest("Couldn't detect FPGA hardware setup.")
+			
+			args = Namespace(
+				output = hdf5_filename,
+				dummy = False,
+				generator = driver_sn,
+				target = target_sn,
+				meter = meter_sn,
+				temperature = None,
+				freq_gen_type = "FPGA",
+				freq_gen = os.path.join(self.app_path, "freq_gen.asc"),
+				habitat = os.path.join(self.app_path, "nhabitat.asc"),
+				area = [13, 32, 13, 32],
+				in_port = ["13", "32", "lft"],
+				out_port = ["13", "32", "top"],
+				habitat_con = "not specified",
+				freq_gen_con = "not specified",
+				pop_size = 3,
+				generations = 1,
+				crossover_prob = 0.7,
+				mutation_prob = 0.001756,
+				eval_mode = "ALL",
+			)
 		
 		run(args)
 		
 		return args
 	
+	def check_hdf5(self, hdf5_filename, entries):
+		with h5py.File(hdf5_filename, "r") as hdf5_file:
+			missing = missing_hdf5_entries(hdf5_file, entries)
+			self.assertEqual(0, len(missing), f"Missing entries: {missing}")
+			unknown = unknown_hdf5_entries(hdf5_file, entries)
+			if len(unknown):
+				print(f"Warning: unknonw entries {unknown}")
+	
 	def test_run_fpga(self):
 		hdf5_filename = "tmp.test_run_fpga.h5"
 		
-		self.run_fpga(hdf5_filename)
+		self.run_run(hdf5_filename, False)
+	
+	def test_remeasure_fpga(self):
+		run_filename = "tmp.test_remeasure_fpga.run.h5"
+		out1_filename = "tmp.test_remeasure_fpga.out1.h5"
+		out2_filename = "tmp.test_remeasure_fpga.out2.h5"
+		
+		self.run_run(hdf5_filename, False)
+		
+		# check
+		self.check_hdf5(run_filename, ENTRIES_RUN)
+		
+		args = Namespace(
+			output = out1_filename,
+			dummy = False,
+			temperature = None,
+			freq_gen_type = None,
+			data_file = run_filename,
+			index = 3,
+			rounds = 2,
+			comb_index = None,
+		)
+		remeasure(args)
+		
+		# check
+		self.check_hdf5(out1_filename, ENTRIES_REMEASURE)
+		
+		# remeasure the result of remeasure
+		args.output = out2_filename
+		args.data_file = out1_filename
+		remeasure(args)
+		
+		# check
+		self.check_hdf5(out2_filename, ENTRIES_REMEASURE)
+		
+		self.delete([run_filename, out1_filename, out2_filename])
 	
 	@staticmethod
 	def create_and_write(driver_sn):
