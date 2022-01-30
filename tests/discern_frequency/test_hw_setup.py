@@ -441,7 +441,7 @@ class HWSetupTest(TestCase):
 		out1_filename = "tmp.test_remeasure_fpga.out1.h5"
 		out2_filename = "tmp.test_remeasure_fpga.out2.h5"
 		
-		self.delete([run_filename, out1_filename, out2_filename])
+		del_files([run_filename, out1_filename, out2_filename])
 		
 		self.run_run(run_filename, False)
 		
@@ -475,7 +475,7 @@ class HWSetupTest(TestCase):
 		# check
 		self.check_hdf5(out2_filename, ENTRIES_REMEASURE)
 		
-		self.delete([run_filename, out1_filename, out2_filename])
+		del_files([run_filename, out1_filename, out2_filename])
 	
 	@staticmethod
 	def create_and_write(driver_sn):
