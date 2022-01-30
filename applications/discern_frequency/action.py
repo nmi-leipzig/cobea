@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import auto, Enum
 from statistics import mean, stdev
-from typing import Any, Callable, Iterable, List, Mapping, Optional, TextIO, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, TextIO, Tuple
 from unittest.mock import MagicMock
 
 import h5py
@@ -780,6 +780,32 @@ def clamp(args: Namespace) -> None:
 		print([c.tile for c in fixed])
 		sink.write("prng", {"seed": adapter_setup.seed, "final_state": adapter_setup.prng.get_state()})
 
+def get_connected(cell_state: Dict[IcecraftPosition, XC6200Cell], out_pos: IcecraftPosition, out_dir: XC6200Direction
+) -> Dict[IcecraftPosition, List[XC6200Direction]]:
+	res = {}
+	todo = [(out_pos, out_dir)]
+	while todo:
+		tile, dir_ = todo.pop()
+		res.setdefault(tile, []).append(dir_)
+		for new_dir in cell_state[tile][dir_]:
+			if new_dir == XC6200Direction.f:
+				new_tile = tile
+			else:
+				new_tile = XC6200RepGen.get_neighbor(tile, new_dir)
+				new_dir = new_dir.opposite()
+			
+			if new_tile not in cell_state:
+				continue
+			try:
+				if new_dir in res[new_tile]:
+					continue
+			except KeyError:
+				pass
+			
+			todo.append((new_tile, new_dir))
+	
+	return res
+
 def explain(args: Namespace) -> None:
 	with ExitStack() as stack:
 		# extract information from HDF5 file
@@ -804,6 +830,14 @@ def explain(args: Namespace) -> None:
 				out.append(cell_state[tile][lut_dir][0].name)
 			out.append(str(cell_state[tile][XC6200Direction.f]))
 			print(",".join(out))
+		
+		out_pos_raw = data_from_key(hdf5_file, "habitat.out_port.pos")
+		out_pos = IcecraftPosition(*out_pos_raw)
+		out_dir_raw = data_from_key(hdf5_file, "habitat.out_port.dir")
+		out_dir = XC6200Direction[out_dir_raw]
+		
+		con = get_connected(cell_state, out_pos, out_dir)
+		print("connected to output:", con)
 
 def generation_info(hdf5_file: h5py.File):
 	# generation
