@@ -482,10 +482,10 @@ class HWSetupTest(TestCase):
 		
 		del_files([run_filename, out1_filename, out2_filename])
 	
-	def test_remeasure_fpga(self, base_name, use_mcu):
+	def test_remeasure_fpga(self):
 		self.run_remeasure("test_remeasure_fpga", False)
 	
-	def test_remeasure_mcu(self, base_name, use_mcu):
+	def test_remeasure_mcu(self):
 		self.run_remeasure("test_remeasure_fpga", True)
 	
 	@staticmethod
