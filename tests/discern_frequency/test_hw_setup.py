@@ -441,6 +441,8 @@ class HWSetupTest(TestCase):
 		out1_filename = "tmp.test_remeasure_fpga.out1.h5"
 		out2_filename = "tmp.test_remeasure_fpga.out2.h5"
 		
+		self.delete([run_filename, out1_filename, out2_filename])
+		
 		self.run_run(run_filename, False)
 		
 		# check
