@@ -436,14 +436,19 @@ class HWSetupTest(TestCase):
 		
 		self.run_run(hdf5_filename, False)
 	
-	def test_remeasure_fpga(self):
-		run_filename = "tmp.test_remeasure_fpga.run.h5"
-		out1_filename = "tmp.test_remeasure_fpga.out1.h5"
-		out2_filename = "tmp.test_remeasure_fpga.out2.h5"
+	def test_run_mcu(self):
+		hdf5_filename = "tmp.test_run_mcu.h5"
+		
+		self.run_run(hdf5_filename, True)
+	
+	def run_remeasure(self, base_name, use_mcu):
+		run_filename = f"tmp.{base_name}.run.h5"
+		out1_filename = f"tmp.{base_name}.out1.h5"
+		out2_filename = f"tmp.{base_name}.out2.h5"
 		
 		del_files([run_filename, out1_filename, out2_filename])
 		
-		self.run_run(run_filename, False)
+		self.run_run(run_filename, use_mcu)
 		
 		# check
 		self.check_hdf5(run_filename, ENTRIES_RUN)
@@ -476,6 +481,12 @@ class HWSetupTest(TestCase):
 		self.check_hdf5(out2_filename, ENTRIES_REMEASURE)
 		
 		del_files([run_filename, out1_filename, out2_filename])
+	
+	def test_remeasure_fpga(self, base_name, use_mcu):
+		self.run_remeasure("test_remeasure_fpga", False)
+	
+	def test_remeasure_mcu(self, base_name, use_mcu):
+		self.run_remeasure("test_remeasure_fpga", True)
 	
 	@staticmethod
 	def create_and_write(driver_sn):
