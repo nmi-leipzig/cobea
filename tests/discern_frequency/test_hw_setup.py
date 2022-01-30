@@ -476,6 +476,7 @@ class HWSetupTest(TestCase):
 		# remeasure the result of remeasure
 		args.output = out2_filename
 		args.data_file = out1_filename
+		args.index = 0
 		remeasure(args)
 		
 		# check
