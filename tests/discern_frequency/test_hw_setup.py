@@ -373,6 +373,8 @@ class HWSetupTest(TestCase):
 			target = target_sn,
 			meter = meter_sn,
 			temperature = None,
+			freq_gen_type = "FPGA",
+			freq_gen = os.path.join(self.app_path, "freq_gen.asc"),
 			habitat = os.path.join(self.app_path, "nhabitat.asc"),
 			area = [13, 32, 13, 32],
 			in_port = ["13", "32", "lft"],
