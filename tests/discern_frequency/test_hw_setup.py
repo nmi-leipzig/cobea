@@ -44,11 +44,13 @@ from adapters.mcu_drv_mtr import MCUDrvMtr
 from adapters.parallel_sink import ParallelSink
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
-from applications.discern_frequency.action import calibrate, create_preprocessing_mcu, DataCollectionError, start_temp
+from applications.discern_frequency.action import calibrate, create_preprocessing_mcu, DataCollectionError, run, start_temp
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.interfaces import InputData
 from domain.request_model import RequestObject
 from domain.use_cases import Measure
+
+from .common import del_files
 
 class DetectSetupError(Exception):
 	pass
@@ -354,6 +356,43 @@ class HWSetupTest(TestCase):
 				if check:
 					check(comb_index, data)
 		
+	
+	def run_fpga(self, hdf5_filename):
+		try:
+			driver_sn, target_sn, meter_sn = self.detect_osci_setup()
+		except DetectSetupError:
+			self.skipTest("Couldn't detect FPGA hardware setup.")
+		
+		del_files([hdf5_filename])
+		
+		args = Namespace(
+			output = hdf5_filename,
+			dummy = False,
+			generator = driver_sn,
+			target = target_sn,
+			meter = meter_sn,
+			temperature = None,
+			habitat = os.path.join(self.app_path, "nhabitat.asc"),
+			area = [13, 32, 13, 32],
+			in_port = ["13", "32", "lft"],
+			out_port = ["13", "32", "top"],
+			habitat_con = "not specified",
+			freq_gen_con = "not specified",
+			pop_size = 3,
+			generations = 1,
+			crossover_prob = 0.7,
+			mutation_prob = 0.001756,
+			eval_mode = "ALL",
+		)
+		
+		run(args)
+		
+		return args
+	
+	def test_run_fpga(self):
+		hdf5_filename = "tmp.test_run_fpga.h5"
+		
+		self.run_fpga(hdf5_filename)
 	
 	@staticmethod
 	def create_and_write(driver_sn):
