@@ -10,7 +10,6 @@ from contextlib import ExitStack
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import auto, Enum
-from io import StringIO
 from statistics import mean, stdev
 from typing import Any, Callable, Iterable, List, Mapping, Optional, TextIO, Tuple
 from unittest.mock import MagicMock
@@ -82,8 +81,8 @@ def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int], in_por
 	return rep
 
 # flash FPGAs
-def prepare_generator(gen: TargetDevice, asc_file: TextIO) -> IcecraftRawConfig:
-	config = IcecraftRawConfig.create_from_file(asc_file)
+def prepare_generator(gen: TargetDevice, text: str) -> IcecraftRawConfig:
+	config = IcecraftRawConfig.from_text(text)
 	gen.configure(config)
 	
 	return config
@@ -206,7 +205,7 @@ class MeasureSetupInfo:
 	meter_sn: str
 	driver_sn: Optional[str] = None
 	driver_type: DriverType = DriverType.DRVMTR
-	driver_asc_file: Optional[TextIO] = None
+	driver_text: Optional[str] = None
 
 @dataclass
 class MeasureSetup:
@@ -308,7 +307,7 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 		gen = man.acquire(info.driver_sn)
 		stack.callback(man.release, gen)
 		
-		fg_config = prepare_generator(gen, info.driver_asc_file)
+		fg_config = prepare_generator(gen, info.driver_text)
 		setup.driver = FixedEmbedDriver(gen, "B")
 		
 		cal_data = calibrate(setup.driver, info.meter_sn)
@@ -387,21 +386,19 @@ def setup_from_args_hdf5(args: Namespace, hdf5_file: h5py.File, write_map: Param
 			raise ValueError("Driver type defined neither in HDF5 nor via argument")
 		
 		with ExitStack() as stack:
-			freq_gen_file = None
+			freq_gen_text = None
 			if args.freq_gen:
-				freq_gen_file = open(args.freq_gen, "r")
-				stack.enter_context(freq_gen_file)
+				with open(args.freq_gen, "r") as freq_gen_file:
+					freq_gen_text = freq_gen_file.read()
 			elif drv_type == DriverType.FPGA:
 				freq_gen_text = data_from_key(hdf5_file, "freq_gen")[:].tobytes().decode(encoding="utf-8")
-				freq_gen_file = StringIO(freq_gen_text)
-				stack.enter_context(freq_gen_file)
 			
 			setup_info = MeasureSetupInfo(
 				args.target or data_from_key(hdf5_file, "fitness.target.sn"),
 				args.meter or data_from_key(hdf5_file, "fitness.meter.sn"),
 				args.generator or data_from_key(hdf5_file, "fitness.driver.sn"),
 				drv_type,
-				freq_gen_file,
+				freq_gen_text,
 			)
 			
 			measure_setup = create_measure_setup(setup_info, stack, write_map, metadata)
@@ -491,17 +488,17 @@ def run(args: Namespace) -> None:
 		if use_dummy:
 			measure_setup = create_dummy_setup(25, write_map, metadata)
 		else:
-			asc_file = None
+			asc_text = None
 			if args.freq_gen:
-				asc_file = open(args.freq_gen, "r")
-				stack.enter_context(asc_file)
+				with open(args.freq_gen, "r") as asc_file:
+					asc_text = asc_file.read()
 			
 			setup_info = MeasureSetupInfo(
 				args.target,
 				args.meter,
 				args.generator,
 				DriverType[args.freq_gen_type],
-				asc_file,
+				asc_text,
 			)
 			
 			measure_setup = create_measure_setup(setup_info, stack, write_map, metadata)
