@@ -1,8 +1,11 @@
-from dataclasses import dataclass
+import re
+
+from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Mapping
+from typing import Dict, List, Mapping
 
 from domain.interfaces import RepresentationGenerator
+from domain.model import Chromosome
 from domain.request_model import ResponseObject, RequestObject, Parameter
 
 from .representation import IcecraftRep, IcecraftRepGen
@@ -340,3 +343,106 @@ class XC6200RepGen(RepresentationGenerator):
 		y_off = [1, 0, -1, 0][direction]
 		
 		return IcecraftPosition(tile.x+x_off, tile.y+y_off)
+
+@dataclass
+class XC6200Cell:
+	# except fo f all list contain exactly one entry; still use list to make handling easier
+	top: List[XC6200Direction] = field(default_factory=list)
+	lft: List[XC6200Direction] = field(default_factory=list)
+	bot: List[XC6200Direction] = field(default_factory=list)
+	rgt: List[XC6200Direction] = field(default_factory=list)
+	f: List[XC6200Direction] = field(default_factory=list)
+	
+	def __getitem__(self, key: XC6200Direction) -> List[XC6200Direction]:
+		if not isinstance(key, XC6200Direction):
+			raise ValueError("key needs to be XC6200Direction")
+		return getattr(self, key.name)
+	
+	@classmethod
+	def get_cell_structure(cls, rep: IcecraftRep, chromo: Chromosome) -> Dict[IcecraftPosition, "XC6200Cell"]:
+		# prepare lookup
+		dst_to_src = {d: s for s, d in XC6200RepGen.STATIC_CONS}
+		lut_port_to_dir = {}
+		for dst in dst_to_src:
+			res = re.match(r"lutff_(?P<index>\d)/in_(?P<port>\d)", dst)
+			if res is None:
+				continue
+			index = int(res.group("index"))
+			port = int(res.group("port"))
+			
+			# find transitive source
+			src = dst
+			while True:
+				try:
+					src = dst_to_src[src]
+				except KeyError:
+					break
+			
+			res = re.match(r"neigh_op_(?P<dir>\w+)_\d", src)
+			if res is None:
+				if src != "lutff_0/out":
+					ValueError(f"Unexcpected source for {dst}: {src}")
+				in_dir = XC6200Direction.f
+			else:
+				in_dir = XC6200Direction[res.group("dir")]
+			
+			lut_port_to_dir.setdefault(index, {})[port] = in_dir
+		
+		# dict to look up which input is routed trough by a lut
+		mux_lut = {tuple((s & (1<<i)) > 0 for s in range(16)): i for i in range(4)}
+		
+		def used_inputs(tt):
+			# check which inputs are used by a truth table
+			used = []
+			
+			for port in range(4):
+				pre_mask = (1<<port) - 1
+				for i in range(8):
+					pre = i & pre_mask
+					post = (i ^ pre) << 1
+					index = post | pre
+					if tt[index] != tt[index | (1<<port)]:
+						used.append(port)
+						break
+			
+			return used
+		
+		for tt, exp in mux_lut.items():
+			assert [exp] == used_inputs(tt)
+			
+		
+		bits_to_dir = {b: d for d, b in XC6200RepGen.LUT_BITS.items()}
+		cell_map = {}
+		for gene_index, gene in enumerate(rep.iter_genes()):
+			gene_bits = tuple((b.group, b.index) for b in gene.bit_positions)
+			try:
+				lut_dir = bits_to_dir[gene_bits]
+			except KeyError as ke:
+				raise ValueError(f"incompatible representation {gene_bits} not in {list(bits_to_dir.keys())}") from ke
+			
+			gene_tiles = set([b.tile for b in gene.bit_positions])
+			if len(gene_tiles) > 1:
+				raise ValueError(f"Multiple tiles in gene: {gene}")
+			
+			cell_map.setdefault(gene_tiles.pop(), {})[lut_dir] = gene_index
+		
+		cell_state = {}
+		for tile in sorted(cell_map):
+			print(tile)
+			cur_state = {}
+			for lut_dir in sorted(cell_map[tile]):
+				gene_index = cell_map[tile][lut_dir]
+				gene = rep.genes[gene_index]
+				allele_index = chromo.allele_indices[gene_index]
+				value = gene.alleles[allele_index].values
+				lut_index = gene.bit_positions[0].group//2
+				if lut_dir == XC6200Direction.f:
+					print("function", value, used_inputs(value))
+					cur_state[lut_dir] = [lut_port_to_dir[lut_index][p] for p in used_inputs(value)]#value
+					continue
+				in_port = mux_lut[value]
+				print(lut_dir, gene_index, lut_port_to_dir[lut_index][in_port])
+				cur_state[lut_dir] = [lut_port_to_dir[lut_index][in_port]]
+			cell_state[tile] = cls(*[cur_state[d] for d in sorted(XC6200Direction)])
+		print([d for d in sorted(XC6200Direction)])
+		return cell_state

@@ -8,4 +8,4 @@ from .inter_rep import PartConf
 from .meter import IcecraftEmbedMeter
 from .position_transformation import IcecraftPosTransLibrary
 from .representation import CarryData, CarryDataMap, IcecraftRep, IcecraftRepGen
-from .xc6200 import XC6200Direction, XC6200Port, XC6200RepGen
+from .xc6200 import XC6200Cell, XC6200Direction, XC6200Port, XC6200RepGen

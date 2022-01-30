@@ -24,7 +24,7 @@ from adapters.dummies import DummyDriver
 from adapters.gear.rigol import FloatCheck, IntCheck, OsciDS1102E, SetupCmd
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
 from adapters.icecraft import IcecraftBitPosition, IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen,\
-IcecraftManager, IcecraftRawConfig, XC6200Port, XC6200Direction
+IcecraftManager, IcecraftRawConfig, XC6200Port, XC6200Direction, XC6200Cell
 from adapters.input_gen import RandIntGen
 from adapters.minvia import MinviaDriver
 from adapters.mcu_drv_mtr import MCUDrvMtr
@@ -781,59 +781,6 @@ def clamp(args: Namespace) -> None:
 		sink.write("prng", {"seed": adapter_setup.seed, "final_state": adapter_setup.prng.get_state()})
 
 def explain(args: Namespace) -> None:
-	#TODO: move to XC6200 module
-	# prepare lookup
-	dst_to_src = {d: s for s, d in XC6200RepGen.STATIC_CONS}
-	lut_port_to_dir = {}
-	for dst in dst_to_src:
-		res = re.match(r"lutff_(?P<index>\d)/in_(?P<port>\d)", dst)
-		if res is None:
-			continue
-		index = int(res.group("index"))
-		port = int(res.group("port"))
-		
-		# find transitive source
-		src = dst
-		while True:
-			try:
-				src = dst_to_src[src]
-			except KeyError:
-				break
-		
-		res = re.match(r"neigh_op_(?P<dir>\w+)_\d", src)
-		if res is None:
-			if src != "lutff_0/out":
-				ValueError(f"Unexcpected source for {dst}: {src}")
-			in_dir = XC6200Direction.f
-		else:
-			in_dir = XC6200Direction[res.group("dir")]
-		
-		lut_port_to_dir.setdefault(index, {})[port] = in_dir
-	
-	# dict to look up which input is routed trough by a lut
-	mux_lut = {tuple((s & (1<<i)) > 0 for s in range(16)): i for i in range(4)}
-	
-	def used_inputs(tt):
-		# check which inputs are used by a truth table
-		used = []
-		
-		for port in range(4):
-			pre_mask = (1<<port) - 1
-			for i in range(8):
-				pre = i & pre_mask
-				post = (i ^ pre) << 1
-				index = post | pre
-				if tt[index] != tt[index | (1<<port)]:
-					used.append(port)
-					break
-		
-		return used
-	
-	for tt, exp in mux_lut.items():
-		assert [exp] == used_inputs(tt)
-	
-	#print(lut_port_to_dir)
-	
 	with ExitStack() as stack:
 		# extract information from HDF5 file
 		hdf5_file = h5py.File(args.data_file, "r")
@@ -849,43 +796,12 @@ def explain(args: Namespace) -> None:
 		chromo_id = args.chromosome
 		chromo = read_chromosome(hdf5_file, chromo_id)
 		
-		bits_to_dir = {b: d for d, b in XC6200RepGen.LUT_BITS.items()}
-		cell_map = {}
-		for gene_index, gene in enumerate(rep.iter_genes()):
-			gene_bits = tuple((b.group, b.index) for b in gene.bit_positions)
-			try:
-				lut_dir = bits_to_dir[gene_bits]
-			except KeyError as ke:
-				raise ValueError(f"incompatible representation {gene_bits} not in {list(bits_to_dir.keys())}") from ke
-			
-			gene_tiles = set([b.tile for b in gene.bit_positions])
-			if len(gene_tiles) > 1:
-				raise ValueError(f"Multiple tiles in gene: {gene}")
-			
-			cell_map.setdefault(gene_tiles.pop(), {})[lut_dir] = gene_index
-		
-		cell_state = {}
-		for tile in sorted(cell_map):
-			print(tile)
-			cell_state[tile] = {}
-			for lut_dir in sorted(cell_map[tile]):
-				gene_index = cell_map[tile][lut_dir]
-				gene = rep.genes[gene_index]
-				allele_index = chromo.allele_indices[gene_index]
-				value = gene.alleles[allele_index].values
-				lut_index = gene.bit_positions[0].group//2
-				if lut_dir == XC6200Direction.f:
-					print("function", value, used_inputs(value))
-					cell_state[tile][lut_dir] = [lut_port_to_dir[lut_index][p] for p in used_inputs(value)]#value
-					continue
-				in_port = mux_lut[value]
-				print(lut_dir, gene_index, lut_port_to_dir[lut_index][in_port])
-				cell_state[tile][lut_dir] = lut_port_to_dir[lut_index][in_port]
+		cell_state = XC6200Cell.get_cell_structure(rep, chromo)
 		
 		for tile in sorted(cell_state):
 			out = [f"{tile.x}", f"{tile.y}"]
 			for lut_dir in [XC6200Direction.top, XC6200Direction.lft, XC6200Direction.bot, XC6200Direction.rgt]:
-				out.append(cell_state[tile][lut_dir].name)
+				out.append(cell_state[tile][lut_dir][0].name)
 			out.append(str(cell_state[tile][XC6200Direction.f]))
 			print(",".join(out))
 
