@@ -379,6 +379,7 @@ class HWSetupTest(TestCase):
 				meter = drv_mtr_sn,
 				temperature = None,
 				freq_gen_type = "DRVMTR",
+				freq_gen = None,
 				habitat = os.path.join(self.app_path, "nhabitat.asc"),
 				area = [13, 32, 13, 32],
 				in_port = ["13", "32", "lft"],
