@@ -631,13 +631,15 @@ def remeasure(args: Namespace) -> None:
 				print(f"fit for {comb_index}: {fit_res.fitness}")
 	
 def clamp(args: Namespace) -> None:
-	rec_temp = args.temperature is not None
 	repeat = args.repeat
 	
 	with ExitStack() as stack:
 		# extract information from HDF5 file
 		hdf5_file = h5py.File(args.data_file, "r")
 		stack.enter_context(hdf5_file)
+		
+		# measure temperature?
+		rec_temp, temp_sn = temp_from_args_hdf5(args, hdf5_file)
 		
 		# habitat
 		hab_config = read_habitat(hdf5_file)
@@ -692,7 +694,7 @@ def clamp(args: Namespace) -> None:
 		rep.prepare_config(hab_config)
 		
 		if rec_temp:
-			start_temp(args.temperature, stack, sink)
+			start_temp(temp_sn, stack, sink)
 		
 		measure_uc = Measure(measure_setup.driver, measure_setup.meter, sink)
 		dec_uc = DecTarget(rep, hab_config, measure_setup.target, extract_info=extract_carry_enable)
