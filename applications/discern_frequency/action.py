@@ -819,6 +819,66 @@ def get_connected(cell_state: Dict[IcecraftPosition, XC6200Cell], out_pos: Icecr
 	
 	return res
 
+def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell]) -> str:
+	offset = min(cell_state)
+	
+	res = []
+	res.append(r"\begin{tikzpicture}")
+	in_map = {
+		XC6200Direction.top: 115,
+		XC6200Direction.lft: 205,
+		XC6200Direction.bot: 295,
+		XC6200Direction.rgt: 25,
+	}
+	
+	out_map = {
+		XC6200Direction.top: 65,
+		XC6200Direction.lft: 155,
+		XC6200Direction.bot: 245,
+		XC6200Direction.rgt: 335,
+	}
+	
+	off_unit = [(0, 1), (-1, 0), (0, -1), (1, 0)]
+	off_fac = lambda p, o: [tuple(p*a for a in t) for t in o]
+	
+	arrow_off = off_fac(0.2, off_unit)#[(0, 0.5), (-0.5, 0), (0, -0.5), (0.5, 0)]
+	square_min_unit = [(-0.5, -1), (0, -0.5), (-0.5, 0), (-1, -0.5)]
+	square_max_unit = [(0.5, 0), (1, 0.5), (0.5, 1), (0, 0.5)]
+	square_min = off_fac(0.1, square_min_unit)
+	square_max = off_fac(0.1, square_max_unit)
+	
+	for pos, cell in cell_state.items():
+		name = f"s{pos.x:02}{pos.y:02}"
+		res.append(r"\draw ("+f"{pos.x-offset.x}, {pos.y-offset.y}"+") node[shape=rectangle, minimum height=0.8cm, minimum width=0.8cm, draw] ("+name+") {};")
+		arrow = [False]*4
+		box = [False]*4
+		for dir_ in XC6200Direction:
+			if dir_ == XC6200Direction.f:
+				for used in cell[dir_]:
+					arrow[used] = True
+					box[used] = True
+				continue
+			for used in cell[dir_]:
+				if used == XC6200Direction.f:
+					continue
+				arrow[used] = True
+				res.append(r"\draw ("+f"{name}.{in_map[used]}"+") -- ("+f"{name}.{out_map[dir_]}"+");")
+		
+		for use, dir_ in zip(box, XC6200Direction):
+			if not use:
+				continue
+			out = f"{name}.{in_map[dir_]}"
+			res.append(f"\draw ($({out})+{square_min[dir_]}$) rectangle ($({out})+{square_max[dir_]}$);")
+		for use, dir_ in zip(arrow, XC6200Direction):
+			if not use:
+				continue
+			out = f"{name}.{in_map[dir_]}"
+			res.append(f"\draw[<-] ({out}) -- ($({out})+({arrow_off[dir_][0]}, {arrow_off[dir_][1]})$);")
+	
+	res.append(r"\end{tikzpicture}")
+	
+	return "\n".join(res)
+
 def explain(args: Namespace) -> None:
 	with ExitStack() as stack:
 		# extract information from HDF5 file
@@ -834,6 +894,10 @@ def explain(args: Namespace) -> None:
 		# chromosome
 		chromo_id = args.chromosome
 		chromo = read_chromosome(hdf5_file, chromo_id)
+		
+		rep.prepare_config(hab_config)
+		rep.decode(hab_config, chromo)
+		hab_config.write_asc("tmp.explain.asc")
 		
 		cell_state = XC6200Cell.get_cell_structure(rep, chromo)
 		
@@ -851,6 +915,9 @@ def explain(args: Namespace) -> None:
 		
 		con = get_connected(cell_state, out_pos, out_dir)
 		print("connected to output:", con)
+		
+		with open("explain.tex", "w") as tikz_file:
+			tikz_file.write(generate_tikz(cell_state))
 
 def generation_info(hdf5_file: h5py.File):
 	# generation
