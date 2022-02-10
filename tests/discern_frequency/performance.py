@@ -33,6 +33,7 @@ from adapters.hdf5_sink import compose, HDF5Sink, ParamAim
 from adapters.icecraft import IcecraftManager, IcecraftRawConfig, IcecraftRep, IcecraftStormConfig
 from adapters.parallel_collector import CollectorDetails, InitDetails, ParallelCollector
 from adapters.parallel_sink import ParallelSink
+from adapters.pop_init import RandomPop
 from adapters.prng import BuiltInPRNG
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
@@ -98,8 +99,10 @@ def run_algo(rep: IcecraftRep) -> None:
 			dec_uc = DecTarget(rep, hab_config, target, extract_info=extract_carry_enable)
 			ada_setup = create_adapter_setup()
 			mf_uc = MeasureFitness(dec_uc, measure_uc, ada_setup.fit_func, ada_setup.input_gen, data_sink=sink)
+			uid_gen = SimpleUID()
+			popi = RandomPop(rep, uid_gen, adapter_setup.prng, sink)
 			
-			ea = SimpleEA(rep, mf_uc, SimpleUID(), adapter_setup.prng, sink)
+			ea = SimpleEA(rep, mf_uc, uid_gen, popi, sink)
 			
 			ea.run(pop_size, 8, 0.7, 0.001756)
 			#ea.run(50, 600, 0.7, 0.001756)

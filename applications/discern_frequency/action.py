@@ -30,6 +30,7 @@ from adapters.minvia import MinviaDriver
 from adapters.mcu_drv_mtr import MCUDrvMtr
 from adapters.parallel_collector import CollectorDetails, InitDetails, ParallelCollector
 from adapters.parallel_sink import ParallelSink
+from adapters.pop_init import RandomPop
 from adapters.prng import BuiltInPRNG
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
@@ -538,7 +539,10 @@ def run(args: Namespace) -> None:
 		dec_uc = DecTarget(rep, hab_config, measure_setup.target, extract_info=extract_carry_enable)
 		mf_uc = MeasureFitness(dec_uc, measure_uc, adapter_setup.fit_func, adapter_setup.input_gen, prep=measure_setup.preprocessing, data_sink=sink)
 		
-		ea = SimpleEA(rep, mf_uc, SimpleUID(), adapter_setup.prng, sink)
+		uid_gen = SimpleUID()
+		popi = RandomPop(rep, uid_gen, adapter_setup.prng, sink)
+		
+		ea = SimpleEA(rep, mf_uc, uid_gen, popi, sink)
 		
 		ea.run(pop_size, args.generations, args.crossover_prob, args.mutation_prob, EvalMode[args.eval_mode])
 		

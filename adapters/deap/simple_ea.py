@@ -17,7 +17,7 @@ from deap import algorithms
 from adapters.input_gen import RandIntGen
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink, DataSinkUser
-from domain.interfaces import EvoAlgo, FitnessFunction, InputData, PRNG, Representation, UniqueID
+from domain.interfaces import EvoAlgo, FitnessFunction, InputData, PopulationInit, Representation, UniqueID
 from domain.model import Chromosome, OutputData
 from domain.request_model import RequestObject
 from domain.use_cases import DecTarget, GenChromo, Measure, MeasureFitness, RandomChromo
@@ -91,12 +91,12 @@ class Individual:
 		return wrapped_func
 
 class SimpleEA(EvoAlgo, DataSinkUser):
-	def __init__(self, rep: Representation, measure_fit_uc: MeasureFitness,
-		uid_gen: UniqueID, prng: PRNG, data_sink: DataSink, prep: Callable[[OutputData], OutputData]=lambda x: x) -> None:
+	def __init__(self, rep: Representation, measure_fit_uc: MeasureFitness, uid_gen: UniqueID, pop_init: PopulationInit,
+		data_sink: DataSink, prep: Callable[[OutputData], OutputData]=lambda x: x) -> None:
 		
 		self._rep = rep
 		self._measure_fit_uc = measure_fit_uc
-		self._init_uc = RandomChromo(prng, rep, uid_gen, data_sink)
+		self._pop_init = pop_init
 		self._chromo_gen = GenChromo(uid_gen, data_sink)
 		self._data_sink = data_sink
 		self._prep = prep
@@ -213,7 +213,8 @@ class SimpleEA(EvoAlgo, DataSinkUser):
 		
 	
 	def _init_pop(self, count) -> List[Individual]:
-		return [Individual(self._init_uc(RequestObject()).chromosome) for _ in range(count)]
+		chromo_list = self._pop_init.init_pop(count)
+		return [Individual(c) for c in chromo_list]
 	
 	def _evaluate(self, indi: Individual, info: Mapping[str, Any]={}) -> Tuple[int]:
 		mes_req = RequestObject(chromosome=indi.chromo)

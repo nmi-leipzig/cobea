@@ -8,10 +8,11 @@ from adapters.embed_meter import FixedEmbedMeter
 from adapters.fitness import ReduceFF
 from adapters.input_gen import SeqGen
 from adapters.simtar import SimtarConfig, SimtarDev, SimtarRepGen
+from adapters.pop_init import RandomPop
 from adapters.prng import BuiltInPRNG
 from adapters.unique_id import SimpleUID
-from domain.interfaces import Driver, FitnessFunction, InputGen, Meter, OutputData, PRNG, Representation, \
-	TargetConfiguration, TargetDevice, UniqueID
+from domain.interfaces import Driver, FitnessFunction, InputGen, Meter, OutputData, PopulationInit, PRNG, \
+	Representation, TargetConfiguration, TargetDevice, UniqueID
 from domain.data_sink import DataSink
 from domain.model import Chromosome, InputData
 from domain.request_model import RequestObject
@@ -145,6 +146,7 @@ class SimpleEATest(TestCase):
 		gen: Optional[InputGen] = None
 		uid_gen: UniqueID = None
 		prng: PRNG = None
+		popi: PopulationInit = None
 		sink: DataSink = None
 	
 	def create_dut_data(self):
@@ -183,8 +185,9 @@ class SimpleEATest(TestCase):
 		
 		res.uid_gen = SimpleUID()
 		res.prng = BuiltInPRNG()
+		res.popi = RandomPop(res.rep, res.uid_gen, res.prng, res.sink)
 		
-		res.dut = SimpleEA(res.rep, res.mf_uc, res.uid_gen, res.prng, res.sink, res.prep)
+		res.dut = SimpleEA(res.rep, res.mf_uc, res.uid_gen, res.popi, res.sink, res.prep)
 		
 		return res
 	
