@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod, abstractproperty
 from contextlib import AbstractContextManager
 from types import TracebackType
-from typing import Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple, Type, Union
 
 from domain.base_structures import BitPos
 from domain.data_sink import DataSink, DataSinkUser
@@ -218,6 +218,14 @@ class PosTransLibrary(ItemLibrary):
 class EvoAlgo(ABC):
 	@abstractmethod
 	def run(self) -> None:
+		raise NotImplementedError()
+
+
+class PopulationInit(ABC):
+	"""Interface for a population initializer"""
+	
+	@abstractmethod
+	def init_pop(self, pop_size: int) -> List[Chromosome]:
 		raise NotImplementedError()
 
 class PRNG(ABC):
