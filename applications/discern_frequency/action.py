@@ -405,6 +405,18 @@ def setup_from_args_hdf5(args: Namespace, hdf5_file: h5py.File, stack: ExitStack
 	return measure_setup
 
 
+def temp_from_args_hdf5(args: Namespace, hdf5_file: h5py.File) -> Tuple[bool, str]:
+	"""Extract information about temperature recording from args and HDF5 file"""
+	
+	arduino_sn = args.temperature
+	if arduino_sn == "":
+		try:
+			arduino_sn = data_from_key(hdf5_file, "temp.reader.sn")
+		except KeyError:
+			pass
+	
+	return arduino_sn is not None, arduino_sn
+
 def add_version(metadata: MetaEntryMap) -> None:
 		add_meta(metadata, "git_commit", get_git_commit())
 		add_meta(metadata, "python", sys.version)
@@ -536,14 +548,15 @@ def remeasure(args: Namespace) -> None:
 	pkg_path = os.path.dirname(os.path.abspath(__file__))
 	comb_list = args.comb_index
 	
-	rec_temp = args.temperature is not None
-	
 	with ExitStack() as stack:
 		measurement_index = args.index
 		
 		# extract information from HDF5 file
 		hdf5_file = h5py.File(args.data_file, "r")
 		stack.enter_context(hdf5_file)
+		
+		# measure temperature?
+		rec_temp, temp_sn = temp_from_args_hdf5(args, hdf5_file)
 		
 		# habitat
 		hab_config = read_habitat(hdf5_file)
@@ -600,7 +613,7 @@ def remeasure(args: Namespace) -> None:
 		rep.prepare_config(hab_config)
 		
 		if rec_temp:
-			start_temp(args.temperature, stack, sink)
+			start_temp(temp_sn, stack, sink)
 		
 		measure_uc = Measure(measure_setup.driver, measure_setup.meter, sink)
 		dec_uc = DecTarget(rep, hab_config, measure_setup.target, extract_info=extract_carry_enable)
