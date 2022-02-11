@@ -30,14 +30,14 @@ from adapters.minvia import MinviaDriver
 from adapters.mcu_drv_mtr import MCUDrvMtr
 from adapters.parallel_collector import CollectorDetails, InitDetails, ParallelCollector
 from adapters.parallel_sink import ParallelSink
-from adapters.pop_init import RandomPop
+from adapters.pop_init import GivenPop, RandomPop
 from adapters.prng import BuiltInPRNG
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
 from applications.discern_frequency.hdf5_desc import add_meta
 from applications.discern_frequency.misc import DriverType
-from applications.discern_frequency.read_hdf5_util import data_from_key, get_chromo_bits, read_carry_enable_bits, read_carry_enable_values, read_chromosome, read_fitness_chromo_id, read_habitat, read_rep, read_s_t_index
+from applications.discern_frequency.read_hdf5_util import data_from_key, get_chromo_bits, read_carry_enable_bits, read_carry_enable_values, read_chromosome, read_fitness_chromo_id, read_generation, read_habitat, read_rep, read_s_t_index
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
 from domain.data_sink import DataSink
 from domain.interfaces import Driver, FitnessFunction, InputData, InputGen, Meter, OutputData, PRNG, TargetDevice, \
@@ -226,6 +226,14 @@ class AdapterSetup:
 	fit_func: Optional[FitnessFunction] = None
 	input_gen: Optional[InputGen] = None
 
+
+@dataclass
+class EASetup:
+	pop_size: Optional[int] = None
+	generations: Optional[int] = None
+	crossover_prob: Optional[float] = None
+	mutation_prob: Optional[float] = None
+	eval_mode: Optional[EvalMode] = None
 
 def create_preprocessing_fpga(meter: Meter, meter_setup: SetupCmd, cal_data: CalibrationData) -> Callable[[OutputData], OutputData]:
 	convert = meter.raw_to_volt_func()
@@ -418,6 +426,21 @@ def temp_from_args_hdf5(args: Namespace, hdf5_file: h5py.File) -> Tuple[bool, st
 	
 	return arduino_sn is not None, arduino_sn
 
+
+def ea_from_args_hdf5(args: Namespace, hdf5_file: h5py.File) -> EASetup:
+	res = EASetup()
+	
+	# pop size always has to match HDF5 data
+	res.pop_size = int(data_from_key(hdf5_file, "ea.pop_size"))
+	res.generations = int(args.generations or data_from_key(hdf5_file, "ea.gen_count"))
+	res.crossover_prob = float(args.crossover_prob or data_from_key(hdf5_file, "ea.crossover_prob"))
+	res.mutation_prob = float(args.mutation_prob or data_from_key(hdf5_file, "ea.mutation_prob"))
+	mode_name = args.eval_mode or data_from_key(hdf5_file, "ea.eval_mode")
+	res.eval_mode = EvalMode[mode_name]
+	
+	return res
+
+
 def add_version(metadata: MetaEntryMap) -> None:
 		add_meta(metadata, "git_commit", get_git_commit())
 		add_meta(metadata, "python", sys.version)
@@ -465,6 +488,18 @@ def start_temp(arduino_sn: str, stack: ExitStack, sink: DataSink, start_timeout:
 	stack.enter_context(par_col)
 	if not par_col.wait_collecting(start_timeout):
 		raise DataCollectionError("couldn't start temperature measurement")
+
+def copy_meta(hdf5_file: h5py.File, metadata: MetaEntryMap, key_list: Iterable[str]) -> None:
+	"""Copy values directly to metadata"""
+	for key in key_list:
+		try:
+			value = data_from_key(hdf5_file, key)
+		except KeyError:
+			print(f"Warning: {key} not found in original file")
+			continue
+		
+		add_meta(metadata, key, value)
+
 
 def run(args: Namespace) -> None:
 	# prepare
@@ -587,16 +622,8 @@ def remeasure(args: Namespace) -> None:
 		add_version(metadata)
 		
 		# copy simple metadata
-		for key in ["habitat.con", "freq_gen.con", "habitat.in_port.pos", "habitat.in_port.dir", "habitat.out_port.pos",
-			"habitat.out_port.dir", "habitat.area.min", "habitat.area.max"]:
-			
-			try:
-				value = data_from_key(hdf5_file, key)
-			except KeyError:
-				print(f"Warning: {key} not found in original file")
-				continue
-			
-			add_meta(metadata, key, value)
+		copy_meta(hdf5_file, metadata, ["habitat.con", "freq_gen.con", "habitat.in_port.pos", "habitat.in_port.dir",
+			"habitat.out_port.pos", "habitat.out_port.dir", "habitat.area.min", "habitat.area.max"])
 		
 		# prepare setup
 		measure_setup = setup_from_args_hdf5(args, hdf5_file, stack, write_map, metadata)
@@ -633,7 +660,85 @@ def remeasure(args: Namespace) -> None:
 				req = RequestObject(chromosome=chromo, driver_data=InputData([comb_index]))
 				fit_res = mf_uc(req)
 				print(f"fit for {comb_index}: {fit_res.fitness}")
+
+def restart(args: Namespace) -> None:
+	pkg_path = os.path.dirname(os.path.abspath(__file__))
+	generation_index = args.index
 	
+	with ExitStack() as stack:
+		
+		# extract information from HDF5 file
+		hdf5_file = h5py.File(args.data_file, "r")
+		stack.enter_context(hdf5_file)
+		
+		# measure temperature?
+		rec_temp, temp_sn = temp_from_args_hdf5(args, hdf5_file)
+		
+		# habitat
+		hab_config = read_habitat(hdf5_file)
+		
+		# rep
+		rep = read_rep(hdf5_file, no_carry=False)
+		
+		# ea_setup
+		ea_setup = ea_from_args_hdf5(args, hdf5_file)
+		
+		# initial population
+		fst_pop = read_generation(hdf5_file, generation_index)
+		
+		# write to sink
+		chromo_bits = get_chromo_bits(hdf5_file)
+		write_map, metadata = write_map_util.create_for_run(rep, ea_setup.pop_size, chromo_bits, rec_temp)
+		
+		# org filename
+		add_meta(metadata, "re.org", args.data_file)
+		
+		add_version(metadata)
+		
+		# copy simple metadata
+		copy_meta(hdf5_file, metadata, ["habitat.con", "freq_gen.con", "habitat.in_port.pos", "habitat.in_port.dir",
+			"habitat.out_port.pos", "habitat.out_port.dir", "habitat.area.min", "habitat.area.max"])
+		
+		# prepare setup
+		measure_setup = setup_from_args_hdf5(args, hdf5_file, stack, write_map, metadata)
+		
+		# prepare sink
+		cur_date = datetime.now(timezone.utc)
+		hdf5_filename = args.output or f"restart-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
+		sink = ParallelSink(HDF5Sink, (write_map, metadata, hdf5_filename))
+		stack.enter_context(sink)
+		
+		for prms in measure_setup.sink_writes:
+			sink.write(*prms)
+		
+		# chromosomes
+		for chromo in fst_pop:
+			sink.write("GenChromo.perform", {"return": ResponseObject(chromosome=chromo)})
+		# habitat
+		sink.write("habitat", {"text": hab_config.to_text()})
+		rep.prepare_config(hab_config)
+		
+		if rec_temp:
+			start_temp(temp_sn, stack, sink)
+		
+		measure_uc = Measure(measure_setup.driver, measure_setup.meter, sink)
+		dec_uc = DecTarget(rep, hab_config, measure_setup.target, extract_info=extract_carry_enable)
+		
+		adapter_setup = create_adapter_setup()
+		
+		mf_uc = MeasureFitness(dec_uc, measure_uc, adapter_setup.fit_func, adapter_setup.input_gen, prep=measure_setup.preprocessing, data_sink=sink)
+		
+		uid_gen = SimpleUID()
+		uid_gen.exclude([c.identifier for c in fst_pop])
+		popi = GivenPop(fst_pop)
+		
+		ea = SimpleEA(rep, mf_uc, uid_gen, popi, sink)
+		
+		ea.run(ea_setup.pop_size, ea_setup.generations, ea_setup.crossover_prob, ea_setup.mutation_prob,
+			ea_setup.eval_mode)
+		
+		sink.write("prng", {"seed": adapter_setup.seed, "final_state": adapter_setup.prng.get_state()})
+
 def clamp(args: Namespace) -> None:
 	repeat = args.repeat
 	

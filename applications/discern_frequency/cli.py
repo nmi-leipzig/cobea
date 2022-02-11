@@ -2,7 +2,7 @@ import argparse
 
 from adapters.deap.simple_ea import EvalMode
 
-from .action import clamp, explain, info, OutFormat, remeasure, run
+from .action import clamp, explain, info, OutFormat, remeasure, restart, run
 from .misc import DriverType
 
 def create_arg_parser():
@@ -50,6 +50,21 @@ def create_arg_parser():
 	rem_parser.add_argument("-r", "--rounds", default=1, type=int, help="how many times the measurement is repeated")
 	rem_parser.add_argument("-c", "--comb-index", action="append", type=int, help="index of s-t-combination to be used")
 	rem_parser.add_argument("--freq-gen", type=str, help="configuration file of the frequency generator;"
+		" ASC format")
+	
+	restart_parser = sub_parsers.add_parser("restart", help="run EA with results of previous run")
+	restart_parser.set_defaults(function=restart)
+	
+	restart_parser.add_argument("-d", "--data-file", type=str, required=True, help="HDF5 file containing the original data")
+	restart_parser.add_argument("-i", "--index", type=int, default=-1, help="Index of the generation to take as initial population")
+	restart_parser.add_argument("--pop-size", type=int, help="size of the population")
+	restart_parser.add_argument("--generations", type=int, help="number of generation")
+	restart_parser.add_argument("--crossover-prob", type=float, help="probability that a crossover takes"
+		" place")
+	restart_parser.add_argument("--mutation-prob", type=float, help="probability that a mutation takes"
+		" place")
+	restart_parser.add_argument("--eval-mode", default="NEW", type=str, choices=[e.name for e in EvalMode], help="which individuals in each generation are evaluated; NEW -> ones without fitness value; ELITE -> without fitness value and elites; ALL -> all")
+	restart_parser.add_argument("--freq-gen", type=str, help="configuration file of the frequency generator;"
 		" ASC format")
 	
 	clamp_parser = sub_parsers.add_parser("clamp", help="iteratively set function unit to fixed output")
