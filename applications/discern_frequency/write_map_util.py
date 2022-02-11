@@ -204,7 +204,7 @@ def add_temp(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	add_meta(metadata, "temp.time.desc", "time the temperature measurement started; timezone UTC")
 	add_meta(metadata, "temp.time.unit", "seconds since 01.01.1970 00:00:00")
 	
-	write_map.update(temp_map)
+	extend_dict_list(write_map, temp_map)
 
 
 def add_measure(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep) -> None:
@@ -280,7 +280,7 @@ def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> Non
 	add_meta(metadata, "ea.pop.desc", "IDs of the chromosomes included in each generation")
 	add_meta(metadata, "fitness.generation.desc", "generation in which the fitness was evaluated")
 	
-	write_map.update(ea_map)
+	extend_dict_list(write_map, ea_map)
 
 
 def add_clamp(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
