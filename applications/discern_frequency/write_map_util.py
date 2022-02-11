@@ -80,6 +80,12 @@ ENTRIES_RUN = ENTRIES_BASE + ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_EA + ENTRIE
 
 ENTRIES_REMEASURE = ENTRIES_BASE + ENTRIES_REP + ENTRIES_MEASURE + ENTRIES_DESC + ENTRIES_RE
 
+
+def extend_dict_list(org: Dict[Any, list], new: Dict[Any, list]) -> None:
+	for key, new_list in new.items():
+		org.setdefault(key, []).extend(new_list)
+
+
 def create_rng_aim(name: str, prefix: str) -> List[ParamAim]:
 	return [
 		pa_gen("rand.version", [name], name_args=[prefix]),
@@ -230,7 +236,7 @@ def add_measure(write_map: ParamAimMap, metadata: MetaEntryMap, rep: IcecraftRep
 	add_meta(metadata, "carry_enable.desc", "values of carry enable bits; derived from the configuration bits defined "
 		"by the genotype")
 	
-	write_map.update(ea_map)
+	extend_dict_list(write_map, ea_map)
 
 
 def add_ea(write_map: ParamAimMap, metadata: MetaEntryMap, pop_size: int) -> None:
