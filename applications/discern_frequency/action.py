@@ -1030,13 +1030,16 @@ def explain(args: Namespace) -> None:
 		with open("explain.tex", "w") as tikz_file:
 			tikz_file.write(generate_tikz(cell_state))
 
-def generation_info(hdf5_file: h5py.File):
+def generation_info(hdf5_file: h5py.File, gen_index: int=-1):
 	# generation
-	print("last generation")
 	gen = data_from_key(hdf5_file, "fitness.generation")[:]
+	if gen_index == -1:
+		gen_index = gen[-1]
+	print(f"generation {gen_index}")
+	
 	fit = data_from_key(hdf5_file, "fitness.value")
 	chromo_ids = data_from_key(hdf5_file, "fitness.chromo_id")
-	last_indices = np.where(gen == gen[-1])[0]
+	last_indices = np.where(gen == gen_index)[0]
 	last_fit = fit[last_indices]
 	last_id = chromo_ids[last_indices]
 	rank = last_fit.argsort()[::-1]#[:3]
@@ -1050,6 +1053,6 @@ def generation_info(hdf5_file: h5py.File):
 def info(args: Namespace) -> None:
 	with h5py.File(args.data_file, "r") as hdf5_file:
 		
-		generation_info(hdf5_file)
+		generation_info(hdf5_file, args.index)
 		
 

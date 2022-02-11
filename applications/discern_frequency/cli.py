@@ -88,5 +88,6 @@ def create_arg_parser():
 	info_parser.set_defaults(function=info)
 	
 	info_parser.add_argument("-d", "--data-file", type=str, required=True, help="HDF5 file")
+	info_parser.add_argument("-i", "--index", type=int, default=-1, help="index of the generation info is shown for")
 	
 	return arg_parser
