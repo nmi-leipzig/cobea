@@ -36,8 +36,8 @@ def read_chromosome(hdf5_file: h5py.File, identifier: int) -> Chromosome:
 	except IndexError:
 		raise ValueError(f"Chromosome {identifier} not found.")
 	
-	allele_indices = tuple(data_from_desc(hdf5_file, idx_desc)[chromo_index])
-	return Chromosome(identifier, allele_indices)
+	allele_indices = tuple(int(i) for i in data_from_desc(hdf5_file, idx_desc)[chromo_index])
+	return Chromosome(int(identifier), allele_indices)
 
 def read_s_t_index(hdf5_file: h5py.File, fit_index: int) -> int:
 	desc = HDF5_DICT["fitness.st"]
