@@ -155,3 +155,9 @@ def get_chromo_bits(hdf5_file: h5py.File) -> int:
 	desc = HDF5_DICT["chromo.indices"]
 	size = data_from_desc(hdf5_file, desc).dtype.itemsize
 	return size * 8
+
+def read_generation(hdf5_file: h5py.File, gen_index: int) -> List[Chromosome]:
+	pops = data_from_key(hdf5_file, "ea.pop")
+	gen = [read_chromosome(hdf5_file, i) for i in pops[gen_index]]
+	
+	return gen
