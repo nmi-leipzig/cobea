@@ -21,10 +21,10 @@ def block_size_from_mode(mode: RAMMode) -> int:
 
 class IcecraftRawConfig(TargetConfiguration):
 	mode_map = {
-		RAMMode.RAM_256x16: BRAMMode.BRAM_256x16,
-		RAMMode.RAM_512x8: BRAMMode.BRAM_512x8,
-		RAMMode.RAM_1024x4: BRAMMode.BRAM_1024x4,
-		RAMMode.RAM_2048x2: BRAMMode.BRAM_2048x2,
+		RAMMode.RAM_256x16: BRAMMode.BRAM_256X16,
+		RAMMode.RAM_512x8: BRAMMode.BRAM_512X8,
+		RAMMode.RAM_1024x4: BRAMMode.BRAM_1024X4,
+		RAMMode.RAM_2048x2: BRAMMode.BRAM_2048X2,
 	}
 	
 	def __init__(self, raw_config: Configuration) -> None:
