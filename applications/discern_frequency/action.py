@@ -712,7 +712,11 @@ def restart(args: Namespace) -> None:
 			sink.write(*prms)
 		
 		# chromosomes
+		known_chromos = set()
 		for chromo in fst_pop:
+			if chromo.identifier in known_chromos:
+				continue
+			known_chromos.add(chromo.identifier)
 			sink.write("GenChromo.perform", {"return": ResponseObject(chromosome=chromo)})
 		# habitat
 		sink.write("habitat", {"text": hab_config.to_text()})
@@ -729,7 +733,7 @@ def restart(args: Namespace) -> None:
 		mf_uc = MeasureFitness(dec_uc, measure_uc, adapter_setup.fit_func, adapter_setup.input_gen, prep=measure_setup.preprocessing, data_sink=sink)
 		
 		uid_gen = SimpleUID()
-		uid_gen.exclude([c.identifier for c in fst_pop])
+		uid_gen.exclude(known_chromos)
 		popi = GivenPop(fst_pop)
 		
 		ea = SimpleEA(rep, mf_uc, uid_gen, popi, sink)
