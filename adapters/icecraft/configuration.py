@@ -28,10 +28,10 @@ class IcecraftRawConfig(TargetConfiguration):
 	}
 	
 	type_map = { # ice_board to icecraft
-		IcecraftType.LOGIC = TileType.LOGIC,
-		IcecraftType.IO = TileType.IO,
-		IcecraftType.RAM_T = TileType.RAM_T,
-		IcecraftType.RAM_B = TileType.RAM_B,
+		IcecraftType.LOGIC: TileType.LOGIC,
+		IcecraftType.IO: TileType.IO,
+		IcecraftType.RAM_T: TileType.RAM_T,
+		IcecraftType.RAM_B: TileType.RAM_B,
 	}
 	
 	def __init__(self, raw_config: Configuration) -> None:
