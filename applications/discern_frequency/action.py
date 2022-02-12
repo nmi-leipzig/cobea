@@ -1077,6 +1077,8 @@ def spectrum(args: Namespace) -> None:
 	pkg_path = os.path.dirname(os.path.abspath(__file__))
 	
 	with ExitStack() as stack:
+		cur_date = datetime.now(timezone.utc)
+		
 		# extract information from HDF5 file
 		hdf5_file = h5py.File(args.data_file, "r")
 		stack.enter_context(hdf5_file)
@@ -1096,18 +1098,6 @@ def spectrum(args: Namespace) -> None:
 		
 		chromo_bits = get_chromo_bits(hdf5_file)
 		
-		#TODO: write to sink
-		sink = None
-		
-		# org filename
-		#TODO:add_meta(metadata, "re.org", args.data_file)
-		
-		#TODO:add_version(metadata)
-		
-		# copy simple metadata
-		#TODO:copy_meta(hdf5_file, metadata, ["habitat.con", "freq_gen.con", "habitat.in_port.pos", "habitat.in_port.dir",
-		#	"habitat.out_port.pos", "habitat.out_port.dir", "habitat.area.min", "habitat.area.max"])
-		
 		# prepare setup
 		target_sn = args.target or data_from_key(hdf5_file, "fitness.target.sn")
 		meter_sn  = args.meter or data_from_key(hdf5_file, "fitness.meter.sn")
@@ -1126,16 +1116,52 @@ def spectrum(args: Namespace) -> None:
 		driver = FixedEmbedDriver(gen, "<H")
 		
 		cal_data = calibrate(driver, meter_sn)
-		#TODO:setup.sink_writes.extend([
-		#	("freq_gen", {"text": fg_config.to_text(), }),
-		#	("calibration", asdict(cal_data)),
-		#])
+		
+		# write to sink
+		chromo_bits = get_chromo_bits(hdf5_file)
+		write_map, metadata = write_map_util.create_for_spectrum(rep, chromo_bits, cal_data.trig_len, rec_temp)
+		
+		# org filename
+		add_meta(metadata, "re.org", args.data_file)
+		
+		add_version(metadata)
+		
+		# copy simple metadata
+		copy_meta(hdf5_file, metadata, ["habitat.con", "habitat.in_port.pos", "habitat.in_port.dir",
+			"habitat.out_port.pos", "habitat.out_port.dir", "habitat.area.min", "habitat.area.max"])
+		
+		try:
+			fg_con = args.freq_gen_con or data_from_key(hdf5_file, "freq_gen.con")
+			add_meta(metadata, "freq_gen.con", fg_con)
+		except KeyError:
+			pass
 		
 		meter, meter_setup = prepare_osci(cal_data, stack)
 		to_volt = meter.raw_to_volt_func()
-		#TODO: metadata.setdefault("fitness/measurement", []).extend(write_map_util.meter_setup_to_meta(meter_setup))
-		
 		target = prepare_target(target_sn, man, stack)
+		
+		metadata.setdefault("fitness/measurement", []).extend(write_map_util.meter_setup_to_meta(meter_setup))
+		add_meta(metadata, "fitness.driver.sn", gen.serial_number)
+		add_meta(metadata, "fitness.driver.hw", gen.hardware_type)
+		add_meta(metadata, "fitness.meter.fw", meter.firmware_version)
+		add_meta(metadata, "fitness.driver_type", drv_type)
+		add_meta(metadata, "fitness.target.sn", target.serial_number)
+		add_meta(metadata, "fitness.target.hw", target.hardware_type)
+		add_meta(metadata, "fitness.meter.sn", meter.serial_number)
+		add_meta(metadata, "fitness.meter.hw", meter.hardware_type)
+		
+		
+		# start sink
+		sink_filename = args.output or f"spectrum-{cur_date.strftime('%Y%m%d-%H%M%S')}.h5"
+		sink = ParallelSink(HDF5Sink, (write_map, metadata, sink_filename))
+		stack.enter_context(sink)
+		
+		sink.write("freq_gen", {"text": fg_config.to_text(), })
+		sink.write("calibration", asdict(cal_data))
+		# chromosome
+		sink.write("GenChromo.perform", {"return": ResponseObject(chromosome=chromo)})
+		# habitat
+		sink.write("habitat", {"text": hab_config.to_text()})
 		
 		if rec_temp:
 			start_temp(temp_sn, stack, sink)
@@ -1147,9 +1173,12 @@ def spectrum(args: Namespace) -> None:
 		rep.decode(hab_config, chromo)
 		target.configure(hab_config)
 		
+		# carry enable
+		carry_enable = extract_carry_enable(rep, hab_config, chromo).carry_enable
+		
 		measure_uc = Measure(driver, meter, sink)
 		
-		for cycles in [256*i for i in range(1, 75+1)]:
+		for cycles in [256*i for i in range(1, 5+1)]:
 			freq = 12e6/cycles
 			period = 1/freq
 			print(cycles, freq, period)
@@ -1159,7 +1188,16 @@ def spectrum(args: Namespace) -> None:
 			
 			raw_measurement = res.measurement[-cal_data.trig_len:]
 			volt_list = to_volt(raw_measurement)
+			mean_volt = mean(volt_list)
+			print("mean volt:", mean_volt)
 			
-			print("mean volt:", mean(volt_list))
+			sink.write("spectrum.measure", {
+				"volt": volt_list,
+				"freq": freq,
+				"period": period,
+				"mean_volt": mean_volt,
+			})
+			
+			sink.write("spectrum.carry", {"carry_enable": carry_enable})
 		
 		

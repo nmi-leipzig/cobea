@@ -153,6 +153,21 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"clamp.value.desc": HDF5Desc(str, "description", "clamp/value"),
 	"clamp.clamped": HDF5Desc(bool, "clamped", "clamp", False),
 	"clamp.clamped.desc": HDF5Desc(str, "description", "clamp/clamped"),
+	"spectrum.volt": HDF5Desc("float64", "voltage", "fitness", False, shape=None),
+	"spectrum.volt.desc": HDF5Desc(str, "description", "fitness/voltage"),
+	"spectrum.volt.unit": HDF5Desc(str, "unit", "fitness/voltage"),
+	"spectrum.cycles": HDF5Desc("uint16", "cycles", "fitness", False),
+	"spectrum.cycles.desc": HDF5Desc(str, "description", "fitness/cycles"),
+	"spectrum.cycles.unit": HDF5Desc(str, "unit", "fitness/cycles"),
+	"spectrum.freq": HDF5Desc("float64", "frequency", "fitness", False),
+	"spectrum.freq.desc": HDF5Desc(str, "description", "fitness/frequency"),
+	"spectrum.freq.unit": HDF5Desc(str, "unit", "fitness/frequency"),
+	"spectrum.period": HDF5Desc("float64", "period", "fitness", False),
+	"spectrum.period.desc": HDF5Desc(str, "description", "fitness/period"),
+	"spectrum.period.unit": HDF5Desc(str, "unit", "fitness/period"),
+	"spectrum.mean": HDF5Desc("float64", "mean", "fitness", False),
+	"spectrum.mean.desc": HDF5Desc(str, "description", "fitness/mean"),
+	"spectrum.mean.unit": HDF5Desc(str, "unit", "fitness/mean"),
 }
 
 def pa_gen(gen_name: str, req_names: List[str], **kwargs: Dict[str, Any]) -> ParamAim:

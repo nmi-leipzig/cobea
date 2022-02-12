@@ -139,12 +139,8 @@ def create_base(rep: IcecraftRep, chromo_bits: 16) -> Tuple[ParamAimMap, MetaEnt
 	
 	return write_map, metadata
 
-def add_fpga_osci(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
-	"""Add the entries for a FPGA driver and oscilloscope meter to an existing HDF5Sink write map and metadata"""
-	
-	write_map.setdefault("Measure.perform", []).append(pa_gen("fitness.measurement", ["return"], data_type="uint8",
-		alter=chain_funcs([itemgetter(0), attrgetter("measurement")]), shape=(2**19, ), shuffle=False))
-	
+
+def add_calibration(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	write_map.setdefault("calibration", []).extend([
 		pa_gen("osci.calibration", ["data"], shuffle=False),
 		pa_gen("osci.calibration.rising", ["rising_edge"]),
@@ -153,17 +149,31 @@ def add_fpga_osci(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 		pa_gen("osci.calibration.offset", ["offset"]),
 	])
 	
+	add_meta(metadata, "osci.calibration.desc", "calibrate the measurement time to the exact duration of the 10 bursts;"
+			" the trigger signaling the bursts should start at 0.5 s")
+	add_meta(metadata, "osci.calibration.unit", "Volt")
+
+
+def add_freq_gen(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	write_map.setdefault("freq_gen", []).append(pa_gen("freq_gen", ["text"], comp_opt=9))
+	
+	add_meta(metadata, "freq_gen.desc", "configuration of the driver FPGA that creates the frequency bursts; the values "
+			"are bytes of the asc format")
+
+
+def add_fpga_osci(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
+	"""Add the entries for a FPGA driver and oscilloscope meter to an existing HDF5Sink write map and metadata"""
+	
+	add_calibration(write_map, metadata)
+	add_freq_gen(write_map, metadata)
+	
+	write_map.setdefault("Measure.perform", []).append(pa_gen("fitness.measurement", ["return"], data_type="uint8",
+		alter=chain_funcs([itemgetter(0), attrgetter("measurement")]), shape=(2**19, ), shuffle=False))
 	
 	add_meta(metadata, "fitness.measurement.desc", "raw output of the phenotype measured by an oscilloscope; each " 
 			"measurement took 6 s; in the last 5 s 10 bursts of either 1 kHz or 10 kHz were presented at the input;"
 			" only this last 5 s are relevant for the fitness value; the volt value can be computed by v = (125 - "
 			"r)*:CHAN1:SCAL/25 - :CHAN1:OFFS")
-	add_meta(metadata, "osci.calibration.desc", "calibrate the measurement time to the exact duration of the 10 bursts;"
-			" the trigger signaling the bursts should start at 0.5 s")
-	add_meta(metadata, "osci.calibration.unit", "Volt")
-	add_meta(metadata, "freq_gen.desc", "configuration of the driver FPGA that creates the frequency bursts; the values "
-			"are bytes of the asc format")
 
 def add_drvmtr(write_map: ParamAimMap, metadata: MetaEntryMap) -> None:
 	"""Add the entries for a MCU based combined driver and meter to an existing HDF5Sink write map and metadata"""
@@ -320,6 +330,57 @@ def create_for_remeasure(rep: IcecraftRep, chromo_bits: 16, temp: bool=True) -> 
 	add_measure(write_map, metadata, rep)
 	
 	return write_map, metadata
+
+
+def create_for_spectrum(rep: IcecraftRep, chromo_bits: 16, volt_len: int, temp: bool=True) -> Tuple[ParamAimMap, MetaEntryMap]:
+	"""Create HDF5Sink write map for measuring response to a series of frequencies"""
+	write_map, metadata = create_base(rep, chromo_bits)
+	if temp:
+		add_temp(write_map, metadata)
+	
+	add_calibration(write_map, metadata)
+	add_freq_gen(write_map, metadata)
+	
+	write_map.setdefault("Measure.perform", []).extend([
+		pa_gen("fitness.measurement", ["return"], data_type="uint8", alter=chain_funcs([itemgetter(0),
+			attrgetter("measurement")]), shape=(2**19, ), shuffle=False),
+		pa_gen("spectrum.cycles", ["driver_data"], alter=chain_funcs([itemgetter(0), itemgetter(0)]), comp_opt=9,
+			shuffle=True),
+		pa_gen("fitness.time", ["return"], comp_opt=9, shuffle=True),
+	])
+	
+	write_map.setdefault("spectrum.carry", []).extend([
+		pa_gen("carry_enable.values", ["carry_enable"], shape=(len(list(rep.iter_carry_bits())), ), comp_opt=4),
+	])
+	
+	add_meta(metadata, "fitness.measurement.desc", "raw output of the phenotype measured by an oscilloscope; each " 
+			"measurement took 6 s; in the last 5 s a specific frequency was constantly presented to the input; "
+			"the volt value can be computed by v = (125 - r)*:CHAN1:SCAL/25 - :CHAN1:OFFS")
+	add_meta(metadata, "spectrum.cycles.desc", "number of clock cycles per period; clock of frequency generator si 12 MHz")
+	add_meta(metadata, "spectrum.cycles.unit", "clock cycles of the frequency generator")
+	add_meta(metadata, "fitness.time.desc", "time the measurement started; timezone UTC")
+	add_meta(metadata, "fitness.time.unit", "seconds since 01.01.1970 00:00:00")
+	add_meta(metadata, "carry_enable.desc", "values of carry enable bits; derived from the configuration bits defined "
+		"by the genotype")
+	
+	write_map.setdefault("spectrum.measure", []).extend([
+		pa_gen("spectrum.volt", ["volt"], shape=(volt_len, )),
+		pa_gen("spectrum.freq", ["freq"], comp_opt=9, shuffle=True),
+		pa_gen("spectrum.period", ["period"], comp_opt=9, shuffle=True),
+		pa_gen("spectrum.mean", ["mean_volt"], comp_opt=9, shuffle=True),
+	])
+	
+	add_meta(metadata, "spectrum.volt.desc", "voltage values computed from the measurement")
+	add_meta(metadata, "spectrum.volt.unit", "Volt")
+	add_meta(metadata, "spectrum.freq.desc", "generated frequency")
+	add_meta(metadata, "spectrum.freq.unit", "Hertz")
+	add_meta(metadata, "spectrum.period.desc", "period of the generated frequency")
+	add_meta(metadata, "spectrum.period.unit", "Seconds")
+	add_meta(metadata, "spectrum.mean.desc", "mean voltage")
+	add_meta(metadata, "spectrum.mean.unit", "Volt")
+	
+	return write_map, metadata
+
 
 def meter_setup_to_meta(setup: SetupCmd) -> List[MetaEntry]:
 	if not setup.condition_(setup):

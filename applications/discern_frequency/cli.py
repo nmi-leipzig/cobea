@@ -95,5 +95,7 @@ def create_arg_parser():
 	
 	spectrum_parser.add_argument("-d", "--data-file", type=str, required=True, help="HDF5 file")
 	spectrum_parser.add_argument("-c", "--chromosome", type=int, required=True, help="id of the chromosome")
+	spectrum_parser.add_argument("--freq-gen-con", type=str, help="description of the connections of the frequency "
+		"generator")
 	
 	return arg_parser
