@@ -2,7 +2,7 @@ import argparse
 
 from adapters.deap.simple_ea import EvalMode
 
-from .action import clamp, explain, info, OutFormat, remeasure, restart, run
+from .action import clamp, explain, info, OutFormat, remeasure, restart, run, spectrum
 from .misc import DriverType
 
 def create_arg_parser():
@@ -89,5 +89,11 @@ def create_arg_parser():
 	
 	info_parser.add_argument("-d", "--data-file", type=str, required=True, help="HDF5 file")
 	info_parser.add_argument("-i", "--index", type=int, default=-1, help="index of the generation info is shown for")
+	
+	spectrum_parser = sub_parsers.add_parser("spectrum", help="measure average voltage over multiple frequencies")
+	spectrum_parser.set_defaults(function=spectrum)
+	
+	spectrum_parser.add_argument("-d", "--data-file", type=str, required=True, help="HDF5 file")
+	spectrum_parser.add_argument("-c", "--chromosome", type=int, required=True, help="id of the chromosome")
 	
 	return arg_parser

@@ -23,8 +23,8 @@ from adapters.deap.simple_ea import EvalMode, Individual, SimpleEA
 from adapters.dummies import DummyDriver
 from adapters.gear.rigol import FloatCheck, IntCheck, OsciDS1102E, SetupCmd
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
-from adapters.icecraft import IcecraftBitPosition, IcecraftPosition, IcecraftPosTransLibrary, IcecraftRep, XC6200RepGen,\
-IcecraftManager, IcecraftRawConfig, XC6200Port, XC6200Direction, XC6200Cell
+from adapters.icecraft import IcecraftBitPosition, IcecraftDevice, IcecraftPosition, IcecraftPosTransLibrary,\
+	IcecraftRep, XC6200RepGen,IcecraftManager, IcecraftRawConfig, XC6200Port, XC6200Direction, XC6200Cell
 from adapters.input_gen import RandIntGen
 from adapters.minvia import MinviaDriver
 from adapters.mcu_drv_mtr import MCUDrvMtr
@@ -81,12 +81,6 @@ def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int], in_por
 	
 	return rep
 
-# flash FPGAs
-def prepare_generator(gen: TargetDevice, text: str) -> IcecraftRawConfig:
-	config = IcecraftRawConfig.from_text(text)
-	gen.configure(config)
-	
-	return config
 
 def create_meter_setup() -> SetupCmd:
 	setup = OsciDS1102E.create_setup()
@@ -132,7 +126,7 @@ def calibrate(driver: Driver, sn=None) -> CalibrationData:
 		measure_uc = Measure(driver, meter)
 		
 		eval_req = RequestObject(
-			driver_data = InputData([0]),
+			driver_data = InputData([100]),
 			retry = 2,
 			measure_timeout = 20,
 		)
@@ -301,6 +295,37 @@ def extract_carry_enable(rep: IcecraftRep, habitat: IcecraftRawConfig, chromo: C
 	return ResponseObject(carry_enable=carry_enable_state)
 
 
+def prepare_fpga_driver(driver_sn: str, config_text: str, man: IcecraftManager, stack: ExitStack) -> Tuple[IcecraftDevice, IcecraftRawConfig]:
+	# workaround for stuck serial buffer
+	man.stuck_workaround(driver_sn)
+	
+	gen = man.acquire(driver_sn)
+	stack.callback(man.release, gen)
+	
+	config = IcecraftRawConfig.from_text(config_text)
+	gen.configure(config)
+	
+	return gen, config
+
+
+def prepare_osci(cal_data: CalibrationData, stack: ExitStack) -> Tuple[OsciDS1102E, SetupCmd]:
+	meter_setup = create_meter_setup()
+	meter_setup.TIM.OFFS.value_ = cal_data.offset
+	
+	meter = OsciDS1102E(meter_setup, raw=True)
+	stack.callback(meter.close)
+	
+	return meter, meter_setup
+
+
+def prepare_target(target_sn: str, man: IcecraftManager, stack: ExitStack) -> IcecraftDevice:
+	target = man.acquire(target_sn)
+	target.set_fast(True)
+	stack.callback(man.release, target)
+	
+	return target
+
+
 def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: ParamAimMap, metadata: MetaEntryMap
 		) -> MeasureSetup:
 	man = IcecraftManager()
@@ -310,13 +335,7 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 	if info.driver_type == DriverType.FPGA:
 		write_map_util.add_fpga_osci(write_map, metadata)
 		
-		# workaround for stuck serial buffer
-		man.stuck_workaround(info.driver_sn)
-		
-		gen = man.acquire(info.driver_sn)
-		stack.callback(man.release, gen)
-		
-		fg_config = prepare_generator(gen, info.driver_text)
+		gen, fg_config = prepare_fpga_driver(info.driver_sn, info.driver_text, man, stack)
 		setup.driver = FixedEmbedDriver(gen, "B")
 		
 		cal_data = calibrate(setup.driver, info.meter_sn)
@@ -325,15 +344,11 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 			("calibration", asdict(cal_data)),
 		])
 		
-		meter_setup = create_meter_setup()
-		meter_setup.TIM.OFFS.value_ = cal_data.offset
-		metadata.setdefault("fitness/measurement", []).extend(write_map_util.meter_setup_to_meta(meter_setup))
+		setup.meter, meter_setup = prepare_osci(cal_data, stack)
 		
-		
-		setup.meter = OsciDS1102E(meter_setup, raw=True)
 		setup.preprocessing = create_preprocessing_fpga(setup.meter, meter_setup, cal_data)
-		stack.callback(setup.meter.close)
 		
+		metadata.setdefault("fitness/measurement", []).extend(write_map_util.meter_setup_to_meta(meter_setup))
 		add_meta(metadata, "fitness.driver.sn", gen.serial_number)
 		add_meta(metadata, "fitness.driver.hw", gen.hardware_type)
 		add_meta(metadata, "fitness.meter.fw", setup.meter.firmware_version)
@@ -352,9 +367,7 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 	else:
 		raise Exception(f"unsupported driver type '{info.driver_type}'")
 	
-	setup.target = man.acquire(info.target_sn)
-	setup.target.set_fast(True)
-	stack.callback(man.release, setup.target)
+	setup.target = prepare_target(info.target_sn, man, stack)
 	
 	add_meta(metadata, "fitness.driver_type", info.driver_type)
 	add_meta(metadata, "fitness.target.sn", setup.target.serial_number)
@@ -1060,3 +1073,93 @@ def info(args: Namespace) -> None:
 		generation_info(hdf5_file, args.index)
 		
 
+def spectrum(args: Namespace) -> None:
+	pkg_path = os.path.dirname(os.path.abspath(__file__))
+	
+	with ExitStack() as stack:
+		# extract information from HDF5 file
+		hdf5_file = h5py.File(args.data_file, "r")
+		stack.enter_context(hdf5_file)
+		
+		# measure temperature?
+		rec_temp, temp_sn = temp_from_args_hdf5(args, hdf5_file)
+		
+		# habitat
+		hab_config = read_habitat(hdf5_file)
+		
+		# rep
+		rep = read_rep(hdf5_file, no_carry=False)
+		
+		# chromosome
+		chromo_id = args.chromosome
+		chromo = read_chromosome(hdf5_file, chromo_id)
+		
+		chromo_bits = get_chromo_bits(hdf5_file)
+		
+		#TODO: write to sink
+		sink = None
+		
+		# org filename
+		#TODO:add_meta(metadata, "re.org", args.data_file)
+		
+		#TODO:add_version(metadata)
+		
+		# copy simple metadata
+		#TODO:copy_meta(hdf5_file, metadata, ["habitat.con", "freq_gen.con", "habitat.in_port.pos", "habitat.in_port.dir",
+		#	"habitat.out_port.pos", "habitat.out_port.dir", "habitat.area.min", "habitat.area.max"])
+		
+		# prepare setup
+		target_sn = args.target or data_from_key(hdf5_file, "fitness.target.sn")
+		meter_sn  = args.meter or data_from_key(hdf5_file, "fitness.meter.sn")
+		driver_sn = args.generator or data_from_key(hdf5_file, "fitness.driver.sn")
+		drv_type = DriverType[args.freq_gen_type]
+		if drv_type != DriverType.FPGA:
+			raise ValueError(f"spectrum requires FPGA driver, got {drv_type.name}")
+		
+		gen_path = os.path.join(pkg_path, "multi_freq_gen.asc")
+		with open(gen_path, "r") as asc_file:
+			freq_gen_text = asc_file.read()
+		
+		man = IcecraftManager()
+		#TODO: add fpga osci to writemap
+		gen, fg_config = prepare_fpga_driver(driver_sn, freq_gen_text, man, stack)
+		driver = FixedEmbedDriver(gen, "<H")
+		
+		cal_data = calibrate(driver, meter_sn)
+		#TODO:setup.sink_writes.extend([
+		#	("freq_gen", {"text": fg_config.to_text(), }),
+		#	("calibration", asdict(cal_data)),
+		#])
+		
+		meter, meter_setup = prepare_osci(cal_data, stack)
+		to_volt = meter.raw_to_volt_func()
+		#TODO: metadata.setdefault("fitness/measurement", []).extend(write_map_util.meter_setup_to_meta(meter_setup))
+		
+		target = prepare_target(target_sn, man, stack)
+		
+		if rec_temp:
+			start_temp(temp_sn, stack, sink)
+		else:
+			print("Warning: No temperature measurement during spectrum")
+		
+		# target is constant -> prepare once
+		rep.prepare_config(hab_config)
+		rep.decode(hab_config, chromo)
+		target.configure(hab_config)
+		
+		measure_uc = Measure(driver, meter, sink)
+		
+		for cycles in [256*i for i in range(1, 75+1)]:
+			freq = 12e6/cycles
+			period = 1/freq
+			print(cycles, freq, period)
+			
+			req = RequestObject(driver_data=InputData([cycles]))
+			res = measure_uc(req)
+			
+			raw_measurement = res.measurement[-cal_data.trig_len:]
+			volt_list = to_volt(raw_measurement)
+			
+			print("mean volt:", mean(volt_list))
+		
+		
