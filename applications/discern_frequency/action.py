@@ -1178,7 +1178,7 @@ def spectrum(args: Namespace) -> None:
 		
 		measure_uc = Measure(driver, meter, sink)
 		
-		for cycles in [256*i for i in range(1, 5+1)]:
+		for cycles in [256*i for i in range(1, 75+1)]:
 			freq = 12e6/cycles
 			period = 1/freq
 			print(cycles, freq, period)
