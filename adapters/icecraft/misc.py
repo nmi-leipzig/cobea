@@ -16,6 +16,12 @@ class RAMMode(IntEnum):
 	RAM_1024x4 = 2
 	RAM_2048x2 = 3
 
+class IcecraftType(Enum):
+	LOGIC = auto()
+	IO = auto()
+	RAM_T = auto()
+	RAM_B = auto()
+
 class LUTFunction(Enum):
 	CONST_0 = auto()
 	CONST_1 = auto()

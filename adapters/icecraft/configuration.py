@@ -6,12 +6,12 @@ from typing import Iterable, List, TextIO, Tuple, Sequence
 sys.path.append("/usr/local/bin")
 import icebox
 
-from .ice_board import BinOpt, BRAMMode, Configuration, FPGABoard, TilePosition, Bit
+from .ice_board import BinOpt, BRAMMode, Configuration, FPGABoard, TilePosition, TileType, Bit
 
 from domain.base_structures import BitPos
 from domain.interfaces import TargetConfiguration
 
-from .misc import RAMMode, IcecraftPosition
+from .misc import RAMMode, IcecraftPosition, IcecraftType
 
 def value_length_from_mode(mode: RAMMode) -> int:
 	return 16 // (1 << mode)
@@ -27,6 +27,13 @@ class IcecraftRawConfig(TargetConfiguration):
 		RAMMode.RAM_2048x2: BRAMMode.BRAM_2048X2,
 	}
 	
+	type_map = { # ice_board to icecraft
+		IcecraftType.LOGIC = TileType.LOGIC,
+		IcecraftType.IO = TileType.IO,
+		IcecraftType.RAM_T = TileType.RAM_T,
+		IcecraftType.RAM_B = TileType.RAM_B,
+	}
+	
 	def __init__(self, raw_config: Configuration) -> None:
 		self._raw_config = raw_config
 	
@@ -40,6 +47,10 @@ class IcecraftRawConfig(TargetConfiguration):
 	
 	def get_bit(self, bit: BitPos) -> bool:
 		return self._raw_config.get_bit(bit.x, bit.y, bit.group, bit.index)
+	
+	def get_tile_type(self, pos: IcecraftPosition) -> IcecraftType:
+		raw_type = self._raw_config.get_tile_type(TilePosition(pos.x, pos.y))
+		return self.type_map[raw_type]
 	
 	def write_asc(self, asc_name: str) -> None:
 		with open(asc_name, "w") as asc_file:
