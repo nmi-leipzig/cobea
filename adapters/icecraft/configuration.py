@@ -28,10 +28,10 @@ class IcecraftRawConfig(TargetConfiguration):
 	}
 	
 	type_map = { # ice_board to icecraft
-		IcecraftType.LOGIC: TileType.LOGIC,
-		IcecraftType.IO: TileType.IO,
-		IcecraftType.RAM_T: TileType.RAM_T,
-		IcecraftType.RAM_B: TileType.RAM_B,
+		TileType.LOGIC: IcecraftType.LOGIC,
+		TileType.IO: IcecraftType.IO,
+		TileType.RAM_T: IcecraftType.RAM_T,
+		TileType.RAM_B: IcecraftType.RAM_B,
 	}
 	
 	def __init__(self, raw_config: Configuration) -> None:
@@ -65,7 +65,7 @@ class IcecraftRawConfig(TargetConfiguration):
 		
 		opt: optimization flag
 		"""
-		bin_opt = BinOpt(skip_unused_bram=True, optimize=3, skip_comment=True) if opt else BinOpt()
+		bin_opt = BinOpt(detect_used_bram=True, optimize=3, skip_comment=True) if opt else BinOpt()
 		return self._raw_config.get_bitstream(bin_opt)
 	
 	def set_ram_values(self, ram_block: IcecraftPosition, address: int, values: Iterable[int], mode: RAMMode=RAMMode.RAM_512x8) -> None:
