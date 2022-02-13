@@ -63,7 +63,7 @@ def create_arg_parser():
 		" place")
 	restart_parser.add_argument("--mutation-prob", type=float, help="probability that a mutation takes"
 		" place")
-	restart_parser.add_argument("--eval-mode", default="NEW", type=str, choices=[e.name for e in EvalMode], help="which individuals in each generation are evaluated; NEW -> ones without fitness value; ELITE -> without fitness value and elites; ALL -> all")
+	restart_parser.add_argument("--eval-mode", type=str, choices=[e.name for e in EvalMode], help="which individuals in each generation are evaluated; NEW -> ones without fitness value; ELITE -> without fitness value and elites; ALL -> all")
 	restart_parser.add_argument("--freq-gen", type=str, help="configuration file of the frequency generator;"
 		" ASC format")
 	restart_parser.add_argument("--offset", nargs=2, type=int, help="offset to move the the evolvable area",
