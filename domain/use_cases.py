@@ -100,6 +100,7 @@ class DecTarget(UseCase):
 	@sink_request
 	def perform(self, request: RequestObject) -> ResponseObject:
 		self._rep.decode(self._habitat, request.chromosome)
+		#self._habitat.write_asc(f"tmp.{request.chromosome.identifier}.asc")
 		self._target.configure(self._habitat)
 		res = ResponseObject(configuration=deepcopy(self._habitat))
 		if self._extract_info:

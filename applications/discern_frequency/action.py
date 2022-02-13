@@ -7,6 +7,7 @@ import time
 
 from argparse import Namespace
 from contextlib import ExitStack
+from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import auto, Enum
@@ -23,8 +24,8 @@ from adapters.deap.simple_ea import EvalMode, Individual, SimpleEA
 from adapters.dummies import DummyDriver
 from adapters.gear.rigol import FloatCheck, IntCheck, OsciDS1102E, SetupCmd
 from adapters.hdf5_sink import compose, HDF5Sink, IgnoreValue, MetaEntry, MetaEntryMap, ParamAim, ParamAimMap
-from adapters.icecraft import IcecraftBitPosition, IcecraftDevice, IcecraftPosition, IcecraftPosTransLibrary,\
-	IcecraftRep, XC6200RepGen,IcecraftManager, IcecraftRawConfig, XC6200Port, XC6200Direction, XC6200Cell
+from adapters.icecraft import CarryData, IcecraftBitPosition, IcecraftDevice, IcecraftPosition, IcecraftPosTransLibrary,\
+	IcecraftRep, XC6200RepGen,IcecraftManager, IcecraftRawConfig, PartConf, XC6200Port, XC6200Direction, XC6200Cell
 from adapters.input_gen import RandIntGen
 from adapters.minvia import MinviaDriver
 from adapters.mcu_drv_mtr import MCUDrvMtr
@@ -80,6 +81,53 @@ def create_xc6200_rep(min_pos: Tuple[int, int], max_pos: Tuple[int, int], in_por
 	print(f"rep gen took {aft-bef} s, {sum(g.alleles.size_in_bits() for g in rep.genes)} bits")
 	
 	return rep
+
+
+# move representation to other tiles
+def move_rep(rep: IcecraftRep, x_offset: int, y_offset: int, config: IcecraftRawConfig) -> IcecraftRep:
+	# currently no support for colbufctrl
+	if len(rep.colbufctrl):
+		raise ValueError("Can't relocate colbuctrl")
+	# check tile type
+	# move coordinates
+	def move_pos(org_pos):
+		new_pos = IcecraftPosition(org_pos.x+x_offset, org_pos.y+y_offset)
+		if config.get_tile_type(org_pos) != config.get_tile_type(new_pos):
+			raise ValueError(f"Can't move {config.get_tile_type(org_bit.tile())} to {config.get_tile_type(new_pos)}")
+		
+		return new_pos
+	
+	def move_bit(org_bit):
+		new_pos = move_pos(org_bit.tile)
+		return IcecraftBitPosition.from_tile(new_pos, org_bit.group, org_bit.index)
+	
+	def move_gene(org_gene):
+		return Gene(
+			tuple(move_bit(b) for b in org_gene.bit_positions),
+			deepcopy(org_gene.alleles),
+			org_gene.description
+		)
+	
+	def move_lut_pos(org_lut_pos):
+		new_pos = move_pos(org_lut_pos.tile)
+		return IcecraftLUTPosition.from_tile(new_pos, org_lut_pos.z)
+	
+	def move_part_conf(org_pc):
+		new_bits = tuple(move_bit(b) for b in org_pc.bits)
+		return PartConf(new_bits, deepcopy(org_pc.values))
+	
+	def move_carry_data(org_cd):
+		ce = tuple(move_bit(b) for b in org_cd.carry_enable)
+		cu = [move_part_conf(p) for p in org_cd.carry_use]
+		return CarryData(org_cd.lut_index, ce, cu)
+	
+	genes = [move_gene(g) for g in rep.genes]
+	constant = [move_gene(g) for g in rep.constant]
+	output = [move_lut_pos(l) for l in rep.output]
+	
+	carry_data = {move_pos(k): {i: move_carry_data(c) for i, c in v.items()} for k, v in rep.carry_data.items()}
+	
+	return IcecraftRep(genes, constant, [], output, carry_data)
 
 
 def create_meter_setup() -> SetupCmd:
@@ -693,6 +741,12 @@ def restart(args: Namespace) -> None:
 		# rep
 		rep = read_rep(hdf5_file, no_carry=False)
 		
+		if args.offset:
+			if not args.habitat:
+				raise ValueError("offset requires a new habitat")
+			hab_config = IcecraftRawConfig.create_from_filename(args.habitat)
+			rep = move_rep(rep, args.offset[0], args.offset[1], hab_config)
+		
 		# ea_setup
 		ea_setup = ea_from_args_hdf5(args, hdf5_file)
 		
@@ -708,9 +762,23 @@ def restart(args: Namespace) -> None:
 		
 		add_version(metadata)
 		
+		meta_list = ["habitat.con", "freq_gen.con", "habitat.in_port.dir", "habitat.out_port.dir"]
+		pos_list = ["habitat.in_port.pos", "habitat.out_port.pos",  "habitat.area.min", "habitat.area.max"]
+		if args.offset:
+			for key in pos_list:
+				try:
+					value = data_from_key(hdf5_file, key)
+				except KeyError:
+					print(f"Warning: {key} not found in original file")
+					continue
+				assert len(value) == 2
+				
+				add_meta(metadata, key, [value[i]+args.offset[i] for i in (0, 1)])
+		else:
+			meta_list.extend(pos_list)
+		
 		# copy simple metadata
-		copy_meta(hdf5_file, metadata, ["habitat.con", "freq_gen.con", "habitat.in_port.pos", "habitat.in_port.dir",
-			"habitat.out_port.pos", "habitat.out_port.dir", "habitat.area.min", "habitat.area.max"])
+		copy_meta(hdf5_file, metadata, meta_list)
 		
 		# prepare setup
 		measure_setup = setup_from_args_hdf5(args, hdf5_file, stack, write_map, metadata)

@@ -66,6 +66,10 @@ def create_arg_parser():
 	restart_parser.add_argument("--eval-mode", default="NEW", type=str, choices=[e.name for e in EvalMode], help="which individuals in each generation are evaluated; NEW -> ones without fitness value; ELITE -> without fitness value and elites; ALL -> all")
 	restart_parser.add_argument("--freq-gen", type=str, help="configuration file of the frequency generator;"
 		" ASC format")
+	restart_parser.add_argument("--offset", nargs=2, type=int, help="offset to move the the evolvable area",
+		metavar=("X", "Y"))
+	restart_parser.add_argument("--habitat", type=str, help="ASC file of the base configuration for the target FPGA; "
+		"provides the periphery of the evolvable area")
 	
 	clamp_parser = sub_parsers.add_parser("clamp", help="iteratively set function unit to fixed output")
 	clamp_parser.set_defaults(function=clamp)
