@@ -2,7 +2,7 @@ import argparse
 
 from adapters.deap.simple_ea import EvalMode
 
-from .action import clamp, explain, info, OutFormat, remeasure, restart, run, spectrum
+from .action import clamp, explain, extract, info, OutFormat, remeasure, restart, run, spectrum
 from .misc import DriverType
 
 def create_arg_parser():
@@ -101,5 +101,10 @@ def create_arg_parser():
 	spectrum_parser.add_argument("-c", "--chromosome", type=int, required=True, help="id of the chromosome")
 	spectrum_parser.add_argument("--freq-gen-con", type=str, help="description of the connections of the frequency "
 		"generator")
+	
+	extract_parser = sub_parsers.add_parser("extract", help="extract measurement data from HDF5 file")
+	extract_parser.set_defaults(function=extract)
+	extract_parser.add_argument("-d", "--data-file", type=str, required=True, help="HDF5 file")
+	extract_parser.add_argument("-i", "--index", type=int, required=True, help="index of the measurement")
 	
 	return arg_parser

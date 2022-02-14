@@ -5,6 +5,7 @@ import numpy as np
 
 from adapters.icecraft import CarryData, CarryDataMap, IcecraftBitPosition, IcecraftLUTPosition, IcecraftRawConfig,\
 	IcecraftRep, IndexedItem, PartConf
+from adapters.gear.rigol import FloatCheck, IntCheck, OsciDS1102E, SetupCmd
 from adapters.hdf5_sink import HDF5Sink
 from applications.discern_frequency.hdf5_desc import HDF5Desc, HDF5_DICT
 from domain.model import Chromosome
@@ -161,3 +162,46 @@ def read_generation(hdf5_file: h5py.File, gen_index: int) -> List[Chromosome]:
 	gen = [read_chromosome(hdf5_file, i) for i in pops[gen_index]]
 	
 	return gen
+
+def read_osci_setup(hdf5_file: h5py.File) -> SetupCmd:
+	#TODO: add value to HDF5Desc
+	attrs = hdf5_file["fitness/measurement"].attrs
+	osci_setup = OsciDS1102E.create_setup()
+	found = [0]
+	
+	# recusrively read command values from attrs
+	def read_cmd(cmd):
+		# read cmd
+		try:
+			name = cmd.cmd_(full=False)
+			if not name:
+				# empty string raises value error whe accessing attrs -> avoid confusion with values error raised below
+				raise KeyError
+			raw = attrs[name]
+			
+			if isinstance(cmd.values_, FloatCheck):
+				data_type = float
+			elif isinstance(cmd.values_, IntCheck):
+				data_type = int
+			else:
+				data_type = type(cmd.values_[0])
+			
+			val = data_type(raw)
+			
+			if val not in cmd.values_:
+				raise ValueError(f"'{val}' invalid for {cmd.name_}")
+			
+			cmd.value_ = val
+			
+			found[0] += 1
+		except KeyError:
+			pass
+		
+		# recurse to sub commands
+		for subcmd in cmd.subcmds_:
+			read_cmd(subcmd)
+	
+	read_cmd(osci_setup)
+	
+	return osci_setup
+	
