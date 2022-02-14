@@ -2,7 +2,7 @@ import argparse
 
 from adapters.deap.simple_ea import EvalMode
 
-from .action import clamp, explain, extract, info, OutFormat, remeasure, restart, run, spectrum
+from .action import clamp, explain, extract, ExtractTarget, info, OutFormat, remeasure, restart, run, spectrum
 from .misc import DriverType
 
 def create_arg_parser():
@@ -105,6 +105,8 @@ def create_arg_parser():
 	extract_parser = sub_parsers.add_parser("extract", help="extract measurement data from HDF5 file")
 	extract_parser.set_defaults(function=extract)
 	extract_parser.add_argument("-d", "--data-file", type=str, required=True, help="HDF5 file")
-	extract_parser.add_argument("-i", "--index", type=int, required=True, help="index of the measurement")
+	extract_parser.add_argument("-e", "--extract-target", type=str, default=ExtractTarget.MEASUREMENT.name,
+		choices=[t.name for t in ExtractTarget], help="what to extract")
+	extract_parser.add_argument("-i", "--index", type=int, help="index of the measurement")
 	
 	return arg_parser

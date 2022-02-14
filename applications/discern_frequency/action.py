@@ -60,6 +60,10 @@ class DataCollectionError(Exception):
 class OutFormat(Enum):
 	TXT = auto()
 
+class ExtractTarget(Enum):
+	MEASUREMENT = auto()
+	MEAN = auto()
+
 # generate tiles
 def tiles_from_corners(min_pos: Tuple[int, int], max_pos: Tuple[int, int]) -> List[IcecraftPosition]:
 	ptl = IcecraftPosTransLibrary()
@@ -1317,13 +1321,33 @@ def extract_measurement(args: Namespace, hdf5_file: h5py.File) -> None:
 			out_file.write(f"{h_div*i}; {val:.4f}\n")
 
 
+def extract_mean(args: Namespace, hdf5_file: h5py.File) -> None:
+	def get_float(key):
+		raw = data_from_key(hdf5_file, key)
+		return [float(r) for r in raw]
+	
+	mean_data = get_float("spectrum.mean")
+	
+	period_data = get_float("spectrum.period")
+	
+	# write
+	with open(f"mean.{os.path.basename(args.data_file)}.csv", "w") as out_file:
+		for per, val in zip(period_data, mean_data):
+			out_file.write(f"{per}; {val:.4f}\n")
+	
+
+
 def extract(args: Namespace) -> None:
 	"""extract measurement data"""
+	ext = ExtractTarget[args.extract_target]
 	
 	with ExitStack() as stack:
 		# extract information from HDF5 file
 		hdf5_file = h5py.File(args.data_file, "r")
 		stack.enter_context(hdf5_file)
 		
-		extract_measurement(args, hdf5_file)
+		if ext == ExtractTarget.MEASUREMENT:
+			extract_measurement(args, hdf5_file)
+		elif ext == ExtractTarget.MEAN:
+			extract_mean(args, hdf5_file)
 	
