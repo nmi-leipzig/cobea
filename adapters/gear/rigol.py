@@ -139,23 +139,29 @@ class OsciDS1102E(Meter, IdentifiableHW):
 		self._osci.write("*RST")
 		time.sleep(self._delay)
 	
+	@staticmethod
+	def raw_to_volt_from_setup(setup: SetupCmd, data_chan: int) -> Callable[[Iterable[int]], Iterable[float]]:
+		"""Creates a function that converts raw integer values to float Volt values."""
+		
+		if data_chan == 1:
+			scale = setup.CHAN1.SCAL.value_
+			offset = setup.CHAN1.OFFS.value_
+		else:
+			scale = setup.CHAN2.SCAL.value_
+			offset = setup.CHAN2.OFFS.value_
+		
+		def func(raw_data: Iterable[int]) -> List[float]:
+			return OutputData([(125-r)*scale/25-offset for r in raw_data])
+		
+		return func
+	
 	def raw_to_volt_func(self) -> Callable[[Iterable[int]], Iterable[float]]:
 		"""Creates a function that converts raw integer values to float Volt values.
 		
 		The oscilloscope setup at the time of creation of the convertion function are respected
 		for the conversion.
 		"""
-		if self._data_chan == 1:
-			scale = self._setup.CHAN1.SCAL.value_
-			offset = self._setup.CHAN1.OFFS.value_
-		else:
-			scale = self._setup.CHAN2.SCAL.value_
-			offset = self._setup.CHAN2.OFFS.value_
-		
-		def func(raw_data: Iterable[int]) -> List[float]:
-			return OutputData([(125-r)*scale/25-offset for r in raw_data])
-		
-		return func
+		return self.raw_to_volt_from_setup(self._setup, self._data_chan)
 	
 	def open(self):
 		if self._is_open:
