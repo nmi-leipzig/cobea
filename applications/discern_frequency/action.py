@@ -1312,7 +1312,7 @@ def extract(args: Namespace) -> None:
 		h_div *= win
 		
 		# write
-		with open(f"meas.{args.data_file}.{args.index}.csv", "w") as out_file:
+		with open(f"meas.{os.path.basename(args.data_file)}.{args.index}.csv", "w") as out_file:
 			for i, val in enumerate(values):
 				out_file.write(f"{h_div*i}; {val:.4f}\n")
 	
