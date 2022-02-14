@@ -11,7 +11,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import auto, Enum
-from statistics import mean, stdev
+from statistics import mean, median, stdev
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, TextIO, Tuple
 from unittest.mock import MagicMock
 
@@ -1269,6 +1269,54 @@ def spectrum(args: Namespace) -> None:
 			sink.write("spectrum.carry", {"carry_enable": carry_enable})
 
 
+def extract_measurement(args: Namespace, hdf5_file: h5py.File) -> None:
+	data_chan = 1 # use default value
+	osci_setup = read_osci_setup(hdf5_file)
+	
+	raw_to_volt = OsciDS1102E.raw_to_volt_from_setup(osci_setup, data_chan)
+	
+	# get trig len
+	trig_len = data_from_key(hdf5_file, "osci.calibration.trig_len")
+	trig_len = int(trig_len)
+	
+	# get scale
+	time_scale = osci_setup.TIM.SCAL.value_
+	
+	# read measurement
+	measurements = data_from_key(hdf5_file, "fitness.measurement")
+	raw = [int(v) for v in measurements[args.index]]
+	
+	h_div = (12*time_scale) / len(raw)
+	
+	raw = raw[-trig_len:]
+	# convert
+	values = raw_to_volt(raw)
+	
+	# reduce data rate, but keep sharp spikes
+	down = []
+	win = 200
+	for j in range((len(values)+win-1)//win):
+		part = values[j*win: (j+1)*win]
+		m = mean(part)
+		#TODO: fixed value of 0.5 V is hacky
+		outliers = [p for p in part if abs(p-m) > 0.5]
+		if len(outliers) == 1:
+			# keep spike
+			val = outliers[0]
+			print("spike", val)
+		else:
+			val = part[0]
+		
+		down.append(val)
+	
+	h_div *= win
+	
+	# write
+	with open(f"meas.{os.path.basename(args.data_file)}.{args.index}.csv", "w") as out_file:
+		for i, val in enumerate(down):
+			out_file.write(f"{h_div*i}; {val:.4f}\n")
+
+
 def extract(args: Namespace) -> None:
 	"""extract measurement data"""
 	
@@ -1277,42 +1325,5 @@ def extract(args: Namespace) -> None:
 		hdf5_file = h5py.File(args.data_file, "r")
 		stack.enter_context(hdf5_file)
 		
-		data_chan = 1 # use default value
-		osci_setup = read_osci_setup(hdf5_file)
-		
-		raw_to_volt = OsciDS1102E.raw_to_volt_from_setup(osci_setup, data_chan)
-		
-		# get trig len
-		trig_len = data_from_key(hdf5_file, "osci.calibration.trig_len")
-		trig_len = int(trig_len)
-		
-		# get scale
-		time_scale = osci_setup.TIM.SCAL.value_
-		
-		# read measurement
-		measurements = data_from_key(hdf5_file, "fitness.measurement")
-		raw = [int(v) for v in measurements[args.index]]
-		
-		h_div = (12*time_scale) / len(raw)
-		
-		raw = raw[-trig_len:]
-		# convert
-		values = raw_to_volt(raw)
-		
-		# reduce data rate, but keep sharp spikes
-		down = []
-		win = 50
-		for j in range((len(values)+win-1)//win):
-			part = values[j*win: (j+1)*win]
-			m = mean(part)
-			outliers = [p for p in part if abs(p-m) > 0.5]
-			if len(outliers):
-				print(max(part), m, min(part))
-		
-		h_div *= win
-		
-		# write
-		with open(f"meas.{os.path.basename(args.data_file)}.{args.index}.csv", "w") as out_file:
-			for i, val in enumerate(values):
-				out_file.write(f"{h_div*i}; {val:.4f}\n")
+		extract_measurement(args, hdf5_file)
 	
