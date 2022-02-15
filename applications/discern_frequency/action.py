@@ -1020,7 +1020,7 @@ def get_connected(cell_state: Dict[IcecraftPosition, XC6200Cell], out_pos: Icecr
 	
 	return res
 
-def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell], marks: Dict[IcecraftPosition, List[XC6200Direction]]={}) -> str:
+def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell], marks: Dict[IcecraftPosition, List[XC6200Direction]]={}, special_pos: List[IcecraftPosition]=[]) -> str:
 	offset = min(cell_state)
 	
 	res = []
@@ -1055,14 +1055,18 @@ def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell], marks: Dict[Ic
 			mark_dir = marks[pos]
 		except KeyError:
 			mark_dir = []
+		
+		is_special = pos in special_pos
+		cell_color = "clclamped" if is_special else "black"
+		
 		name = f"s{pos.x:02}{pos.y:02}"
-		res.append(r"\draw ("+f"{(pos.x-offset.x)*pos_scale}, {(pos.y-offset.y)*pos_scale}) node[shape=rectangle, minimum height={cell_width:.3f}cm, minimum width={cell_width:.3f}cm, draw] ("+name+") {};")
+		res.append(r"\draw ("+f"{(pos.x-offset.x)*pos_scale}, {(pos.y-offset.y)*pos_scale}) node[shape=rectangle, minimum height={cell_width:.3f}cm, minimum width={cell_width:.3f}cm, draw={cell_color}] ("+name+") {};")
 		arrow = [False]*4
 		box = [False]*4
 		in_marked = [False]*4
 		for dir_ in XC6200Direction:
 			marked = dir_ in mark_dir
-			color = "red" if marked else ""
+			color = "clcellout" if marked else ""
 			if dir_ == XC6200Direction.f:
 				for used in cell[dir_]:
 					arrow[used] = True
@@ -1076,14 +1080,19 @@ def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell], marks: Dict[Ic
 				in_marked[used] |= marked
 				res.append(r"\draw["+color+"] ("+f"{name}.{in_map[used]}"+") -- ("+f"{name}.{out_map[dir_]}"+");")
 		
-		color = "red" if XC6200Direction.f in mark_dir else ""
+		if XC6200Direction.f in mark_dir:
+			f_color = "clcellout"
+		elif is_special:
+			f_color = cell_color
+		else:
+			f_color = ""
 		for use, dir_ in zip(box, XC6200Direction):
 			if not use:
 				continue
 			out = f"{name}.{in_map[dir_]}"
-			res.append(f"\draw[{color}] ($({out})+{square_min[dir_]}$) rectangle ($({out})+{square_max[dir_]}$);")
+			res.append(f"\draw[{f_color}] ($({out})+{square_min[dir_]}$) rectangle ($({out})+{square_max[dir_]}$);")
 		for use, dir_ in zip(arrow, XC6200Direction):
-			color = "red" if in_marked[dir_] else ""
+			color = "clcellout" if in_marked[dir_] else ""
 			if not use:
 				continue
 			out = f"{name}.{in_map[dir_]}"
@@ -1113,6 +1122,14 @@ def explain(args: Namespace) -> None:
 		all_ids = data_from_key(hdf5_file, "fitness.chromo_id")
 		assert chromo_id == all_ids[0]
 		
+		# get clamped positions
+		pos_list = data_from_key(hdf5_file, "clamp.cell")
+		clamp_flag = data_from_key(hdf5_file, "clamp.clamped")
+		assert len(pos_list) == len(clamp_flag)
+		assert len(pos_list) == 100
+		clamp_pos = [IcecraftPosition(*p) for p, f in zip(pos_list, clamp_flag) if f]
+		#print(clamp_pos)
+		
 		rep.prepare_config(hab_config)
 		rep.decode(hab_config, chromo)
 		hab_config.write_asc("tmp.explain.asc")
@@ -1135,7 +1152,7 @@ def explain(args: Namespace) -> None:
 		print("connected to output:", con)
 		
 		with open("explain.tex", "w") as tikz_file:
-			tikz_file.write(generate_tikz(cell_state, con))
+			tikz_file.write(generate_tikz(cell_state, con, clamp_pos))
 
 def generation_info(hdf5_file: h5py.File, gen_index: int=-1):
 	# generation
