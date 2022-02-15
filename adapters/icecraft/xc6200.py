@@ -346,7 +346,9 @@ class XC6200RepGen(RepresentationGenerator):
 
 @dataclass
 class XC6200Cell:
-	# except fo f all list contain exactly one entry; still use list to make handling easier
+	# inputs used by the output; both from the position of the cell
+	# e.g. bot input is the input from the cell below
+	# except for f all list contain exactly one entry; still use list to make handling easier
 	top: List[XC6200Direction] = field(default_factory=list)
 	lft: List[XC6200Direction] = field(default_factory=list)
 	bot: List[XC6200Direction] = field(default_factory=list)

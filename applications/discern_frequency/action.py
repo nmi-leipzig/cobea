@@ -1000,6 +1000,7 @@ def get_connected(cell_state: Dict[IcecraftPosition, XC6200Cell], out_pos: Icecr
 	while todo:
 		tile, dir_ = todo.pop()
 		res.setdefault(tile, []).append(dir_)
+		# iterate over all 
 		for new_dir in cell_state[tile][dir_]:
 			if new_dir == XC6200Direction.f:
 				new_tile = tile
@@ -1019,7 +1020,7 @@ def get_connected(cell_state: Dict[IcecraftPosition, XC6200Cell], out_pos: Icecr
 	
 	return res
 
-def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell]) -> str:
+def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell], marks: Dict[IcecraftPosition, List[XC6200Direction]]={}) -> str:
 	offset = min(cell_state)
 	
 	res = []
@@ -1048,32 +1049,43 @@ def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell]) -> str:
 	square_max = off_fac(0.1, square_max_unit)
 	
 	for pos, cell in cell_state.items():
+		try:
+			mark_dir = marks[pos]
+		except KeyError:
+			mark_dir = []
 		name = f"s{pos.x:02}{pos.y:02}"
 		res.append(r"\draw ("+f"{pos.x-offset.x}, {pos.y-offset.y}"+") node[shape=rectangle, minimum height=0.8cm, minimum width=0.8cm, draw] ("+name+") {};")
 		arrow = [False]*4
 		box = [False]*4
+		in_marked = [False]*4
 		for dir_ in XC6200Direction:
+			marked = dir_ in mark_dir
+			color = "red" if marked else ""
 			if dir_ == XC6200Direction.f:
 				for used in cell[dir_]:
 					arrow[used] = True
 					box[used] = True
+					in_marked[used] |= marked
 				continue
 			for used in cell[dir_]:
 				if used == XC6200Direction.f:
 					continue
 				arrow[used] = True
-				res.append(r"\draw ("+f"{name}.{in_map[used]}"+") -- ("+f"{name}.{out_map[dir_]}"+");")
+				in_marked[used] |= marked
+				res.append(r"\draw["+color+"] ("+f"{name}.{in_map[used]}"+") -- ("+f"{name}.{out_map[dir_]}"+");")
 		
+		color = "red" if XC6200Direction.f in mark_dir else ""
 		for use, dir_ in zip(box, XC6200Direction):
 			if not use:
 				continue
 			out = f"{name}.{in_map[dir_]}"
-			res.append(f"\draw ($({out})+{square_min[dir_]}$) rectangle ($({out})+{square_max[dir_]}$);")
+			res.append(f"\draw[{color}] ($({out})+{square_min[dir_]}$) rectangle ($({out})+{square_max[dir_]}$);")
 		for use, dir_ in zip(arrow, XC6200Direction):
+			color = "red" if in_marked[dir_] else ""
 			if not use:
 				continue
 			out = f"{name}.{in_map[dir_]}"
-			res.append(f"\draw[<-] ({out}) -- ($({out})+({arrow_off[dir_][0]}, {arrow_off[dir_][1]})$);")
+			res.append(f"\draw[<-, {color}] ({out}) -- ($({out})+({arrow_off[dir_][0]}, {arrow_off[dir_][1]})$);")
 	
 	res.append(r"\end{tikzpicture}")
 	
@@ -1117,7 +1129,7 @@ def explain(args: Namespace) -> None:
 		print("connected to output:", con)
 		
 		with open("explain.tex", "w") as tikz_file:
-			tikz_file.write(generate_tikz(cell_state))
+			tikz_file.write(generate_tikz(cell_state, con))
 
 def generation_info(hdf5_file: h5py.File, gen_index: int=-1):
 	# generation
