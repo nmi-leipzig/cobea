@@ -961,9 +961,9 @@ def clamp(args: Namespace) -> None:
 			return fit_list
 		
 		org_fit = get_fit(chromo)
-		limit = mean(org_fit)
-		if repeat > 1:
-			limit -= stdev(org_fit)
+		limit = mean(org_fit)*0.99
+		#if repeat > 1:
+		#	limit -= stdev(org_fit)
 		print("limit", limit)
 		for cur in candidates:
 			# choose fixed value
