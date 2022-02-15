@@ -1042,7 +1042,9 @@ def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell], marks: Dict[Ic
 	off_unit = [(0, 1), (-1, 0), (0, -1), (1, 0)]
 	off_fac = lambda p, o: [tuple(p*a for a in t) for t in o]
 	
-	arrow_off = off_fac(0.2, off_unit)#[(0, 0.5), (-0.5, 0), (0, -0.5), (0.5, 0)]
+	pos_scale = 0.8
+	cell_width = 0.6
+	arrow_off = off_fac(pos_scale-cell_width, off_unit)#[(0, 0.5), (-0.5, 0), (0, -0.5), (0.5, 0)]
 	square_min_unit = [(-0.5, -1), (0, -0.5), (-0.5, 0), (-1, -0.5)]
 	square_max_unit = [(0.5, 0), (1, 0.5), (0.5, 1), (0, 0.5)]
 	square_min = off_fac(0.1, square_min_unit)
@@ -1054,7 +1056,7 @@ def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell], marks: Dict[Ic
 		except KeyError:
 			mark_dir = []
 		name = f"s{pos.x:02}{pos.y:02}"
-		res.append(r"\draw ("+f"{pos.x-offset.x}, {pos.y-offset.y}"+") node[shape=rectangle, minimum height=0.8cm, minimum width=0.8cm, draw] ("+name+") {};")
+		res.append(r"\draw ("+f"{(pos.x-offset.x)*pos_scale}, {(pos.y-offset.y)*pos_scale}) node[shape=rectangle, minimum height={cell_width:.3f}cm, minimum width={cell_width:.3f}cm, draw] ("+name+") {};")
 		arrow = [False]*4
 		box = [False]*4
 		in_marked = [False]*4
@@ -1106,6 +1108,10 @@ def explain(args: Namespace) -> None:
 		# chromosome
 		chromo_id = args.chromosome
 		chromo = read_chromosome(hdf5_file, chromo_id)
+		
+		# assume clamping
+		all_ids = data_from_key(hdf5_file, "fitness.chromo_id")
+		assert chromo_id == all_ids[0]
 		
 		rep.prepare_config(hab_config)
 		rep.decode(hab_config, chromo)
