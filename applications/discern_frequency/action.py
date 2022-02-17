@@ -1020,7 +1020,7 @@ def get_connected(cell_state: Dict[IcecraftPosition, XC6200Cell], out_pos: Icecr
 	
 	return res
 
-def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell], marks: Dict[IcecraftPosition, List[XC6200Direction]]={}, special_pos: List[IcecraftPosition]=[]) -> str:
+def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell], marks: Dict[IcecraftPosition, List[XC6200Direction]]={}, special_pos: List[IcecraftPosition]=[], in_port: Optional[Tuple[IcecraftPosition, XC6200Direction]]=None, out_port: Optional[Tuple[IcecraftPosition, XC6200Direction]]=None) -> str:
 	offset = min(cell_state)
 	
 	res = []
@@ -1097,6 +1097,12 @@ def generate_tikz(cell_state: Dict[IcecraftPosition, XC6200Cell], marks: Dict[Ic
 				continue
 			out = f"{name}.{in_map[dir_]}"
 			res.append(f"\draw[<-, {color}] ({out}) -- ($({out})+({arrow_off[dir_][0]}, {arrow_off[dir_][1]})$);")
+	if out_port:
+		out_pos, out_dir = out_port
+		res.append(f"\draw[clcellout, ->] (s{out_pos.x:02}{out_pos.y:02}.{out_map[out_dir]}) -- ++({arrow_off[out_dir][0]*2}, {arrow_off[out_dir][1]*2}) node[above] {{Out}};")
+	if in_port:
+		in_pos, in_dir = in_port
+		res.append(f"\draw[<-] (s{in_pos.x:02}{in_pos.y:02}.{in_map[in_dir]}) -- ++({arrow_off[in_dir][0]*2}, {arrow_off[in_dir][1]*2}) node[left] {{In}};")
 	
 	res.append(r"\end{tikzpicture}")
 	
@@ -1128,7 +1134,6 @@ def explain(args: Namespace) -> None:
 		assert len(pos_list) == len(clamp_flag)
 		assert len(pos_list) == 100
 		clamp_pos = [IcecraftPosition(*p) for p, f in zip(pos_list, clamp_flag) if f]
-		#print(clamp_pos)
 		
 		rep.prepare_config(hab_config)
 		rep.decode(hab_config, chromo)
@@ -1143,16 +1148,20 @@ def explain(args: Namespace) -> None:
 			out.append(str(cell_state[tile][XC6200Direction.f]))
 			print(",".join(out))
 		
-		out_pos_raw = data_from_key(hdf5_file, "habitat.out_port.pos")
-		out_pos = IcecraftPosition(*out_pos_raw)
-		out_dir_raw = data_from_key(hdf5_file, "habitat.out_port.dir")
-		out_dir = XC6200Direction[out_dir_raw]
+		def get_pos_dir(pos_key, dir_key):
+			pos_raw = data_from_key(hdf5_file, pos_key)
+			dir_raw = data_from_key(hdf5_file, dir_key)
+			
+			return IcecraftPosition(*pos_raw), XC6200Direction[dir_raw]
+		
+		out_pos, out_dir = get_pos_dir("habitat.out_port.pos", "habitat.out_port.dir")
+		in_pos, in_dir = get_pos_dir("habitat.in_port.pos", "habitat.in_port.dir")
 		
 		con = get_connected(cell_state, out_pos, out_dir)
 		print("connected to output:", con)
 		
 		with open("explain.tex", "w") as tikz_file:
-			tikz_file.write(generate_tikz(cell_state, con, clamp_pos))
+			tikz_file.write(generate_tikz(cell_state, con, clamp_pos, out_port=(out_pos, out_dir), in_port=(in_pos, in_dir)))
 
 def generation_info(hdf5_file: h5py.File, gen_index: int=-1):
 	# generation
