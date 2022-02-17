@@ -378,19 +378,19 @@ def prepare_target(target_sn: str, man: IcecraftManager, stack: ExitStack) -> Ic
 	return target
 
 
-def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: ParamAimMap, metadata: MetaEntryMap
+def create_measure_setup(setup_info: MeasureSetupInfo, stack: ExitStack, write_map: ParamAimMap, metadata: MetaEntryMap
 		) -> MeasureSetup:
 	man = IcecraftManager()
 	
 	setup = MeasureSetup()
 	
-	if info.driver_type == DriverType.FPGA:
+	if setup_info.driver_type == DriverType.FPGA:
 		write_map_util.add_fpga_osci(write_map, metadata)
 		
-		gen, fg_config = prepare_fpga_driver(info.driver_sn, info.driver_text, man, stack)
+		gen, fg_config = prepare_fpga_driver(setup_info.driver_sn, setup_info.driver_text, man, stack)
 		setup.driver = FixedEmbedDriver(gen, "B")
 		
-		cal_data = calibrate(setup.driver, info.meter_sn)
+		cal_data = calibrate(setup.driver, setup_info.meter_sn)
 		setup.sink_writes.extend([
 			("freq_gen", {"text": fg_config.to_text(), }),
 			("calibration", asdict(cal_data)),
@@ -404,9 +404,9 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 		add_meta(metadata, "fitness.driver.sn", gen.serial_number)
 		add_meta(metadata, "fitness.driver.hw", gen.hardware_type)
 		add_meta(metadata, "fitness.meter.fw", setup.meter.firmware_version)
-	elif info.driver_type == DriverType.DRVMTR:
+	elif setup_info.driver_type == DriverType.DRVMTR:
 		write_map_util.add_drvmtr(write_map, metadata)
-		setup.meter = MCUDrvMtr(info.meter_sn, 10*256, "<h", 2, 500000)
+		setup.meter = MCUDrvMtr(setup_info.meter_sn, 10*256, "<h", 2, 500000)
 		
 		stack.enter_context(setup.meter)
 		
@@ -417,11 +417,11 @@ def create_measure_setup(info: MeasureSetupInfo, stack: ExitStack, write_map: Pa
 		add_meta(metadata, "fitness.driver.sn", setup.meter.serial_number)
 		add_meta(metadata, "fitness.driver.hw", setup.meter.hardware_type)
 	else:
-		raise Exception(f"unsupported driver type '{info.driver_type}'")
+		raise Exception(f"unsupported driver type '{setup_info.driver_type}'")
 	
-	setup.target = prepare_target(info.target_sn, man, stack)
+	setup.target = prepare_target(setup_info.target_sn, man, stack)
 	
-	add_meta(metadata, "fitness.driver_type", info.driver_type)
+	add_meta(metadata, "fitness.driver_type", setup_info.driver_type)
 	add_meta(metadata, "fitness.target.sn", setup.target.serial_number)
 	add_meta(metadata, "fitness.target.hw", setup.target.hardware_type)
 	add_meta(metadata, "fitness.meter.sn", setup.meter.serial_number)
