@@ -209,12 +209,15 @@ class OsciDS1102E(Meter, IdentifiableHW):
 		
 		return False
 	
+	def get_status(self) -> str:
+		return self._osci.query(":TRIG:STAT?")
+	
 	def prepare(self, request: RequestObject) -> ResponseObject:
 		#self.open()
 		
 		#self.read_and_print(self._osci, self._setup)
 		self._osci.write(":RUN")
-		while self._osci.query(":TRIG:STAT?") != "WAIT":
+		while self.get_status() != "WAIT":
 			time.sleep(self._delay)
 		
 		# for small time scales (20 ms or less) the trigger might come too fast -> wait a bit (0.03 s seem to work)
@@ -225,12 +228,12 @@ class OsciDS1102E(Meter, IdentifiableHW):
 	
 	def measure(self, request: RequestObject) -> ResponseObject:
 		start_time = time.perf_counter()
-		while self._osci.query(":TRIG:STAT?") not in ("T'D", "STOP"):
+		while self.get_status() not in ("T'D", "STOP"):
 			if request.measure_timeout is not None and time.perf_counter() - start_time > request.measure_timeout:
 				raise MeasureTimeout()
 			time.sleep(self._delay)
 		
-		while self._osci.query(":TRIG:STAT?") != "STOP":
+		while self.get_status() != "STOP":
 			time.sleep(self._delay)
 		
 		raw_data = self._read_data(self._data_chan)
