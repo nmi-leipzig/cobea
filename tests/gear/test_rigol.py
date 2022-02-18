@@ -7,13 +7,10 @@ import pyvisa
 
 try:
 	import usb.core
+	
+	is_dut_available = lambda: usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None
 except ImportError:
-	# instert dummy for finding usb devices that never finds anything
-	class usb:
-		class core:
-			@staticmethod
-			def find(*args, **kwargs) -> None:
-				return None
+	is_dut_available = lambda: False
 
 from adapters.gear.rigol import OsciDS1102E, SetupCmd, FloatCheck, IntCheck, MultiIntCheck, MultiNoSpace
 from domain.interfaces import MeasureTimeout
@@ -130,7 +127,7 @@ class OsciDS1102ETest(TestCase):
 		
 		return parts[3]
 	
-	@skipIf(usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None, "No oscilloscope found")
+	@skipIf(is_dut_available(), "No oscilloscope found")
 	def test_find_instrument(self):
 		res_man = pyvisa.ResourceManager()
 		
@@ -199,7 +196,7 @@ class OsciDS1102ETest(TestCase):
 			osci.close()
 			res_man.close()
 	
-	@skipIf(usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None, "No oscilloscope found")
+	@skipIf(is_dut_available(), "No oscilloscope found")
 	def test_set_up_instrument(self):
 		setup = OsciDS1102E.create_setup()
 		setup.CHAN1.DISP.value_ = "ON"
@@ -245,21 +242,21 @@ class OsciDS1102ETest(TestCase):
 		for subcmd in setup.subcmds_:
 			self.query_all(osci, subcmd)
 	
-	@skipIf(usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None, "No oscilloscope found")
+	@skipIf(is_dut_available(), "No oscilloscope found")
 	def test_create_setup_with_hardware(self):
 		dut = OsciDS1102E.create_setup()
 		
 		with self.get_osci() as osci:
 			self.query_all(osci, dut)
 
-	@skipIf(usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None, "No oscilloscope found")
+	@skipIf(is_dut_available(), "No oscilloscope found")
 	def test_prepare(self):
 		with self.get_osci() as dut:
 			req = RequestObject(measure_timeout=0.5)
 			res = dut.prepare(req)
 			self.assertIsInstance(res, ResponseObject)
 
-	@skipIf(usb.core.find(idVendor=0x1ab1, idProduct=0x0588) is None, "No oscilloscope found")
+	@skipIf(is_dut_available(), "No oscilloscope found")
 	def test_timeout(self):
 		setup = OsciDS1102E.create_setup()
 		setup.TRIG.EDGE.LEV.value_ = 3
