@@ -266,3 +266,20 @@ class OsciDS1102ETest(TestCase):
 			dut.prepare(req)
 			with self.assertRaises(MeasureTimeout):
 				dut.measure(req)
+
+	@skipIf(is_dut_available(), "No oscilloscope found")
+	def test_(self):
+		# check bug: if the oscilloscope is running during setup, it doesn't react to triggers
+		
+		setup = OsciDS1102E.create_setup()
+		dut = OsciDS1102E(setup)
+		
+		# prepare but don't trigger
+		dut.prepare()
+		assert dut.get_status() != "STOP"
+		dut.close()
+		
+		dut = OsciDS1102E(setup)
+		
+		dut._osci.write(":FORC")
+
