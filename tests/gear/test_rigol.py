@@ -251,7 +251,8 @@ class OsciDS1102ETest(TestCase):
 
 	@skipIf(is_dut_available(), "No oscilloscope found")
 	def test_prepare(self):
-		with self.get_osci() as dut:
+		setup = OsciDS1102E.create_setup()
+		with OsciDS1102E(setup) as dut:
 			req = RequestObject(measure_timeout=0.5)
 			res = dut.prepare(req)
 			self.assertIsInstance(res, ResponseObject)
@@ -275,7 +276,7 @@ class OsciDS1102ETest(TestCase):
 		dut = OsciDS1102E(setup)
 		
 		# prepare but don't trigger
-		dut.prepare()
+		dut.prepare(RequestObject(measure_timeout=0.5))
 		assert dut.get_status() != "STOP"
 		dut.close()
 		
