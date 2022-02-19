@@ -269,18 +269,25 @@ class OsciDS1102ETest(TestCase):
 				dut.measure(req)
 
 	@skipIf(is_dut_available(), "No oscilloscope found")
-	def test_(self):
-		# check bug: if the oscilloscope is running during setup, it doesn't react to triggers
+	def test_osci_trigger(self):
+		# check bug: if the oscilloscope is running during setup with offset, it doesn't react to triggers
 		
 		setup = OsciDS1102E.create_setup()
+		setup.TIM.OFFS.value_ = 2.5
 		dut = OsciDS1102E(setup)
 		
+		print("org", dut.get_status())
 		# prepare but don't trigger
 		dut.prepare(RequestObject(measure_timeout=0.5))
 		assert dut.get_status() != "STOP"
+		print("1pr", dut.get_status())
+		
 		dut.close()
 		
 		dut = OsciDS1102E(setup)
+		print("reo", dut.get_status())
 		
 		dut._osci.write(":FORC")
+		print("for", dut.get_status())
+		
 
