@@ -1,3 +1,5 @@
+import time
+
 from contextlib import contextmanager
 from typing import List, NamedTuple
 from unittest import TestCase, skipIf
@@ -272,22 +274,25 @@ class OsciDS1102ETest(TestCase):
 	def test_osci_trigger(self):
 		# check bug: if the oscilloscope is running during setup with offset, it doesn't react to triggers
 		
+		timeout = 20
+		delay = 0.1
+		
 		setup = OsciDS1102E.create_setup()
 		setup.TIM.OFFS.value_ = 2.5
 		dut = OsciDS1102E(setup)
 		
-		print("org", dut.get_status())
 		# prepare but don't trigger
 		dut.prepare(RequestObject(measure_timeout=0.5))
 		assert dut.get_status() != "STOP"
-		print("1pr", dut.get_status())
 		
 		dut.close()
 		
 		dut = OsciDS1102E(setup)
-		print("reo", dut.get_status())
 		
 		dut._osci.write(":FORC")
-		print("for", dut.get_status())
-		
+		start_time = time.perf_counter()
+		while dut.get_status() not in ("T'D", "STOP"):
+			if time.perf_counter() - start_time > timeout:
+				self.fail(f"Missed trigger, none seen after {timeout} s")
+			time.sleep(delay)
 
