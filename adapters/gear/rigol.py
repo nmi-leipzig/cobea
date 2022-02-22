@@ -136,6 +136,10 @@ class OsciDS1102E(Meter, IdentifiableHW):
 	def firmware_version(self) -> str:
 		return self._firmware_version
 	
+	@property
+	def data_chan(self) -> int:
+		return self._data_chan
+	
 	def stop(self, timeout=None) -> None:
 		self._osci.write(":STOP")
 		
