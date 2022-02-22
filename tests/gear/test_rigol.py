@@ -288,6 +288,7 @@ class OsciDS1102ETest(TestCase):
 		dut.close()
 		
 		dut = OsciDS1102E(setup)
+		dut.prepare(RequestObject(measure_timeout=0.5))
 		
 		dut._osci.write(":FORC")
 		start_time = time.perf_counter()
