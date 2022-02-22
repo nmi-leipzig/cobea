@@ -108,7 +108,7 @@ class OsciDS1102E(Meter, IdentifiableHW):
 		
 		self.open()
 		self._read_idn()
-		self.stop()
+		self.stop(10)
 		self.apply(self._osci, self._setup, self._delay)
 		
 	

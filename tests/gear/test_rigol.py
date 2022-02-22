@@ -115,10 +115,10 @@ class MultiIntCheckTest(TestCase):
 				self.assertFalse(val in dut)
 
 class OsciDS1102ETest(TestCase):
+	@skipIf(is_dut_available(), "No oscilloscope found")
 	def test_creation(self):
 		setup = OsciDS1102E.create_setup()
-		with patch("pyvisa.ResourceManager"):
-			dut = OsciDS1102E(setup)
+		dut = OsciDS1102E(setup)
 	
 	def check_dev_str(self, dev_str):
 		"""check device string and return serial number"""
