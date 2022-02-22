@@ -105,6 +105,7 @@ HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions l
 	"osci.calibration.trig_len": HDF5Desc("uint64", "trig_len", "calibration"),
 	"osci.calibration.offset": HDF5Desc("float64", "offset", "calibration"),
 	"osci.channel": HDF5Desc("uint8", "data_channel", "fitness/measurement"),
+	"osci.setup": HDF5Desc(None, None, "fitness/measurement"),
 	"freq_gen": HDF5Desc("uint8", "freq_gen", as_attr=False, alter=chain_funcs([itemgetter(0),
 		partial(bytearray, encoding="utf-8")])),
 	"freq_gen.desc": HDF5Desc(str, "description", "freq_gen"),
