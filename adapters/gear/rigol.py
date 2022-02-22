@@ -135,6 +135,15 @@ class OsciDS1102E(Meter, IdentifiableHW):
 	def firmware_version(self) -> str:
 		return self._firmware_version
 	
+	def stop(self, timeout=None) -> None:
+		self._osci.write(":STOP")
+		
+		start_time = time.perf_counter()
+		while self.get_status() != "STOP":
+			if timeout is not None and time.perf_counter() - start_time > timeout:
+				raise TimeoutError("STOP of osci failed")
+			time.sleep(self._delay)
+	
 	def reset(self) -> None:
 		self._osci.write("*RST")
 		time.sleep(self._delay)
