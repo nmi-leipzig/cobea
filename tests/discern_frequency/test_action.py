@@ -11,7 +11,7 @@ from adapters.dummies import DummyDriver
 from adapters.icecraft import IcecraftPosition, IcecraftRawConfig, IcecraftRepGen
 from adapters.minvia import MinviaDriver
 from applications.discern_frequency.action import extract_carry_enable, FreqSumFF, remeasure, run, setup_from_args_hdf5
-from applications.discern_frequency.write_map_util import ENTRIES_REMEASURE, ENTRIES_RUN, missing_hdf5_entries,\
+from applications.discern_frequency.hdf5_content import ENTRIES_REMEASURE, ENTRIES_RUN, missing_hdf5_entries,\
 	unknown_hdf5_entries
 from domain.model import Chromosome, InputData, OutputData
 from domain.request_model import ResponseObject, RequestObject

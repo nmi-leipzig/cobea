@@ -48,7 +48,7 @@ from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
 from applications.discern_frequency.action import calibrate, create_preprocessing_mcu, DataCollectionError, remeasure, run, start_temp
 from applications.discern_frequency.s_t_comb import lexicographic_combinations
-from applications.discern_frequency.write_map_util import ENTRIES_REMEASURE, ENTRIES_RUN, missing_hdf5_entries,\
+from applications.discern_frequency.hdf5_content import ENTRIES_REMEASURE, ENTRIES_RUN, missing_hdf5_entries,\
 	unknown_hdf5_entries
 from domain.interfaces import InputData
 from domain.request_model import RequestObject

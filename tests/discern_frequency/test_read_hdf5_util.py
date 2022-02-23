@@ -16,7 +16,7 @@ from applications.discern_frequency.hdf5_desc import add_carry_data, add_meta, a
 from applications.discern_frequency.read_hdf5_util import read_chromosome, read_habitat, read_s_t_index,\
 	read_rep_carry_data, read_carry_enable_bits, read_carry_enable_values, read_rep_colbufctrl, read_rep_output,\
 	read_rep, read_fitness_chromo_id, get_chromo_bits
-from applications.discern_frequency.write_map_util import ExpEntries, FormData, FormEntry, missing_hdf5_entries
+from applications.discern_frequency.hdf5_content import ExpEntries, FormData, FormEntry, missing_hdf5_entries
 from domain.model import Chromosome
 
 from tests.icecraft.data.rep_data import EXP_REP
