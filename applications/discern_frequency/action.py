@@ -64,6 +64,16 @@ class ExtractTarget(Enum):
 	MEASUREMENT = auto()
 	MEAN = auto()
 
+
+class ContentType(Enum):
+	"""Type of contents of HDF5 files"""
+	RUN = auto()
+	RESTART = auto()
+	REMEASURE = auto()
+	CLAMP = auto()
+	SPECTRUM = auto()
+
+
 # generate tiles
 def tiles_from_corners(min_pos: Tuple[int, int], max_pos: Tuple[int, int]) -> List[IcecraftPosition]:
 	ptl = IcecraftPosTransLibrary()
