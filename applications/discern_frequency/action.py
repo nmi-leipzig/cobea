@@ -1186,8 +1186,11 @@ def generation_info(hdf5_file: h5py.File, gen_index: int=-1):
 
 def info(args: Namespace) -> None:
 	with h5py.File(args.data_file, "r") as hdf5_file:
+		cont_typ = get_content_type(hdf5_file)
+		print(f"file contains data from {cont_typ.name}")
 		
-		generation_info(hdf5_file, args.index)
+		if cont_typ in [ContentType.RUN, ContentType.RESTART]:
+			generation_info(hdf5_file, args.index)
 		
 
 def spectrum(args: Namespace) -> None:
