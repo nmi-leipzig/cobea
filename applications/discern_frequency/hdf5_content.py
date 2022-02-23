@@ -3,11 +3,22 @@
 import re
 
 from dataclasses import dataclass, field
+from enum import auto, Enum
 from typing import Dict, Iterable, List, Optional
 
 import h5py
 
 from applications.discern_frequency.hdf5_desc import HDF5_DICT
+from applications.discern_frequency.read_hdf5_util import data_from_key
+
+
+class ContentType(Enum):
+	"""Type of contents of HDF5 files"""
+	RUN = auto()
+	RESTART = auto()
+	REMEASURE = auto()
+	CLAMP = auto()
+	SPECTRUM = auto()
 
 
 @dataclass
@@ -259,3 +270,27 @@ def unknown_hdf5_entries(hdf5_file: h5py.File, exp_entries: ExpEntries) -> List[
 	collect_unvisited(hdf5_root, "", res)
 	
 	return res
+
+
+def get_content_type(hdf5_file: h5py.File) -> ContentType:
+	def key_available(key):
+		try:
+			val = data_from_key(hdf5_file, key)
+		except KeyError:
+			return False
+		return True
+	
+	if key_available("ea.pop"):
+		# run & restart
+		# run vs restart: re.org
+		return ContentType.RESTART if key_available("re.org") else ContentType.RUN
+	
+	if key_available("clamp.value"):
+		# clamp: clamped
+		return ContentType.CLAMP
+	
+	if key_available("spectrum.volt"):
+		# spectrum: volt
+		return ContentType.SPECTRUM
+	
+	return ContentType.REMEASURE

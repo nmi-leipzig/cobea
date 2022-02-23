@@ -36,6 +36,7 @@ from adapters.prng import BuiltInPRNG
 from adapters.simple_sink import TextfileSink
 from adapters.temp_meter import TempMeter
 from adapters.unique_id import SimpleUID
+from applications.discern_frequency.hdf5_content import ContentType, get_content_type
 from applications.discern_frequency.hdf5_desc import add_meta
 from applications.discern_frequency.misc import DriverType
 from applications.discern_frequency.read_hdf5_util import data_from_key, get_chromo_bits, read_carry_enable_bits, read_carry_enable_values, read_chromosome, read_fitness_chromo_id, read_generation, read_habitat, read_osci_setup, read_rep, read_s_t_index
@@ -63,15 +64,6 @@ class OutFormat(Enum):
 class ExtractTarget(Enum):
 	MEASUREMENT = auto()
 	MEAN = auto()
-
-
-class ContentType(Enum):
-	"""Type of contents of HDF5 files"""
-	RUN = auto()
-	RESTART = auto()
-	REMEASURE = auto()
-	CLAMP = auto()
-	SPECTRUM = auto()
 
 
 # generate tiles
@@ -1190,30 +1182,6 @@ def generation_info(hdf5_file: h5py.File, gen_index: int=-1):
 	for f, i, r in zip(last_fit[rank], last_id[rank], last_indices[rank]):
 		print(i, f, r)
 	# top 3 chromosomes
-
-
-def get_content_type(hdf5_file: h5py.File) -> ContentType:
-	def key_available(key):
-		try:
-			val = data_from_key(hdf5_file, key)
-		except KeyError:
-			return False
-		return True
-	
-	if key_available("ea.pop"):
-		# run & restart
-		# run vs restart: re.org
-		return ContentType.RESTART if key_available("re.org") else ContentType.RUN
-	
-	if key_available("clamp.value"):
-		# clamp: clamped
-		return ContentType.CLAMP
-	
-	if key_available("spectrum.volt"):
-		# spectrum: volt
-		return ContentType.SPECTRUM
-	
-	return ContentType.REMEASURE
 
 
 def info(args: Namespace) -> None:
