@@ -1191,6 +1191,31 @@ def generation_info(hdf5_file: h5py.File, gen_index: int=-1):
 		print(i, f, r)
 	# top 3 chromosomes
 
+
+def get_content_type(hdf5_file: h5py.File) -> ContentType:
+	def key_available(key):
+		try:
+			val = data_from_key(hdf5_file, key)
+		except KeyError:
+			return False
+		return True
+	
+	if key_available("ea.pop"):
+		# run & restart
+		# run vs restart: re.org
+		return ContentType.RESTART if key_available("re.org") else ContentType.RUN
+	
+	if key_available("clamp.value"):
+		# clamp: clamped
+		return ContentType.CLAMP
+	
+	if key_available("spectrum.volt"):
+		# spectrum: volt
+		return ContentType.SPECTRUM
+	
+	return ContentType.REMEASURE
+
+
 def info(args: Namespace) -> None:
 	with h5py.File(args.data_file, "r") as hdf5_file:
 		
