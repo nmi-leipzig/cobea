@@ -400,7 +400,7 @@ def create_measure_setup(setup_info: MeasureSetupInfo, stack: ExitStack, write_m
 		
 		setup.preprocessing = create_preprocessing_fpga(setup.meter, meter_setup, cal_data)
 		
-		metadata.setdefault("fitness/measurement", []).extend(write_map_util.meter_setup_to_meta(meter_setup))
+		write_map_util.write_setup(metadata, meter_setup)
 		add_meta(metadata, "osci.channel", meter.data_chan)
 		add_meta(metadata, "fitness.driver.sn", gen.serial_number)
 		add_meta(metadata, "fitness.driver.hw", gen.hardware_type)
@@ -1254,7 +1254,7 @@ def spectrum(args: Namespace) -> None:
 		to_volt = meter.raw_to_volt_func()
 		target = prepare_target(target_sn, man, stack)
 		
-		metadata.setdefault("fitness/measurement", []).extend(write_map_util.meter_setup_to_meta(meter_setup))
+		write_map_util.write_setup(metadata, meter_setup)
 		add_meta(metadata, "osci.channel", meter.data_chan)
 		add_meta(metadata, "fitness.driver.sn", gen.serial_number)
 		add_meta(metadata, "fitness.driver.hw", gen.hardware_type)

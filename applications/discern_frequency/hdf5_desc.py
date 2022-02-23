@@ -23,7 +23,7 @@ class HDF5Desc(NamedTuple):
 	shape: Tuple[Optional[int], ...] = tuple()
 	alter: Callable = None
 
-HDF5_DICT= {# simple placeholders like {} are allowed, formatting instructions like {:05d} not
+HDF5_DICT = {# simple placeholders like {} are allowed, formatting instructions like {:05d} not
 	"habitat": HDF5Desc("uint8", "habitat", "/", False, tuple()),
 	"habitat.desc": HDF5Desc(str, "description", "habitat"),
 	"habitat.con": HDF5Desc(str, "connection", "habitat"),

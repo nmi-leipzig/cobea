@@ -404,6 +404,13 @@ def meter_setup_to_meta(setup: SetupCmd) -> List[MetaEntry]:
 	
 	return res
 
+
+def write_setup(metadata: MetaEntryMap, setup: SetupCmd) -> None:
+	desc = HDF5_DICT["osci.setup"]
+	entries = meter_setup_to_meta(setup)
+	metadata.setdefault(desc.h5_path, []).extend(entries)
+
+
 def missing_hdf5_entries(hdf5_file:h5py.File, exp_entries: ExpEntries) -> List[str]:
 	missing = []
 	
