@@ -1,3 +1,3 @@
 # cobea
 
-COnfigure By Evolutionary Algorithms
+COnfigure By Evolutionary Algorithm
