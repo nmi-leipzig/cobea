@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-import collections
 import math
 from dataclasses import dataclass, field
-from typing import Iterable, Tuple, Any, List
+from typing import Iterable, Sequence, Tuple, Any, List
 
 @dataclass(frozen=True)
 class Allele:
@@ -13,7 +12,7 @@ class Allele:
 	def __post_init__(self):
 		super().__setattr__("values", tuple(self.values))
 
-class AlleleSequence(collections.Sequence):
+class AlleleSequence(Sequence):
 	"""base class for collections of alleles"""
 	
 	def size_in_bits(self) -> float:
