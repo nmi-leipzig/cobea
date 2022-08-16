@@ -28,6 +28,7 @@ from adapters.icecraft import CarryData, IcecraftBitPosition, IcecraftDevice, Ic
 	IcecraftRep, XC6200RepGen,IcecraftManager, IcecraftRawConfig, PartConf, XC6200Port, XC6200Direction, XC6200Cell
 from adapters.input_gen import RandIntGen
 from adapters.minvia import MinviaDriver
+from adapters.icecraft.misc import IcecraftLUTPosition
 from adapters.mcu_drv_mtr import MCUDrvMtr
 from adapters.parallel_collector import CollectorDetails, InitDetails, ParallelCollector
 from adapters.parallel_sink import ParallelSink
