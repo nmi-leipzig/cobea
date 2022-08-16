@@ -5,7 +5,7 @@ from domain.data_sink import DataSink
 
 class StdSink(DataSink):
 	def write(self, source: str, data_dict: Mapping[str, Any]) -> None:
-		print(f"{source}: {[n+'='+str(v)[:50]+', ' for n, v in data_dict.items()]}")
+		print(f"{source}: {[n + '=' + str(v)[:50] + ', ' for n, v in data_dict.items()]}")
 	
 	def __enter__(self) -> "StdSink":
 		return self
