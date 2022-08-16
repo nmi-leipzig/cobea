@@ -78,8 +78,8 @@ class ParamAim:
 	comp_opt: int = 7
 	shuffle: bool = False
 
-MetaEntryMap = NewType("MetaEntryMap", Mapping[str, List[ParamAim]])
-ParamAimMap = NewType("ParamAimMap", Mapping[str, List[MetaEntry]])
+MetaEntryMap = NewType("MetaEntryMap", Mapping[str, List[MetaEntry]])
+ParamAimMap = NewType("ParamAimMap", Mapping[str, List[ParamAim]])
 
 class HDF5Sink(DataSink):
 	def __init__(self,
