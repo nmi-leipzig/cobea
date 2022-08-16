@@ -26,7 +26,7 @@ class TextfileSink(DataSink):
 		if self._file is not None:
 			return
 		
-		self._file = open(self._filename, "w")
+		self._file = open(self._filename, "w", encoding="utf-8")
 	
 	def close(self) -> None:
 		if self._file is None:
