@@ -5,7 +5,7 @@ from domain.data_sink import DataSink
 
 class StdSink(DataSink):
 	def write(self, source: str, data_dict: Mapping[str, Any]) -> None:
-		print(f"{source}: {[n+'='+str(v)[:50]+', ' for n, v in data_dict.items()]}")
+		print(f"{source}: {[n + '=' + str(v)[:50] + ', ' for n, v in data_dict.items()]}")
 	
 	def __enter__(self) -> "StdSink":
 		return self
@@ -26,7 +26,7 @@ class TextfileSink(DataSink):
 		if self._file is not None:
 			return
 		
-		self._file = open(self._filename, "w")
+		self._file = open(self._filename, "w", encoding="utf-8")
 	
 	def close(self) -> None:
 		if self._file is None:
