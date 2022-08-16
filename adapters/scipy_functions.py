@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.stats import stats
+from scipy.stats import pearsonr
 
 from domain.interfaces import CorrelationFunction, CorrelationFunctionLibrary
 from domain.model import InputData, OutputData
@@ -16,7 +16,7 @@ class SciPyFunctions(CorrelationFunctionLibrary):
 	
 	@staticmethod
 	def pearsons_correlation(input_data: InputData, output_data: OutputData) -> float:
-		corr = abs(stats.pearsonr(input_data, output_data)[0])
+		corr = abs(pearsonr(input_data, output_data)[0])
 		if np.isnan(corr):
 			corr = 0
 		
