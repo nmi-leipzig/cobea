@@ -14,7 +14,7 @@ from domain.model import OutputData
 from .mocks import MockMeter
 
 class ParallelCollectorTest(TestCase):
-	def creats_dummy_details(self):
+	def create_dummy_details(self):
 		return CollectorDetails(
 			InitDetails(DummyDriver),
 			InitDetails(DummyMeter),
@@ -23,11 +23,11 @@ class ParallelCollectorTest(TestCase):
 		)
 	
 	def test_creation(self):
-		det = self.creats_dummy_details()
+		det = self.create_dummy_details()
 		dut = ParallelCollector(det)
 	
 	def test_dummy_run(self):
-		det = self.creats_dummy_details()
+		det = self.create_dummy_details()
 		with ParallelCollector(det) as dut:
 			time.sleep(0.1)
 
