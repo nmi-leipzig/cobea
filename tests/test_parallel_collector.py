@@ -37,9 +37,11 @@ class ParallelCollectorTest(TestCase):
 		det = self.create_dummy_details()
 		dut = ParallelCollector(det)
 		with dut:
-			self.assertFalse(dut.is_collecting())
+			while dut._start_event == False:
+				self.assertFalse(dut.is_collecting())
 			dut.wait_collecting(0.5)
 			self.assertTrue(dut.is_collecting())
+			
 	
 	def test_text_run(self):
 		meas_data = OutputData([random.randint(0, 255) for _ in range(11)])
