@@ -36,8 +36,8 @@ class ParallelCollectorTest(TestCase):
 	def test_is_collecting(self):
 		det = self.create_dummy_details()
 		dut = ParallelCollector(det)
-		self.assertFalse(dut.is_collecting())
-		while dut:
+		with dut:
+			self.assertFalse(dut.is_collecting())
 			dut.wait_collecting(0.5)
 			self.assertTrue(dut.is_collecting())
 	
