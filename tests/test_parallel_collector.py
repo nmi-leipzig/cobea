@@ -32,10 +32,14 @@ class ParallelCollectorTest(TestCase):
 			time.sleep(0.1)
 
 			self.assertTrue(dut.is_alive())
-			while dut.is_collecting():
-				self.assertTrue(dut.is_collecting)
-				return # check why coverage needs return statement
 
+	def test_is_collecting(self):
+		det = self.create_dummy_details()
+		dut = ParallelCollector(det)
+		self.assertFalse(dut.is_collecting())
+		while dut:
+			dut.wait_collecting(0.5)
+			self.assertTrue(dut.is_collecting())
 	
 	def test_text_run(self):
 		meas_data = OutputData([random.randint(0, 255) for _ in range(11)])
