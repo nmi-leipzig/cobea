@@ -20,11 +20,11 @@ from adapters.icecraft.misc import IcecraftResource, IcecraftResCon, TILE_ALL, T
 from adapters.icecraft.position_transformation import IcecraftPosTransLibrary
 from adapters.icecraft.representation import IcecraftRepGen
 
-from ..common import check_parameter_user
+from tests.common import check_parameter_user
 
-from .common import TEST_DATA_DIR, create_bits
-from .data.chip_resources import NET_DATA, CON_DATA, LUT_DATA, LUT_CON
-from .data.rep_data import GEN_REQUEST, EXP_REP
+from tests.icecraft.common import TEST_DATA_DIR, create_bits
+from tests.icecraft.data.chip_resources import NET_DATA, CON_DATA, LUT_DATA, LUT_CON
+from tests.icecraft.data.rep_data import GEN_REQUEST, EXP_REP
 
 class Comparison(Enum):
 	DIFFERENT = auto()

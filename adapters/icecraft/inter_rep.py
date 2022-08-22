@@ -26,10 +26,10 @@ from typing import Iterable, Union, Any, Mapping, Tuple, List, Dict, Callable, N
 from domain.allele_sequence import Allele, AlleleList, AlleleAll, AllelePow
 from domain.model import Gene
 
-from .chip_data import ConfigAssemblage
-from .chip_data_utils import NetData, ElementInterface, SegEntryType, UNCONNECTED_NAME
-from .config_item import ConnectionItem, IndexedItem
-from .misc import IcecraftNetPosition, IcecraftLUTPosition, IcecraftPosition, IcecraftBitPosition, LUTFunction, IcecraftSatisfiabilityError
+from adapters.icecraft.chip_data import ConfigAssemblage
+from adapters.icecraft.chip_data_utils import NetData, ElementInterface, SegEntryType, UNCONNECTED_NAME
+from adapters.icecraft.config_item import ConnectionItem, IndexedItem
+from adapters.icecraft.misc import IcecraftNetPosition, IcecraftLUTPosition, IcecraftPosition, IcecraftBitPosition, LUTFunction, IcecraftSatisfiabilityError
 
 VertexPosition = NewType("VertexPosition", Union[IcecraftNetPosition, IcecraftLUTPosition])
 

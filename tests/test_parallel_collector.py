@@ -11,7 +11,7 @@ from adapters.parallel_sink import ParallelSink
 from adapters.simple_sink import TextfileSink
 from domain.model import OutputData
 
-from .mocks import MockMeter
+from tests.mocks import MockMeter
 
 class ParallelCollectorTest(TestCase):
 	def creats_dummy_details(self):

@@ -6,7 +6,7 @@ from domain.interfaces import TargetConfiguration, TargetDevice, Meter
 from domain.model import InputData, OutputData
 from domain.request_model import RequestObject, Parameter, ResponseObject
 
-from .misc import IcecraftPosition
+from adapters.icecraft.misc import IcecraftPosition
 
 class IcecraftEmbedMeter(Meter):
 	"""Measure icecraft target by embedding the input data in ram"""

@@ -16,8 +16,8 @@ from domain.model import InputData
 from domain.use_cases import Measure
 from domain.request_model import RequestObject
 
-from .common import check_parameter_user, TEST_DATA_DIR
-from .mocks import MockTargetDevice
+from tests.common import check_parameter_user, TEST_DATA_DIR
+from tests.mocks import MockTargetDevice
 
 class EmbedDriverTest(TestCase):
 	class EDTC(NamedTuple):

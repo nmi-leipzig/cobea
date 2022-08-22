@@ -9,7 +9,7 @@ from adapters.icecraft.ice_board.device_data import SPECS_BY_ASC
 from adapters.icecraft.inter_rep import PartConf
 from adapters.icecraft.representation import IcecraftRep
 
-from .data.rep_data import ENCODE_DATA, EXP_REP, is_one
+from tests.icecraft.data.rep_data import ENCODE_DATA, EXP_REP, is_one
 
 class IcecraftRepTest(TestCase):
 	def test_creation(self):

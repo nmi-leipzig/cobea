@@ -18,7 +18,7 @@ from domain.model import Chromosome, InputData
 from domain.request_model import RequestObject
 from domain.use_cases import DecTarget, GenChromo, Measure, MeasureFitness
 
-from .mocks import MockDataSink
+from tests.mocks import MockDataSink
 
 
 class MockIS(InfoSource):

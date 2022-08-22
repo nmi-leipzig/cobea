@@ -16,8 +16,8 @@ from applications.discern_frequency.hdf5_content import ENTRIES_REMEASURE, ENTRI
 from domain.model import Chromosome, InputData, OutputData
 from domain.request_model import ResponseObject, RequestObject
 
-from .common import TEST_DATA_DIR
-from ..mocks import RandomMeter
+from tests.discern_frequency.common import TEST_DATA_DIR
+from tests.mocks import RandomMeter
 
 
 class FreqSumFFTest(TestCase):

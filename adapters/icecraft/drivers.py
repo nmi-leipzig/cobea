@@ -5,7 +5,7 @@ from domain.interfaces import TargetConfiguration, TargetDevice, Driver
 from domain.model import InputData, OutputData
 from domain.request_model import ResponseObject, RequestObject, Parameter
 
-from .misc import IcecraftPosition, RAMMode
+from adapters.icecraft.misc import IcecraftPosition, RAMMode
 
 
 class IcecraftRAMDriver(Driver):

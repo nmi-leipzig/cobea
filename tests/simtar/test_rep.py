@@ -7,7 +7,7 @@ from adapters.simtar.rep import SimtarRep, SimtarRepGen
 from domain.model import Chromosome
 from domain.request_model import RequestObject
 
-from ..common import check_parameter_user
+from tests.common import check_parameter_user
 
 
 class SimtarRepTest(TestCase):

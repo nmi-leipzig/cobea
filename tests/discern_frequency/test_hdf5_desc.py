@@ -8,7 +8,7 @@ from unittest import TestCase
 from adapters.hdf5_sink import chain_funcs, MetaEntry, ParamAim
 from applications.discern_frequency.hdf5_desc import add_meta, HDF5Desc, pa_gen
 
-from ..common import check_func_eq
+from tests.common import check_func_eq
 
 class HDF5DescTest(TestCase):
 	def check_param_aim(self, a, b):

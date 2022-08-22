@@ -1,4 +1,4 @@
-from .pos import SimtarBitPos
-from .config import SimtarConfig
-from .target import SimtarDev
-from .rep import SimtarRep, SimtarRepGen
+from adapters.simtar.pos import SimtarBitPos
+from adapters.simtar.config import SimtarConfig
+from adapters.simtar.target import SimtarDev
+from adapters.simtar.rep import SimtarRep, SimtarRepGen

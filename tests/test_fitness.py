@@ -4,7 +4,7 @@ from adapters.fitness import ReduceFF
 from domain.model import InputData, OutputData
 from domain.request_model import RequestObject
 
-from .common import check_parameter_user
+from tests.common import check_parameter_user
 
 
 class ReduceFFTest(TestCase):

@@ -7,9 +7,9 @@ from adapters.icecraft.configuration import block_size_from_mode
 from domain import model
 from domain.request_model import RequestObject
 
-from ..common import check_parameter_user
+from tests.common import check_parameter_user
 
-from .common import SEND_BRAM_META
+from tests.icecraft.common import SEND_BRAM_META
 
 class IcecraftEmbedMeterTest(unittest.TestCase):
 	@unittest.skipIf(len(icecraft.target.FPGABoard.get_suitable_serial_numbers()) < 1, "no hardware")

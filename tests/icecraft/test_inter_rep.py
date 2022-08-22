@@ -17,9 +17,9 @@ from adapters.icecraft.representation import CARRY_ONE_IN
 from adapters.icecraft.misc import LUTFunction, IcecraftSatisfiabilityError
 from domain.allele_sequence import AlleleList, AlleleAll, Allele
 
-from .common import create_bits
-from .data.chip_resources import NET_DATA, CON_DATA, LUT_DATA, LUT_CON
-from .data.lut_data import TRUTH_TABLE
+from tests.icecraft.common import create_bits
+from tests.icecraft.data.chip_resources import NET_DATA, CON_DATA, LUT_DATA, LUT_CON
+from tests.icecraft.data.lut_data import TRUTH_TABLE
 
 class TestDesignation(unittest.TestCase):
 	class VDData(NamedTuple):

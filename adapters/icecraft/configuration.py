@@ -6,12 +6,12 @@ from typing import Iterable, List, TextIO, Tuple, Sequence
 sys.path.append("/usr/local/bin")
 import icebox
 
-from .ice_board import BinOpt, BRAMMode, Configuration, FPGABoard, TilePosition, TileType, Bit
+from adapters.icecraft.ice_board import BinOpt, BRAMMode, Configuration, FPGABoard, TilePosition, TileType, Bit
 
 from domain.base_structures import BitPos
 from domain.interfaces import TargetConfiguration
 
-from .misc import RAMMode, IcecraftPosition, IcecraftType
+from adapters.icecraft.misc import RAMMode, IcecraftPosition, IcecraftType
 
 def value_length_from_mode(mode: RAMMode) -> int:
 	return 16 // (1 << mode)

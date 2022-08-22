@@ -1,6 +1,6 @@
 from domain.interfaces import TargetConfiguration, TargetDevice
 
-from .pos import SimtarBitPos
+from adapters.simtar.pos import SimtarBitPos
 
 
 class SimtarDev(TargetDevice):

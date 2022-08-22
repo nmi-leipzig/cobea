@@ -5,7 +5,7 @@ from unittest import TestCase
 from domain.data_sink import sink_request, DataSink, DataSinkUser
 from domain.request_model import Parameter, ParameterUser, RequestObject, set_req_defaults
 
-from ..mocks import MockDataSink
+from tests.mocks import MockDataSink
 
 class SinkRequestTest(TestCase):
 	

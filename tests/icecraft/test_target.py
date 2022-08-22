@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import adapters.icecraft as icecraft
 from adapters.icecraft import RAMMode
 
-from .common import SEND_BRAM_META, TEST_DATA_DIR
+from tests.icecraft.common import SEND_BRAM_META, TEST_DATA_DIR
 
 class IcecraftDeviceTest(unittest.TestCase):
 	def get_configured_device(self, asc_filename):

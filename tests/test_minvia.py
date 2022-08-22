@@ -3,7 +3,7 @@ from unittest import TestCase
 from adapters.minvia import MinviaDriver
 from domain.request_model import ResponseObject, RequestObject, Parameter
 
-from .common import check_parameter_user
+from tests.common import check_parameter_user
 
 
 class MinviaDriverTest(TestCase):
