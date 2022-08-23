@@ -7,7 +7,7 @@ from typing import Any, Mapping, Iterable, NamedTuple, List
 from domain.request_model import Parameter, NO_DEFAULT, ParameterValues, ResponseObject, RequestObject, ParameterUser,\
 set_req_defaults
 
-from ..common import check_param_def_maps, check_parameter_user
+from tests.common import check_param_def_maps, check_parameter_user
 
 class ParameterTest(unittest.TestCase):
 	

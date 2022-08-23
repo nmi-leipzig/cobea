@@ -5,7 +5,7 @@ from domain.interfaces import Representation, RepresentationGenerator, TargetCon
 from domain.model import Chromosome, Gene
 from domain.request_model import Parameter, ResponseObject, RequestObject
 
-from .pos import SimtarBitPos
+from adapters.simtar.pos import SimtarBitPos
 
 
 class SimtarRep(Representation):

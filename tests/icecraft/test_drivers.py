@@ -14,10 +14,10 @@ from domain.model import InputData
 from domain.request_model import RequestObject
 from domain.use_cases import Measure
 
-from .common import SEND_BRAM_META, FORMAT_DICT
+from tests.icecraft.common import SEND_BRAM_META, FORMAT_DICT
 
-from ..common import check_parameter_user
-from ..mocks import MockTargetDevice
+from tests.common import check_parameter_user
+from tests.mocks import MockTargetDevice
 
 class IcecraftRAMDriverTest(unittest.TestCase):
 	def test_creation(self):

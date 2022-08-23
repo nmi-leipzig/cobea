@@ -5,8 +5,8 @@ from domain.interfaces import PRNG
 from domain.model import InputData
 from domain.request_model import RequestObject
 
-from .common import check_parameter_user
-from .mocks import MockRandInt
+from tests.common import check_parameter_user
+from tests.mocks import MockRandInt
 
 class SeqGenTest(TestCase):
 	def test_create(self):

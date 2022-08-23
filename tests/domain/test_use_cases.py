@@ -20,8 +20,8 @@ from domain.model import Chromosome, InputData, OutputData, Gene
 from domain.use_cases import DecTarget, GenChromo, Measure, MeasureFitness, RandomChromo
 from domain.request_model import ResponseObject, RequestObject
 
-from ..mocks import MockTargetManager, MockMeter, MockUniqueID, MockRandInt, MockRepresentation, MockBitPos
-from ..common import check_parameter_user
+from tests.mocks import MockTargetManager, MockMeter, MockUniqueID, MockRandInt, MockRepresentation, MockBitPos
+from tests.common import check_parameter_user
 
 class MeasureTest(unittest.TestCase):
 	def test_call(self):

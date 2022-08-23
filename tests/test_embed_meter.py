@@ -12,9 +12,9 @@ from domain.model import OutputData
 from domain.request_model import RequestObject, ResponseObject
 from domain.use_cases import Measure
 
-from .common import check_parameter_user
-from .icecraft.common import SEND_BRAM_META, FORMAT_DICT
-from .mocks import MockTargetDevice
+from tests.common import check_parameter_user
+from tests.icecraft.common import SEND_BRAM_META, FORMAT_DICT
+from tests.mocks import MockTargetDevice
 
 
 def generate_meter_data(prefix, out_format, count):

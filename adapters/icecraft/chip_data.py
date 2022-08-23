@@ -3,10 +3,10 @@
 from dataclasses import dataclass, astuple
 from typing import Iterable, List, Dict, Union, Tuple, NewType
 
-from .chip_data_utils import TileType, SegType, BitType, DriverType, NetData, ElementInterface, get_net_data_for_tile, seg_from_seg_kind
-from .chip_database import seg_kinds, drv_kinds, seg_tile_map, config_kinds, config_tile_map, colbufctrl_tile_map, lut_io_kinds, lut_io_tiles
-from .misc import IcecraftPosition, IcecraftBitPosition
-from .config_item import ConfigItem, IndexedItem, ConnectionItem, NamedItem
+from adapters.icecraft.chip_data_utils import TileType, SegType, BitType, DriverType, NetData, ElementInterface, get_net_data_for_tile, seg_from_seg_kind
+from adapters.icecraft.chip_database import seg_kinds, drv_kinds, seg_tile_map, config_kinds, config_tile_map, colbufctrl_tile_map, lut_io_kinds, lut_io_tiles
+from adapters.icecraft.misc import IcecraftPosition, IcecraftBitPosition
+from adapters.icecraft.config_item import ConfigItem, IndexedItem, ConnectionItem, NamedItem
 
 MultiBitsType = NewType("MultiBitsType", Tuple[BitType, ...])
 NamedBitsType = NewType("NamedBitsType", Tuple[MultiBitsType, str])

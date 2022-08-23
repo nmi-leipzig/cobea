@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Tuple, TypeVar, Generic, Union, Any, Sequence
 
 from domain.allele_sequence import Allele, AlleleSequence, AlleleList, AlleleAll
-from .base_structures import BitPos
+from domain.base_structures import BitPos
 
 class InputData(tuple):
 	pass

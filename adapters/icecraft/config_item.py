@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from dataclasses import dataclass
 from typing import Tuple
 
-from .misc import IcecraftBitPosition
+from adapters.icecraft.misc import IcecraftBitPosition
 
 @dataclass(frozen=True)
 class ConfigItem:

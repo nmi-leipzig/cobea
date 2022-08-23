@@ -22,10 +22,10 @@ import icebox
 
 try:
 	# execution as script
-	from chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType, InterfaceType, UNCONNECTED_NAME
+	from adapters.icecraft.chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType, InterfaceType, UNCONNECTED_NAME
 except ModuleNotFoundError:
 	# import as module in tests
-	from .chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType, InterfaceType, UNCONNECTED_NAME
+	from adapters.icecraft.chip_data_utils import TileType, SegType, SegRefType, ConfigKindType, ConfigEntryType, DriverType, InterfaceType, UNCONNECTED_NAME
 
 def get_inner_tiles(ic: icebox.iceconfig) -> Set[TileType]:
 	"""Get set of inner tiles for an iceconfig."""

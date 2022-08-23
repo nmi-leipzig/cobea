@@ -10,7 +10,7 @@ from applications.discern_frequency.hdf5_content import ExpEntries, FormEntry, F
 from applications.discern_frequency.hdf5_desc import add_meta, HDF5_DICT, pa_gen
 from domain.model import Chromosome
 
-from .common import del_files
+from tests.discern_frequency.common import del_files
 
 
 class HDF5ContentTest(TestCase):

@@ -4,7 +4,7 @@ from unittest import TestCase
 
 from adapters.hdf5_sink import compose, noop
 
-from .common import check_func_eq
+from tests.common import check_func_eq
 
 class MetaCommonTest(TestCase):
 	def test_check_func_eq(self):

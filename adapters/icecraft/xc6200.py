@@ -8,10 +8,10 @@ from domain.interfaces import RepresentationGenerator
 from domain.model import Chromosome
 from domain.request_model import ResponseObject, RequestObject, Parameter
 
-from .representation import IcecraftRep, IcecraftRepGen
-from .misc import IcecraftPosition, IcecraftBitPosition, IcecraftResource,\
+from adapters.icecraft.representation import IcecraftRep, IcecraftRepGen
+from adapters.icecraft.misc import IcecraftPosition, IcecraftBitPosition, IcecraftResource,\
 IcecraftResCon, TILE_ALL, TILE_ALL_LOGIC, IcecraftGeneConstraint
-from .chip_data_utils import UNCONNECTED_NAME
+from adapters.icecraft.chip_data_utils import UNCONNECTED_NAME
 
 class XC6200Direction(IntEnum):
 	top = 0

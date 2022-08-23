@@ -21,7 +21,7 @@ from domain.model import Chromosome
 
 from tests.icecraft.data.rep_data import EXP_REP
 
-from .common import del_files, TEST_DATA_DIR
+from tests.discern_frequency.common import del_files, TEST_DATA_DIR
 
 
 class WriteReadHDF5Test(TestCase):
