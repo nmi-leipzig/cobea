@@ -28,7 +28,9 @@ class ParallelCollectorTest(TestCase):
 	
 	def test_dummy_run(self):
 		det = self.create_dummy_details()
-		with ParallelCollector(det) as dut:
+		dut = ParallelCollector(det)
+		self.assertFalse(dut.is_alive())
+		with dut:
 			time.sleep(0.1)
 
 			self.assertTrue(dut.is_alive())
