@@ -95,7 +95,7 @@ class ParallelCollector(DataCollector):
 		return self._process is not None and self._process.is_alive()
 	
 	def is_collecting(self) -> bool:
-		return self._start_event.is_set()
+		return self.is_alive() and self._start_event.is_set()
 	
 	def wait_collecting(self, timeout=None) -> bool:
 		return self._start_event.wait(timeout)
