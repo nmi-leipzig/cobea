@@ -322,7 +322,7 @@ class HDF5Sink(DataSink):
 				metas.append(MetaEntry("alleles", [a.values for a in cur_gene.alleles], None))
 			elif isinstance(cur_gene.alleles, AllelePow):
 				metas.append(MetaEntry("input_count", cur_gene.alleles.input_count, None))
-				metas.append(MetaEntry("unused_inputs", cur_genes.alleles.unused_inputs, None))
+				metas.append(MetaEntry("unused_inputs", cur_gene.alleles.unused_inputs, None))
 			# for AlleleAll only the number of bits is relevant
 			
 			grp_name = h5_path + "/" + f"{h5_base_name}_{index:05d}"
